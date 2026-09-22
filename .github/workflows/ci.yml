@@ -1,0 +1,62 @@
+name: Foundation CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts-and-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: twinnku_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: ephemeral_ci_only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test_user -d twinnku_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      TEST_POSTGRES_URL: postgresql+psycopg://test_user:ephemeral_ci_only@localhost:5432/twinnku_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "24"}
+      - run: python -m pip install uv==0.12.17
+      - run: uv sync --frozen
+        working-directory: apps/api
+      - run: uv run ruff check . ../../scripts
+        working-directory: apps/api
+      - run: uv run pytest
+        working-directory: apps/api
+      - run: uv run python ../../scripts/export_contract.py --check
+        working-directory: apps/api
+      - run: npm ci
+        working-directory: apps/web
+      - run: npm run generate:api && git diff --exit-code -- src/shared/api/schema.d.ts
+        working-directory: apps/web
+      - run: npm run build
+        working-directory: apps/web
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 - <<'PY'
+          import secrets
+          from pathlib import Path
+          template = Path('.env.example').read_text()
+          Path('.env').write_text(template.replace('change-me-to-a-random-48-character-hex-value', secrets.token_hex(24)))
+          Path('.env').chmod(0o600)
+          PY
+      - run: bash scripts/deploy.sh
+      - if: failure()
+        run: docker compose logs --tail=100
+      - if: always()
+        run: docker compose down
