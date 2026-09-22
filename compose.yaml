@@ -75,7 +75,7 @@ services:
       timeout: 5s
       retries: 6
     read_only: true
-    tmpfs: [/tmp, /var/cache/nginx]
+    tmpfs: ["/tmp:mode=1777"]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     logging:

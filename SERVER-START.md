@@ -7,7 +7,7 @@
 - 已完成本地基础应用验证，详见 `VALIDATION.md`。
 - 服务器连接在认证前因本执行环境 `Network is unreachable` 失败，服务器未被登录或修改。
 - GitHub API 连接写入返回 403，本轮使用已登录的 GitHub 网页提交；上传与完整性以对应远端提交核验为准。仓库不含服务器或平台凭据。
-- 容器构建、实际 PostgreSQL、服务器部署和公网访问均待真实执行。
+- GitHub Actions 已通过真实 PostgreSQL、接口契约与前端构建检查。首次 Compose 检查发现的 Nginx 临时目录权限问题已修复，完整启动结果见对应提交的 Actions；用户服务器部署和公网访问仍需实际执行。
 
 ## 1. 获取源码
 
