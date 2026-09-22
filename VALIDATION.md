@@ -25,7 +25,7 @@
 ## 未完成/外部条件
 
 - 本地没有Docker Engine；尚未在本地执行Compose容器构建与启动。
-- 已配置GitHub Actions运行真实PostgreSQL迁移与Compose冒烟，但尚未运行：GitHub连接的实际写入返回403 Resource not accessible by integration，命令行也没有GitHub写入凭据。插件安装状态正常不等于拥有仓库写权限。当前仓库远端尚未收到本次提交。
+- 已配置 GitHub Actions 运行真实 PostgreSQL 迁移与 Compose 冒烟；实际执行结果以对应提交的 Actions 记录为准，本文件尚未记录为通过。GitHub API 连接的实际写入返回 403 Resource not accessible by integration，本轮使用用户已登录的 GitHub 云浏览器提交。网页登录不会自动修复 API 连接授权。
 - 用户已提供当前服务器连接信息；本执行环境的 TCP 与 OpenSSH 连接均在认证前返回 `Network is unreachable`。未登录或修改服务器，未部署到用户服务器，也未验证外部 HTTPS；不能据此认定服务器故障或密码错误。
 - NK-GeniOS真实API协议未取得/联调，智能体调用与工具执行未验证，chat能力关闭。
 - 官方地图、路网、全景对应、楼层和讲解资料尚未审核导入。
