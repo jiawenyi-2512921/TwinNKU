@@ -59,3 +59,7 @@
 ## v0.4.0 管理后台
 
 [15-admin-console.md](15-admin-console.md)是本次角色、scope、审核状态、会话协议与部署的实施说明。此前计划文档中contributor/SSO相关内容属于后续目标，本次实际角色以该文和机器契约为准。
+
+## 审核后客户端更新修复
+
+[16-publication-sync-fix.md](16-publication-sync-fix.md)记录线上公开数据核对、自动刷新、整体移动点位、发布后公开端核验和前端单独升级步骤。此补丁不修改API契约、数据库或地图素材；仍以提交SHA识别本次前端版本。
