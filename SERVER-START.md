@@ -1,36 +1,20 @@
 # Twin NKU 基础版本服务器操作说明
 
-本项目交付完整源码、规范、锁文件、数据库迁移和启动脚本。版本范围是 M00：网页、基础 API 和 PostgreSQL；地图、AI、路线等仍关闭。源码需要在服务器构建容器镜像，并从镜像仓库及 npm/PyPI 下载依赖。
+当前版本v0.2.0已增加地图交互模块。首次启动仍先构建前后端、迁移数据库；地图需要单独导入随交付提供的资源包。**仅更新代码不会自动发布地图内容。**
 
-## 当前状态
-
-- 已完成本地基础应用验证，详见 `VALIDATION.md`。
-- 服务器连接在认证前因本执行环境 `Network is unreachable` 失败，服务器未被登录或修改。
-- GitHub API 连接写入返回 403，本轮使用已登录的 GitHub 网页提交；上传与完整性以对应远端提交核验为准。仓库不含服务器或平台凭据。
-- GitHub Actions 已通过真实 PostgreSQL、接口契约与前端构建检查。首次 Compose 检查发现的 Nginx 临时目录权限问题已修复，完整启动结果见对应提交的 Actions；用户服务器部署和公网访问仍需实际执行。
+地图模块的资源包、审核导入命令、数据卷与回退见 [docs/10-map-module.md](docs/10-map-module.md)。实际验证与环境限制以 [VALIDATION.md](VALIDATION.md) 为准；本轮不登录或部署服务器。
 
 ## 1. 获取源码
 
-优先从当前唯一仓库获取已交付到 `main` 的完整源码：
+优先从当前唯一仓库获取已经核对的交付分支/提交源码（未合并PR时不要直接部署旧main）：
 
 ```bash
-git clone --branch main https://github.com/jiawenyi-2512921/TwinNKU.git
+git clone --branch feat/campus-map-m01 https://github.com/jiawenyi-2512921/TwinNKU.git
 cd TwinNKU
 git log -1 --oneline
 ```
 
 先核对交付消息中的提交，再部署。已有本地目录时，不直接覆盖或强制重置。
-
-如果使用独立源码包：
-
-使用云服务器管理控制台/已有 SFTP 客户端，将 `TwinNKU-server-v0.1.0.tar.gz` 上传到服务器一个空的工作目录。进入该目录：
-
-```bash
-tar -xzf TwinNKU-server-v0.1.0.tar.gz
-cd TwinNKU-server-v0.1.0
-```
-
-不要解压到已运行项目的目录。已有 Twin NKU 安装时保留其 `.env` 和数据库卷，按 `docs/07-deployment.md` 更新。
 
 ## 2. 检查服务器条件
 
@@ -70,7 +54,7 @@ docker compose ps
 python3 scripts/smoke.py http://127.0.0.1:8080
 ```
 
-端口改动时同步改冒烟测试地址。网页会显示基础站和真实空点位目录；当前不包含未经审核的学校点位和假 AI 回答。
+端口改动时同步改冒烟测试地址。未导入地图时，网页显示地图待准备及已公开点位目录；完成资源包审核导入后显示地图。AI、VR、真实路线和楼层资料不因地图启用而自动开放。
 
 默认地址只有服务器本机可访问；`http://服务器IP:8080` 不能据此认为可打开。公网访问需要将实际域名加入 `.env` 的 `ALLOWED_HOSTS`，并在现有 HTTPS 反向代理中转发至本地端口。示例片段见 `deploy/https-site.conf.example`；不能直接覆盖正在使用的 Nginx 站点配置。没有域名和代理检查结果前，不能声称公网部署完成。
 

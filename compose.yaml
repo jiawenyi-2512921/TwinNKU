@@ -21,16 +21,18 @@ services:
     build:
       context: .
       dockerfile: deploy/api.Dockerfile
-    image: twinnku-api:${APP_VERSION:-0.1.0}
+    image: twinnku-api:${APP_VERSION:-0.2.0}
     command: [sh, -c, 'alembic upgrade head && python -m app.seed']
     environment: &api-environment
       APP_ENV: production
-      APP_VERSION: ${APP_VERSION:-0.1.0}
+      APP_VERSION: ${APP_VERSION:-0.2.0}
       DB_HOST: db
       DB_NAME: ${DB_NAME:-twinnku}
       DB_USER: ${DB_USER:-twinnku}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-["localhost","127.0.0.1","api"]}
+      MAP_ENABLED: ${MAP_ENABLED:-true}
+      MAP_ASSETS_DIR: /data/maps
     depends_on:
       db: {condition: service_healthy}
     restart: "no"
@@ -38,12 +40,14 @@ services:
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
   api:
-    image: twinnku-api:${APP_VERSION:-0.1.0}
+    image: twinnku-api:${APP_VERSION:-0.2.0}
     build:
       context: .
       dockerfile: deploy/api.Dockerfile
     restart: unless-stopped
     environment: *api-environment
+    volumes:
+      - map_assets:/data/maps:ro
     depends_on:
       db: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
@@ -60,8 +64,23 @@ services:
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
+  map-import:
+    profiles: [tools]
+    image: twinnku-api:${APP_VERSION:-0.2.0}
+    entrypoint: [python, -m, app.modules.maps.import_bundle]
+    environment: *api-environment
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    volumes:
+      - map_assets:/data/maps
+      - ./var/map-import:/incoming:ro
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
   web:
-    image: twinnku-web:${APP_VERSION:-0.1.0}
+    image: twinnku-web:${APP_VERSION:-0.2.0}
     build:
       context: .
       dockerfile: deploy/web.Dockerfile
@@ -83,3 +102,4 @@ services:
       options: {max-size: "10m", max-file: "3"}
 volumes:
   pgdata:
+  map_assets:
