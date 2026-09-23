@@ -24,11 +24,9 @@ export function pointIcon(point: Point) {
 
 export function PointDetails({
   point,
-  index,
   onClose,
 }: {
   point: Point;
-  index: number;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<"about" | "floor">("about");
@@ -36,10 +34,14 @@ export function PointDetails({
   const [copyTimer, setCopyTimer] = useState<number | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const canHaveFloors =
-    point.category === "academic" ||
-    point.category === "residence" ||
-    point.category === "dining" ||
-    (point.category === "public_area" && !point.name.endsWith("门"));
+    point.name !== "未命名建筑" &&
+    !point.name.endsWith("体育场") &&
+    (point.category === "academic" ||
+      point.category === "residence" ||
+      point.category === "dining" ||
+      point.category === "commerce" ||
+      point.category === "history" ||
+      (point.category === "public_area" && !point.name.endsWith("门")));
   useEffect(() => {
     setTab(
       canHaveFloors && new URLSearchParams(window.location.search).has("floor")
@@ -89,9 +91,6 @@ export function PointDetails({
         <Icon name="close" />
       </button>
       <div className={`detail-banner tone-${point.category}`}>
-        <span className="detail-number">
-          {String(index + 1).padStart(2, "0")}
-        </span>
         <Icon name={pointIcon(point)} size={58} />
         <span className="detail-campus">NANKAI · JINNAN</span>
         <button
@@ -103,7 +102,11 @@ export function PointDetails({
         </button>
       </div>
       <div className="detail-body">
-        <span className="category-tag">{categoryLabels[point.category]}</span>
+        <span className="category-tag">
+          {point.name === "未命名建筑"
+            ? "资料待确认"
+            : categoryLabels[point.category]}
+        </span>
         <h2 ref={heading} tabIndex={-1}>
           {point.name}
         </h2>
