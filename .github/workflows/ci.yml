@@ -43,6 +43,8 @@ jobs:
         working-directory: apps/web
       - run: npm run build
         working-directory: apps/web
+      - run: npm test
+        working-directory: apps/web
   compose-smoke:
     runs-on: ubuntu-latest
     steps:
