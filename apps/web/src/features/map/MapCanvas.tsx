@@ -37,6 +37,7 @@ export function MapCanvas({
 
   useEffect(() => {
     if (!element.current || !info.tiles) return;
+    setTileError(false);
     const map = L.map(element.current, {
       crs: L.CRS.Simple,
       zoomControl: false,
@@ -198,9 +199,13 @@ export function MapCanvas({
     };
   }, [info, features, points]);
 
+  const selectedFeature = features.points.find(
+    (p) => p.point_id === selectedId,
+  );
+  const selectedRegion = JSON.stringify(selectedFeature?.polygon ?? null);
   useEffect(() => {
     const map = instance.current;
-    const feature = features.points.find((p) => p.point_id === selectedId);
+    const feature = selectedFeature;
     if (
       !map ||
       !feature ||
@@ -225,7 +230,7 @@ export function MapCanvas({
       });
     const timer = window.setTimeout(fit, 30);
     return () => window.clearTimeout(timer);
-  }, [selectedId, info, features]);
+  }, [selectedId, info, selectedRegion]);
 
   useEffect(() => {
     const map = instance.current;
