@@ -2,9 +2,48 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   clampPoint,
+  moveGeometry,
   rectangle,
   validPolygon,
 } from "../src/features/admin/geometry.ts";
+
+test("moving a point translates its clickable polygon and keeps map metadata and the input intact", () => {
+  const value = {
+    map_id: "map",
+    map_revision: 3,
+    label_on_map: false,
+    anchor: { x: 50, y: 40 },
+    polygon: rectangle({ x: 20, y: 20 }, { x: 80, y: 60 }),
+  };
+  const before = structuredClone(value);
+  const moved = moveGeometry(value, { x: 150, y: 170 }, 8279, 5604);
+  assert.deepEqual(
+    moved.polygon,
+    rectangle({ x: 120, y: 150 }, { x: 180, y: 190 }),
+  );
+  assert.deepEqual(moved.anchor, { x: 150, y: 170 });
+  assert.equal(moved.label_on_map, false);
+  assert.equal(moved.map_revision, 3);
+  assert.deepEqual(value, before);
+});
+
+test("a move cannot silently clip the polygon at an image boundary", () => {
+  const value = {
+    anchor: { x: 50, y: 40 },
+    polygon: rectangle({ x: 20, y: 20 }, { x: 80, y: 60 }),
+  };
+  for (const target of [
+    { x: 10, y: 40 },
+    { x: 90, y: 40 },
+    { x: 50, y: 10 },
+    { x: 50, y: 90 },
+    { x: NaN, y: 50 },
+  ])
+    assert.throws(() => moveGeometry(value, target, 100, 100));
+  const exact = moveGeometry(value, { x: 70, y: 80 }, 100, 100);
+  assert.equal(validPolygon(exact.polygon, 100, 100), null);
+  assert.deepEqual(exact.polygon[2], { x: 100, y: 100 });
+});
 
 test("rectangle works when drawn from any corner and retains native image coordinates", () => {
   const forward = rectangle({ x: 80, y: 70 }, { x: 130, y: 120 });
