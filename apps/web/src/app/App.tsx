@@ -7,6 +7,7 @@ import {
   type Point,
 } from "../shared/api/client";
 import { Icon } from "../shared/ui/Icon";
+import { pointLocation } from "../shared/navigation";
 import { MapCanvas } from "../features/map/MapCanvas";
 import {
   PointDetails,
@@ -44,11 +45,11 @@ export function App() {
   const selectPoint = useCallback((id: string | null) => {
     setSelectedId(id);
     setShowList(false);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("floor");
-    if (id) url.searchParams.set("point", id);
-    else url.searchParams.delete("point");
-    window.history.replaceState(null, "", url);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      pointLocation(window.location.href, id),
+    );
   }, []);
 
   useEffect(() => {
