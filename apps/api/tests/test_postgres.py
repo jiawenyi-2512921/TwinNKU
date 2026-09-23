@@ -30,7 +30,50 @@ def test_postgres_migration_and_seed():
             )
             assert (
                 db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0003_floor_plans"
+                == "0004_admin_console"
             )
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.skipif(
+    not os.environ.get("TEST_POSTGRES_URL"), reason="requires disposable PostgreSQL"
+)
+def test_postgres_admin_review_retirement_and_restore():
+    from fastapi.testclient import TestClient
+    from sqlalchemy.orm import Session
+    from test_admin import exercise_review_workflow, seed_staff
+
+    from app.core.config import Settings
+    from app.database import get_db
+    from app.main import create_app
+    from app.models import CampusRecord
+
+    root = Path(__file__).resolve().parents[1]
+    url = os.environ["TEST_POSTGRES_URL"]
+    subprocess.run(
+        ["alembic", "upgrade", "head"],
+        cwd=root,
+        env={**os.environ, "APP_ENV": "test", "DATABASE_URL": url},
+        check=True,
+        capture_output=True,
+    )
+    engine = create_engine(url)
+    try:
+        with engine.connect() as connection, connection.begin() as outer:
+            with Session(bind=connection, join_transaction_mode="create_savepoint") as db:
+                if db.get(CampusRecord, "nku-jinnan") is None:
+                    db.add(CampusRecord(id="nku-jinnan", name="Test campus"))
+                    db.commit()
+                app = create_app(Settings(app_env="test"))
+
+                def override_db():
+                    yield db
+
+                app.dependency_overrides[get_db] = override_db
+                with TestClient(app) as client:
+                    staff = seed_staff(client, db)
+                    exercise_review_workflow(client, staff)
+            outer.rollback()
     finally:
         engine.dispose()
