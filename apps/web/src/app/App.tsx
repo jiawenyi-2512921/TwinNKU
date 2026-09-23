@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../shared/api/client";
 import {
-  api,
-  type Campus,
-  type MapFeatures,
-  type MapInfo,
-  type Point,
-} from "../shared/api/client";
+  availableSelection,
+  loadCatalog,
+  reconcileCatalog,
+  type Catalog,
+} from "../features/map/catalog";
+import {
+  createCatalogRefresh,
+  watchCatalogChanges,
+} from "../shared/catalogSync";
 import { Icon } from "../shared/ui/Icon";
 import { pointLocation } from "../shared/navigation";
 import { MapCanvas } from "../features/map/MapCanvas";
@@ -15,12 +19,6 @@ import {
   pointIcon,
 } from "../features/points/PointDetails";
 
-type Catalog = {
-  campus: Campus;
-  map: MapInfo | null;
-  features: MapFeatures | null;
-  points: Point[];
-};
 const categories = [
   "all",
   "academic",
@@ -38,14 +36,20 @@ export function App() {
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">(
     "loading",
   );
-  const [retry, setRetry] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const refresh = useRef<() => void>(() => {});
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get("point"),
+  );
+  const selectedRef = useRef(selectedId);
   const [showList, setShowList] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const search = useRef<HTMLInputElement>(null);
   const selectPoint = useCallback((id: string | null) => {
+    selectedRef.current = id;
     setSelectedId(id);
     setShowList(false);
     window.history.replaceState(
@@ -56,65 +60,28 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
-    setStatus("loading");
-    async function load() {
-      const [system, campuses] = await Promise.all([
-        api.status(controller.signal),
-        api.campuses(controller.signal),
-      ]);
-      const campus =
-        campuses.data.find((c) => c.id === "nku-jinnan") ?? campuses.data[0];
-      if (!campus) {
-        if (!controller.signal.aborted) {
-          setCatalog(null);
-          setStatus("empty");
-        }
-        return;
-      }
-      const maps = system.data.capabilities.map
-        ? await api.maps(campus.id, controller.signal)
-        : { data: [] };
-      const map = maps.data.find((m) => m.kind === "campus" && m.tiles) ?? null;
-      const [features, first] = await Promise.all([
-        map
-          ? api.mapFeatures(map.id, controller.signal)
-          : Promise.resolve({ data: null }),
-        api.points(campus.id, "", controller.signal),
-      ]);
-      if (
-        map &&
-        features.data &&
-        (features.data.map_id !== map.id ||
-          features.data.map_revision !== map.revision)
-      )
-        throw new Error("Map revision mismatch");
-      const all = [...first.data];
-      const total = first.meta.pagination?.total ?? first.data.length;
-      for (let page = 2; all.length < total; page++) {
-        const next = await api.points(campus.id, "", controller.signal, page);
-        if (!next.data.length) break;
-        all.push(...next.data);
-      }
-      if (controller.signal.aborted) return;
-      const mapped = new Set(
-        features.data?.points.map((p) => p.point_id) ?? [],
-      );
-      const points = all
-        .filter((p) => !map || mapped.has(p.id))
-        .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
-      setCatalog({ campus, map, features: features.data, points });
-      const requested = new URLSearchParams(window.location.search).get(
-        "point",
-      );
-      setSelectedId(points.some((p) => p.id === requested) ? requested : null);
-      setStatus(map ? "ready" : "empty");
-    }
-    load().catch(() => {
-      if (!controller.signal.aborted) setStatus("error");
+    const sync = createCatalogRefresh({
+      load: (signal) => loadCatalog(api, signal),
+      apply: (next) => {
+        setCatalog((previous) => reconcileCatalog(previous, next));
+        const retained = availableSelection(next, selectedRef.current);
+        if (retained !== selectedRef.current) selectPoint(retained);
+        setStatus(next?.map ? "ready" : "empty");
+        setLastChecked(new Date());
+      },
+      failed: () => setStatus("error"),
+      busy: setRefreshing,
     });
-    return () => controller.abort();
-  }, [retry]);
+    refresh.current = () => {
+      void sync.refresh(true);
+    };
+    const unwatch = watchCatalogChanges(sync.refresh);
+    void sync.refresh();
+    return () => {
+      unwatch();
+      sync.dispose();
+    };
+  }, [selectPoint]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -169,6 +136,20 @@ export function App() {
         <div className="header-campus">
           <span className="campus-indicator" /> 南开大学 <span>/</span> 津南校区
         </div>
+        <button
+          className="refresh-button"
+          onClick={() => refresh.current()}
+          disabled={refreshing}
+          aria-label={refreshing ? "正在刷新地图" : "刷新地图"}
+          title={
+            lastChecked
+              ? `上次成功同步：${lastChecked.toLocaleTimeString("zh-CN")}，点击重新读取`
+              : "重新读取已发布点位"
+          }
+        >
+          <Icon name="refresh" size={18} />
+          <span>{refreshing ? "同步中…" : "刷新地图"}</span>
+        </button>
         <button
           className={`help-button${showHelp ? " active" : ""}`}
           aria-expanded={showHelp}
@@ -354,7 +335,7 @@ export function App() {
               {status !== "loading" && (
                 <button
                   className="primary-button"
-                  onClick={() => setRetry((r) => r + 1)}
+                  onClick={() => refresh.current()}
                 >
                   重新加载
                 </button>
@@ -366,8 +347,8 @@ export function App() {
           )}
           {status === "error" && catalog && (
             <div className="tile-warning" role="status">
-              连接暂不可用{" "}
-              <button onClick={() => setRetry((r) => r + 1)}>重试</button>
+              更新暂不可用，正在显示上次读取的地图。{" "}
+              <button onClick={() => refresh.current()}>重试</button>
             </div>
           )}
           {!selected && catalog?.map && (
