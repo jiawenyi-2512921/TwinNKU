@@ -2,6 +2,8 @@
 
 当前版本v0.3.0增加楼层双图查看、审核导入和19项楼层目录绑定。首次启动仍先构建前后端、迁移数据库；地图需要单独导入随交付提供的资源包。**仅更新代码不会自动发布地图内容。**
 
+**资源现通过GitHub Releases交付。** 直接从服务器下载校园地图v2和图书馆1层双图、核对摘要并导入，完整命令见[GitHub资源交接](docs/12-github-resource-handoff.md)，无需用户手动转传ZIP。
+
 新版本部署先读 [docs/11-floor-plans.md](docs/11-floor-plans.md)：迁移head为0003_floor_plans，增加floor_assets卷与FLOORS_ENABLED开关。已交付图书馆1层双图资源包，已在本地完成真实导入与字节校验；其余90层未导入，服务器需另行导入该包。
 
 地图模块历史资源包、审核导入命令、数据卷与回退见 [docs/10-map-module.md](docs/10-map-module.md)。实际验证与环境限制以 [VALIDATION.md](VALIDATION.md) 为准；本轮不登录或部署服务器。
