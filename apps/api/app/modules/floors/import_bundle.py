@@ -56,6 +56,8 @@ class BundleFloor(DTO):
             raise ValueError(
                 "exactly one labeled and one clean image are required; photos excluded"
             )
+        if self.images[0].sha256 == self.images[1].sha256:
+            raise ValueError("clean and labeled roles must not use identical image bytes")
         return self
 
 
