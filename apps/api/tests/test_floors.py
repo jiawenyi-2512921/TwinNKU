@@ -71,13 +71,13 @@ def install(fixture, db, client, publish=True):
     return result, data["floors"][0]
 
 
-def test_floor_pair_preserves_bytes_and_uses_each_images_native_size(db, client, floor_bundle):
+def test_legacy_pair_serves_only_labeled_original_bytes(db, client, floor_bundle):
     _, f = install(floor_bundle, db, client)
     listed = client.get(f"/api/v1/points/{f['point_id']}/floors").json()["data"]
     assert len(listed) == 1
     floor = client.get(f"/api/v1/floors/{f['id']}").json()["data"]
     assert floor == listed[0] and floor["ordinal"] == 1
-    assert {a["variant"] for a in floor["images"]} == {"clean", "labeled"}
+    assert {a["variant"] for a in floor["images"]} == {"labeled"}
     for image in floor["images"]:
         response = client.get(image["url"])
         original = (floor_bundle[0] / f["id"] / "1" / (image["variant"] + ".png")).read_bytes()
@@ -90,7 +90,7 @@ def test_floor_pair_preserves_bytes_and_uses_each_images_native_size(db, client,
     assert info["tiles"] is None and info["width_px"] == 240
     assert client.get(f"/api/v1/maps/{f['map_id']}/tiles/1/0/0/0.png").status_code == 404
     assert client.get("/api/v1/system/status").json()["data"]["capabilities"]["floors"]
-    for suffix in ["2/clean", "1/original"]:
+    for suffix in ["2/labeled", "1/clean", "1/original"]:
         assert client.get(f"/api/v1/floors/{f['id']}/images/{suffix}").status_code in (404, 422)
 
 
@@ -125,11 +125,11 @@ def test_private_or_disabled_floor_has_no_image_or_map_metadata_leak(
 def test_images_are_guarded_even_when_parent_module_changes(db, client, floor_bundle):
     _, f = install(floor_bundle, db, client)
     client.app.state.settings.map_enabled = False
-    assert client.get(f"/api/v1/floors/{f['id']}/images/1/clean").status_code == 200
-    asset = client.app.state.settings.floor_assets_dir / f["id"] / "1/clean.png"
+    assert client.get(f"/api/v1/floors/{f['id']}/images/1/labeled").status_code == 200
+    asset = client.app.state.settings.floor_assets_dir / f["id"] / "1/labeled.png"
     asset.unlink()
-    asset.symlink_to(floor_bundle[0] / f["id"] / "1/clean.png")
-    assert client.get(f"/api/v1/floors/{f['id']}/images/1/clean").status_code == 404
+    asset.symlink_to(floor_bundle[0] / f["id"] / "1/labeled.png")
+    assert client.get(f"/api/v1/floors/{f['id']}/images/1/labeled").status_code == 404
 
 
 def test_import_is_audited_immutable_and_rejects_extra_photos(db, client, floor_bundle):
@@ -185,3 +185,66 @@ def test_import_rejects_a_single_image_disguised_as_two_variants(db, client, flo
         install(floor_bundle, db, client)
     assert db.query(FloorRecord).count() == 0
     assert not client.app.state.settings.floor_assets_dir.exists()
+
+
+def test_labeled_only_bundle_imports_without_a_clean_image(db, client, floor_bundle):
+    root, data = floor_bundle
+    f = data["floors"][0]
+    f["images"] = [image for image in f["images"] if image["variant"] == "labeled"]
+    (root / f["id"] / "1/clean.png").unlink()
+    result, _ = install(floor_bundle, db, client)
+    assert result["images"] == 1
+    assert len(client.get(f"/api/v1/floors/{f['id']}").json()["data"]["images"]) == 1
+    assert (
+        client.get(f"/api/v1/floors/{f['id']}/images/1/labeled").content
+        == (root / f["id"] / "1/labeled.png").read_bytes()
+    )
+    assert client.get(f"/api/v1/floors/{f['id']}/images/1/clean").status_code == 404
+
+
+def test_clean_only_floor_is_rejected(floor_bundle):
+    _, data = floor_bundle
+    data["floors"][0]["images"] = [data["floors"][0]["images"][1]]
+    with pytest.raises(ValidationError, match="labeled image is required"):
+        FloorBundle.model_validate(data)
+
+
+def test_builder_ignores_clean_and_photo_paths(tmp_path, floor_bundle):
+    import importlib.util
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[3] / "scripts/build_floor_bundle.py"
+    spec = importlib.util.spec_from_file_location("floor_builder", script)
+    builder = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(builder)
+    source, fixture = floor_bundle
+    floor = fixture["floors"][0]
+    row = {key: floor[key] for key in ("id", "map_id", "label", "ordinal", "revision")}
+    row.update(
+        labeled_file=str(source / floor["id"] / "1/labeled.png"),
+        clean_file="must-not-be-read.png",
+        photo_file="must-not-be-read.jpg",
+    )
+    intake = tmp_path / "intake.json"
+    intake.write_text(
+        json.dumps(
+            {
+                "source_note": "Labeled-only delivery test",
+                "buildings": [
+                    {
+                        "source_number": 1,
+                        "name": "测试楼",
+                        "point_id": floor["point_id"],
+                        "floors": [row],
+                    }
+                ],
+            }
+        )
+    )
+    output = tmp_path / "labeled-output"
+    result = builder.build(intake, output)
+    assert result["images"] == 1
+    assert sorted(p.name for p in output.rglob("*") if p.is_file()) == [
+        "labeled.png",
+        "manifest.json",
+    ]
