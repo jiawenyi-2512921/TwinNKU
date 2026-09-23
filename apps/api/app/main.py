@@ -17,6 +17,7 @@ from app.core.errors import (
     http_error_handler,
     validation_error_handler,
 )
+from app.modules.maps.router import router as maps_router
 
 logger = logging.getLogger("twinnku")
 
@@ -27,7 +28,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="Twin NKU API",
         version=settings.app_version,
-        description="M00 implemented endpoints only. Full target contract: contracts/openapi.json.",
+        description="Implemented foundation and map endpoints. Full target contract: contracts/openapi.json.",
         docs_url=None if production else "/docs",
         redoc_url=None if production else "/redoc",
         openapi_url=None if production else "/openapi.json",
@@ -65,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     app.include_router(router)
+    app.include_router(maps_router)
     return app
 
 

@@ -25,7 +25,7 @@ from app.contracts import (
 )
 from app.core.errors import DomainError, request_id
 from app.database import get_db
-from app.models import CampusRecord, PointRecord
+from app.models import CampusRecord, MapRecord, PointRecord
 
 router = APIRouter()
 DB = Annotated[Session, Depends(get_db)]
@@ -98,10 +98,26 @@ def ready(db: DB):
     operation_id="getSystemStatus",
     openapi_extra=IMPLEMENTED,
 )
-def system_status(request: Request):
+def system_status(request: Request, db: DB):
+    has_map = (
+        request.app.state.settings.map_enabled
+        and db.scalar(
+            select(MapRecord.id)
+            .join(CampusRecord)
+            .where(
+                MapRecord.status == "published",
+                MapRecord.visibility == "public",
+                CampusRecord.is_active.is_(True),
+            )
+            .limit(1)
+        )
+        is not None
+    )
     return envelope(
         request,
-        SystemStatus(version=request.app.state.settings.app_version, capabilities=Capabilities()),
+        SystemStatus(
+            version=request.app.state.settings.app_version, capabilities=Capabilities(map=has_map)
+        ),
     )
 
 

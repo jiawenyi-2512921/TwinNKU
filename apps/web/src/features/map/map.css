@@ -1,0 +1,237 @@
+.map-canvas {
+  position: absolute;
+  inset: 0;
+  background: #dbe5d5 !important;
+  font-family: inherit;
+}
+.map-canvas:focus {
+  outline: 0;
+}
+.map-context {
+  position: absolute;
+  top: 21px;
+  left: 21px;
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fffffff2;
+  backdrop-filter: blur(8px);
+  border-radius: 7px;
+  padding: 10px 13px;
+  box-shadow: 0 2px 12px #353d2d10;
+  font-size: 10px;
+  color: #796c7f;
+  pointer-events: none;
+}
+.live-dot {
+  height: 6px;
+  width: 6px;
+  background: #94a26e;
+  border-radius: 50%;
+}
+.context-divider {
+  height: 10px;
+  width: 1px;
+  background: #e9e1ed;
+  margin: 0 3px;
+}
+.map-controls {
+  position: absolute;
+  z-index: 850;
+  right: 20px;
+  bottom: 50px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 1px solid #e9e4ed;
+  border-radius: 10px;
+  padding: 5px;
+  box-shadow: 0 4px 18px #43384b17;
+}
+.map-controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 33px;
+  height: 34px;
+  background: white;
+  border: 0;
+  border-radius: 5px;
+  color: #84708d;
+}
+.map-controls button:hover,
+.map-controls button[aria-pressed="true"] {
+  color: #64316f;
+  background: #f5f0f7;
+}
+.control-separator {
+  height: 1px;
+  background: #eee7f1;
+  margin: 4px;
+}
+.map-attribution {
+  position: absolute;
+  z-index: 600;
+  bottom: 8px;
+  right: 10px;
+  font-size: 9px;
+  color: #6c715f;
+  background: #f8fbf3bb;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.map-attribution a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.map-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fffefbf5;
+  box-shadow: 0 4px 20px #29372b19;
+  padding: 13px 19px;
+  border-radius: 30px;
+  font-size: 11px;
+  color: #7c6489;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hint-key {
+  font-size: 9px;
+  color: #b0a5b7;
+  border-left: 1px solid #eae1ed;
+  padding-left: 11px;
+}
+.map-pin-holder {
+  background: none !important;
+  border: 0 !important;
+}
+.map-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: #7e528c;
+  color: #fff;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 10px;
+  box-shadow: 0 3px 10px #43235142;
+  transition:
+    transform 0.18s,
+    background 0.18s;
+}
+.map-pin-holder:hover .map-pin {
+  transform: scale(1.13);
+  background: #5f2d70;
+}
+.map-pin.is-selected {
+  background: #622d71;
+  box-shadow:
+    0 0 0 6px #9762a343,
+    0 4px 15px #49265836;
+}
+.point-tooltip.leaflet-tooltip {
+  background: #fffc;
+  border: 1px solid #e4dce8;
+  backdrop-filter: blur(5px);
+  color: #644871;
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 12px;
+  box-shadow: 0 4px 15px #4d355519;
+}
+.tile-warning {
+  position: absolute;
+  z-index: 1002;
+  top: 65px;
+  left: 20px;
+  right: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  padding: 12px 16px;
+  border: 1px solid #e9dcc6;
+  background: #fffbf0;
+  box-shadow: 0 3px 15px #58452415;
+  border-radius: 8px;
+  color: #997b4e;
+}
+.tile-warning button {
+  border: 0;
+  background: none;
+  color: #785b30;
+  text-decoration: underline;
+}
+.leaflet-marker-icon:focus-visible {
+  outline: 3px solid #b897cd;
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+.leaflet-interactive {
+  cursor: pointer;
+}
+.map-canvas .leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
+@media (max-width: 760px) {
+  .map-context {
+    left: 12px;
+    top: 12px;
+    font-size: 9px;
+    padding: 8px 10px;
+  }
+  .map-controls {
+    right: 12px;
+    bottom: 46px;
+    padding: 4px;
+  }
+  .map-controls button {
+    width: 30px;
+    height: 32px;
+  }
+  .map-controls.has-selection {
+    bottom: auto;
+    top: 51px;
+  }
+  .map-hint {
+    bottom: 26px;
+    padding: 11px 15px;
+    font-size: 10px;
+    gap: 7px;
+  }
+  .hint-key {
+    font-size: 8px;
+    padding-left: 8px;
+  }
+  .map-attribution {
+    font-size: 8px;
+    bottom: 6px;
+  }
+  .tile-warning {
+    top: 50px;
+    left: 12px;
+    font-size: 10px;
+    padding: 9px;
+  }
+  .map-pin {
+    width: 30px;
+    height: 30px;
+    font-size: 9px;
+  }
+  .point-tooltip.leaflet-tooltip {
+    font-size: 11px;
+  }
+}

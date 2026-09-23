@@ -115,6 +115,13 @@ class XY(DTO):
     y: FiniteFloat = Field(ge=0)
 
 
+class MapTiles(DTO):
+    url_template: str
+    tile_size: int = Field(ge=128, le=1024)
+    min_zoom: int = Field(ge=0)
+    max_native_zoom: int = Field(ge=0, le=16)
+
+
 class MapInfo(DTO):
     id: UUID
     campus_id: CampusId
@@ -125,6 +132,9 @@ class MapInfo(DTO):
     revision: Revision
     image_asset_id: UUID
     coordinate_system: Literal["image-pixel-top-left"] = "image-pixel-top-left"
+    tiles: MapTiles | None = None
+    source_sha256: str | None = None
+    attribution: str = ""
 
 
 class PointGeometry(DTO):

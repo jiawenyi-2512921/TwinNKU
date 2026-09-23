@@ -67,3 +67,54 @@ class PointRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=now_utc, onupdate=now_utc
     )
+
+
+class MapRecord(Base):
+    __tablename__ = "maps"
+    __table_args__ = (
+        CheckConstraint("revision >= 1", name="ck_maps_revision"),
+        CheckConstraint("width_px > 0 AND height_px > 0", name="ck_maps_dimensions"),
+        CheckConstraint("status IN ('draft','published','retired')", name="ck_maps_status"),
+        CheckConstraint(
+            "visibility IN ('public','internal','restricted')", name="ck_maps_visibility"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    campus_id: Mapped[str] = mapped_column(ForeignKey("campuses.id", ondelete="RESTRICT"))
+    title: Mapped[str] = mapped_column(String(120))
+    kind: Mapped[str] = mapped_column(String(16), default="campus")
+    revision: Mapped[int] = mapped_column(Integer)
+    width_px: Mapped[int] = mapped_column(Integer)
+    height_px: Mapped[int] = mapped_column(Integer)
+    image_asset_id: Mapped[str] = mapped_column(String(36))
+    source_sha256: Mapped[str] = mapped_column(String(64))
+    tile_size: Mapped[int] = mapped_column(Integer)
+    max_native_zoom: Mapped[int] = mapped_column(Integer)
+    attribution: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(24), default="draft")
+    visibility: Mapped[str] = mapped_column(String(24), default="internal")
+
+
+class PointGeometryRecord(Base):
+    __tablename__ = "point_geometries"
+    map_id: Mapped[str] = mapped_column(ForeignKey("maps.id", ondelete="CASCADE"), primary_key=True)
+    point_id: Mapped[str] = mapped_column(
+        ForeignKey("points.id", ondelete="CASCADE"), primary_key=True
+    )
+    map_revision: Mapped[int] = mapped_column(Integer)
+    anchor: Mapped[dict] = mapped_column(JSON)
+    polygon: Mapped[list] = mapped_column(JSON)
+    entrance_ids: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class MapImportRecord(Base):
+    __tablename__ = "map_imports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    map_id: Mapped[str] = mapped_column(ForeignKey("maps.id", ondelete="RESTRICT"))
+    revision: Mapped[int] = mapped_column(Integer)
+    manifest_sha256: Mapped[str] = mapped_column(String(64))
+    reviewer: Mapped[str] = mapped_column(String(120))
+    rights_note: Mapped[str] = mapped_column(Text)
+    published: Mapped[bool] = mapped_column(Boolean)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)

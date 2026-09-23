@@ -2,6 +2,11 @@ import type { components } from "./schema";
 
 export type Campus = components["schemas"]["Campus"];
 export type Point = components["schemas"]["Point"];
+export type MapInfo = components["schemas"]["MapInfo"];
+export type MapFeatures = components["schemas"]["MapFeatures"];
+export type PointGeometry = components["schemas"]["PointGeometry"];
+export type XY = components["schemas"]["XY"];
+export type RouteSegment = components["schemas"]["RouteSegment"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
 type Meta = components["schemas"]["Meta"];
 
@@ -46,9 +51,13 @@ export async function get<T>(
 export const api = {
   status: (signal?: AbortSignal) => get<SystemStatus>("/system/status", signal),
   campuses: (signal?: AbortSignal) => get<Campus[]>("/campuses", signal),
-  points: (campus: string, query: string, signal?: AbortSignal) =>
+  points: (campus: string, query: string, signal?: AbortSignal, page = 1) =>
     get<Point[]>(
-      `/campuses/${encodeURIComponent(campus)}/points?${new URLSearchParams({ q: query, page_size: "100" })}`,
+      `/campuses/${encodeURIComponent(campus)}/points?${new URLSearchParams({ q: query, page_size: "100", page: String(page) })}`,
       signal,
     ),
+  maps: (campus: string, signal?: AbortSignal) =>
+    get<MapInfo[]>(`/campuses/${encodeURIComponent(campus)}/maps`, signal),
+  mapFeatures: (id: string, signal?: AbortSignal) =>
+    get<MapFeatures>(`/maps/${encodeURIComponent(id)}/features`, signal),
 };

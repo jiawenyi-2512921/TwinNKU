@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
@@ -10,7 +11,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_env: Literal["development", "test", "production"] = "development"
-    app_version: str = "0.1.0"
+    app_version: str = "0.2.0"
+    map_enabled: bool = True
+    map_assets_dir: Path = Path("var/map-assets")
     database_url: SecretStr | None = None
     db_host: str = "db"
     db_port: int = Field(default=5432, ge=1, le=65535)
