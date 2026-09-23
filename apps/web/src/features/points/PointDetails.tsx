@@ -37,9 +37,14 @@ export function PointDetails({
   const canHaveFloors =
     point.category === "academic" ||
     point.category === "residence" ||
+    point.category === "dining" ||
     (point.category === "public_area" && !point.name.endsWith("门"));
   useEffect(() => {
-    setTab("about");
+    setTab(
+      new URLSearchParams(window.location.search).has("floor")
+        ? "floor"
+        : "about",
+    );
     setCopyMessage("");
     heading.current?.focus({ preventScroll: true });
   }, [point.id]);
@@ -118,7 +123,11 @@ export function PointDetails({
           aria-labelledby={tab === "about" ? "tab-about" : "tab-floor"}
         >
           {tab === "floor" ? (
-            <FloorPanel pointId={point.id} pointName={point.name} />
+            <FloorPanel
+              key={point.id}
+              pointId={point.id}
+              pointName={point.name}
+            />
           ) : (
             <>
               <p className="point-summary">
