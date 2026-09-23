@@ -1,6 +1,6 @@
 # 技术规范导航
 
-规范版本：`1.2.0`；当前应用版本：`0.3.0`。本规范记录本轮明确的产品方向与实施决策，替代此前未核验的技术计划。接口发生不兼容变化须使用新 API 主版本。
+规范版本：`1.2.0`；当前应用版本：`0.4.0`。本规范记录本轮明确的产品方向与实施决策，替代此前未核验的技术计划。接口发生不兼容变化须使用新 API 主版本。
 
 2026-09-23更新：用户指定GitHub为代码、部署指导与图片素材的统一交付渠道。部署方先读[GitHub资源交接](12-github-resource-handoff.md)，从Release直接下载本批地图与楼层包。
 
@@ -34,7 +34,7 @@
 | 对象 | 唯一来源 |
 | --- | --- |
 | DTO 和字段约束 | `apps/api/app/contracts.py` 的 Pydantic 模型 |
-| 已实现接口 | `apps/api/app/api.py` |
+| 已实现接口 | `apps/api/app/api.py`及`app/modules/*/router.py` |
 | 未实现目标接口 | `apps/api/app/planned_contract.py`，只供契约生成，生产不挂载 |
 | 完整机器契约 | 自动生成的 `contracts/openapi.json` |
 | 前端接口类型 | 自动生成的 `apps/web/src/shared/api/schema.d.ts` |
@@ -46,7 +46,7 @@
 
 ## M01地图交付
 
-新增 [地图模块说明](10-map-module.md)：接口、资产包导入、版本与楼层接入约定。本轮实现地图交互与受控CLI导入；完整M01后台审核界面、员工SSO仍未实现。
+新增 [地图模块说明](10-map-module.md)：接口、资产包导入、版本与楼层接入约定。地图交互、受控CLI导入已交付；v0.4.0新增[管理后台](15-admin-console.md)，落地点位编辑审核与独立员工账号，SSO与素材上传后台仍未实现。
 
 ## M05a 楼层查看
 
@@ -55,3 +55,7 @@
 ## 2026-09-23地图反馈整改
 
 [13-map-interaction-update.md](13-map-interaction-update.md)记录83个命名点位、周恩来雕像、仅有标注楼层图与资源导入步骤。用户后续否决浮动名称，最新显示与部署要求见[14-restore-map-lettering.md](14-restore-map-lettering.md)：恢复图内原文字，只补随图缩放的雕像标注。M01/M05旧文档中的5/23点位为历史交付数量，本批校园地图revision仍为3。
+
+## v0.4.0 管理后台
+
+[15-admin-console.md](15-admin-console.md)是本次角色、scope、审核状态、会话协议与部署的实施说明。此前计划文档中contributor/SSO相关内容属于后续目标，本次实际角色以该文和机器契约为准。
