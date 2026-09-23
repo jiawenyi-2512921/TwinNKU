@@ -21,11 +21,11 @@ services:
     build:
       context: .
       dockerfile: deploy/api.Dockerfile
-    image: twinnku-api:${APP_VERSION:-0.2.0}
+    image: twinnku-api:${APP_VERSION:-0.3.0}
     command: [sh, -c, 'alembic upgrade head && python -m app.seed']
     environment: &api-environment
       APP_ENV: production
-      APP_VERSION: ${APP_VERSION:-0.2.0}
+      APP_VERSION: ${APP_VERSION:-0.3.0}
       DB_HOST: db
       DB_NAME: ${DB_NAME:-twinnku}
       DB_USER: ${DB_USER:-twinnku}
@@ -33,6 +33,8 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-["localhost","127.0.0.1","api"]}
       MAP_ENABLED: ${MAP_ENABLED:-true}
       MAP_ASSETS_DIR: /data/maps
+      FLOORS_ENABLED: ${FLOORS_ENABLED:-true}
+      FLOOR_ASSETS_DIR: /data/floors
     depends_on:
       db: {condition: service_healthy}
     restart: "no"
@@ -40,7 +42,7 @@ services:
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
   api:
-    image: twinnku-api:${APP_VERSION:-0.2.0}
+    image: twinnku-api:${APP_VERSION:-0.3.0}
     build:
       context: .
       dockerfile: deploy/api.Dockerfile
@@ -48,6 +50,7 @@ services:
     environment: *api-environment
     volumes:
       - map_assets:/data/maps:ro
+      - floor_assets:/data/floors:ro
     depends_on:
       db: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
@@ -66,7 +69,7 @@ services:
       options: {max-size: "10m", max-file: "3"}
   map-import:
     profiles: [tools]
-    image: twinnku-api:${APP_VERSION:-0.2.0}
+    image: twinnku-api:${APP_VERSION:-0.3.0}
     entrypoint: [python, -m, app.modules.maps.import_bundle]
     environment: *api-environment
     depends_on:
@@ -79,8 +82,23 @@ services:
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+  floor-import:
+    profiles: [tools]
+    image: twinnku-api:${APP_VERSION:-0.3.0}
+    entrypoint: [python, -m, app.modules.floors.import_bundle]
+    environment: *api-environment
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    volumes:
+      - floor_assets:/data/floors
+      - ./var/floor-import:/incoming:ro
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
   web:
-    image: twinnku-web:${APP_VERSION:-0.2.0}
+    image: twinnku-web:${APP_VERSION:-0.3.0}
     build:
       context: .
       dockerfile: deploy/web.Dockerfile
@@ -103,3 +121,4 @@ services:
 volumes:
   pgdata:
   map_assets:
+  floor_assets:

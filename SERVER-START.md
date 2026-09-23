@@ -1,15 +1,17 @@
 # Twin NKU 基础版本服务器操作说明
 
-当前版本v0.2.0已增加地图交互模块。首次启动仍先构建前后端、迁移数据库；地图需要单独导入随交付提供的资源包。**仅更新代码不会自动发布地图内容。**
+当前版本v0.3.0增加楼层双图查看、审核导入和19项楼层目录绑定。首次启动仍先构建前后端、迁移数据库；地图需要单独导入随交付提供的资源包。**仅更新代码不会自动发布地图内容。**
 
-地图模块的资源包、审核导入命令、数据卷与回退见 [docs/10-map-module.md](docs/10-map-module.md)。实际验证与环境限制以 [VALIDATION.md](VALIDATION.md) 为准；本轮不登录或部署服务器。
+新版本部署先读 [docs/11-floor-plans.md](docs/11-floor-plans.md)：迁移head为0003_floor_plans，增加floor_assets卷与FLOORS_ENABLED开关。91层只是已核对目录，真实双图尚未完成导入。
+
+地图模块历史资源包、审核导入命令、数据卷与回退见 [docs/10-map-module.md](docs/10-map-module.md)。实际验证与环境限制以 [VALIDATION.md](VALIDATION.md) 为准；本轮不登录或部署服务器。
 
 ## 1. 获取源码
 
 优先从当前唯一仓库获取已经核对的交付分支/提交源码（未合并PR时不要直接部署旧main）：
 
 ```bash
-git clone --branch feat/campus-map-m01 https://github.com/jiawenyi-2512921/TwinNKU.git
+git clone --branch feat/floor-viewer-m05 https://github.com/jiawenyi-2512921/TwinNKU.git
 cd TwinNKU
 git log -1 --oneline
 ```
