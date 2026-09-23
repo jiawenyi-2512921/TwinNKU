@@ -6,7 +6,7 @@
 
 每个 operation 的 `x-implementation-status` 为 implemented/planned，`x-module` 标明交付阶段。planned 路由只存在于独立契约生成器，**不在运行服务挂载**。访问未实现路由返回真实 404，不能用占位 200 或固定回复冒充。
 
-M00 运行 API 只有健康、系统状态、校园和公开点位读取。完整机器契约中的其他接口用于后续模块开发。
+v0.2.0 运行 API 包含健康、系统状态、校园、公开点位读取，以及M01地图元信息、点位几何和PNG图块。完整机器契约中的其他接口用于后续模块开发。地图导入与版本规则见[地图模块说明](10-map-module.md)。
 
 ## 2. 请求/响应基础规则
 
@@ -31,18 +31,21 @@ M00 运行 API 只有健康、系统状态、校园和公开点位读取。完�
 | GET /api/v1/system/status | 无 | SystemStatus；version、api_version、capabilities，不泄露配置 |
 | GET /api/v1/campuses | 无 | Campus[]，只返回 active 校园 |
 | GET /api/v1/campuses/{campus_id} | slug | Campus；无效/停用校园404 |
-| GET /api/v1/campuses/{campus_id}/points | q<=120、category枚举、page、page_size | Point[]；按name/id稳定排序；M00搜索name/summary，别名检索在M01补齐 |
+| GET /api/v1/campuses/{campus_id}/points | q<=120、category枚举、page、page_size | Point[]；按name/id稳定排序；服务端搜索name/summary，M01前端读取公开目录后按名称和别名筛选 |
 | GET /api/v1/points/{point_id} | UUID | Point；必须公开且已发布，校园active |
 
 空校园目录合法返回 `data:[]`；存在的校园但没有点位返回 data:[]、total:0。不存在校园返回404。搜索中的 `%`、`_` 按普通字符转义，不允许绕过筛选。
 
-## 4. 地图、VR、楼层和讲解（已设计）
+## 4. 地图、VR、楼层和讲解
+
+前三项地图读取及PNG图块已实现；媒体、楼层与讲解接口仍为计划契约。PNG图块成功响应为二进制，不包裹JSON信封；失败仍使用统一错误体。
 
 | 方法/路径（均省略 /api/v1） | 响应模型 | 权限与语义 |
 | --- | --- | --- |
 | GET /campuses/{campus_id}/maps | MapInfo[] | 只返回可见已发布地图；含尺寸、版本、image_asset_id |
 | GET /maps/{map_id} | MapInfo | 获取当前有效版本；更新版本导致几何重新加载 |
 | GET /maps/{map_id}/features | MapFeatures | map_revision + PointGeometry[]；锚点与多边形在原图坐标系 |
+| GET /maps/{map_id}/tiles/{revision}/{z}/{x}/{y}.png | image/png | 已实现；每次核对地图公开状态、校园启用状态、当前版本及图块边界 |
 | GET /points/{point_id}/media | MediaInfo[] | 只返回有权限的媒体元数据，不含真实私有路径 |
 | GET /media/{media_id}/access | MediaAccess | 每次校验当前权限、发布状态、有效期；不把模型判断当鉴权 |
 | GET /points/{point_id}/narrations | Narration[] | 审核讲解词、source版本、可选audio_asset_id |
