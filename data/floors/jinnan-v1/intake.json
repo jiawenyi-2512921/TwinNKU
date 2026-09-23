@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_note": "用户提供的前19项目录；实拍不上传，第20项未完成不导入。2026-09-23核对19建筑、91楼层目录；目录可见不等同原文件已接收或发布。",
+  "source_note": "已核对前19项共91层目录；图书馆1层双图已核对并单独打包，其余90层待原文件。文件路径只在私有接入清单中填写，公共清单保持null。实拍照片与第20项排除。",
   "excluded_source_numbers": [
     20
   ],
@@ -636,7 +636,7 @@
           "revision": 1,
           "clean_file": null,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "7452ddd5-d9f0-57e2-b363-4a8d4865ac18",
