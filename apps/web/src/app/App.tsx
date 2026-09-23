@@ -180,7 +180,7 @@ export function App() {
         {showHelp && (
           <div className="help-popover">
             <strong>从地图开始探索</strong>
-            <p>拖动或双指缩放地图，点击建筑轮廓、地点名称或列表查看详情。</p>
+            <p>拖动或双指缩放地图，点击已命名建筑或地点列表查看详情。</p>
             <p>使用“回到全图”恢复全景，按 Esc 关闭详情，按 / 搜索地点。</p>
           </div>
         )}
@@ -373,7 +373,7 @@ export function App() {
           {!selected && catalog?.map && (
             <div className="map-hint">
               <Icon name="pin" size={17} />
-              <span>点建筑看详情 · 放大显示更多名称</span>
+              <span>点建筑看详情 · 放大查看图中文字</span>
               <span className="hint-key">拖动 · 缩放</span>
             </div>
           )}
