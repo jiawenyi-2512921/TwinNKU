@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { MapInfo } from "../../shared/api/client";
+import { api, type MapInfo } from "../../shared/api/client";
 import {
   activeDraft,
   categories,
@@ -14,7 +14,9 @@ import {
 } from "./api";
 import { ErrorBox, Empty, Pager, timestamp, useResource } from "./ui";
 import { MapEditor } from "./MapEditor";
-import { rectangle, validPolygon } from "./geometry";
+import { notifyCatalogPublished } from "../../shared/catalogSync";
+import { verifyPublication, type PublicationCheck } from "./publication";
+import { moveGeometry, rectangle, validPolygon } from "./geometry";
 type Props = {
   session: StaffSession;
   maps: MapInfo[];
@@ -43,6 +45,9 @@ export function PointWorkspace({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
+    [publicationCheck, setPublicationCheck] = useState<PublicationCheck | null>(
+      null,
+    ),
     [reason, setReason] = useState(""),
     [history, setHistory] = useState<GeometryInput[]>([]);
   const loadId = useRef(0);
@@ -105,6 +110,7 @@ export function PointWorkspace({
   const guard = () =>
     !dirty || window.confirm("当前修改尚未保存，确定放弃并离开吗？");
   function accept(point: AdminPoint) {
+    setPublicationCheck(null);
     setSelected(point);
     setNewPoint(false);
     setDirty(false);
@@ -143,6 +149,7 @@ export function PointWorkspace({
     setLoading(true);
     setError("");
     setNotice("");
+    setPublicationCheck(null);
     setDirty(false);
     setInput(null);
     setSelected(null);
@@ -164,6 +171,7 @@ export function PointWorkspace({
     setNewPoint(true);
     setError("");
     setNotice("");
+    setPublicationCheck(null);
     setHistory([]);
     setReason("");
     const anchor = { x: map.width_px / 2, y: map.height_px / 2 },
@@ -194,6 +202,7 @@ export function PointWorkspace({
     setInput({ ...input, ...value });
     setDirty(true);
     setNotice("");
+    setPublicationCheck(null);
   }
   function geometry(value: GeometryInput) {
     if (!input) return;
@@ -201,6 +210,27 @@ export function PointWorkspace({
     edit({
       geometry: { ...value, map_revision: map?.revision ?? value.map_revision },
     });
+  }
+  function moveAnchor(target: { x: number; y: number }) {
+    if (!input || !map) return;
+    try {
+      geometry(
+        moveGeometry(input.geometry, target, map.width_px, map.height_px),
+      );
+      setError("");
+    } catch (e) {
+      setError(message(e));
+    }
+  }
+  async function checkPublic(point: AdminPoint) {
+    setPublicationCheck(null);
+    const check = await verifyPublication(
+      point,
+      map.id,
+      api,
+      AbortSignal.timeout(12_000),
+    );
+    setPublicationCheck(check);
   }
   function refresh() {
     setRevision((v) => v + 1);
@@ -220,6 +250,7 @@ export function PointWorkspace({
     setBusy(true);
     setError("");
     setNotice("");
+    setPublicationCheck(null);
     try {
       const result = await request<AdminPoint>(
         selected ? `/points/${selected.point.id}` : "/points",
@@ -271,6 +302,7 @@ export function PointWorkspace({
     setBusy(true);
     setError("");
     setNotice("");
+    setPublicationCheck(null);
     try {
       const result = await request<AdminPoint>(
         `/points/${selected.point.id}/${action}`,
@@ -285,9 +317,16 @@ export function PointWorkspace({
       );
       accept(result.data);
       refresh();
+      if (action === "publish") {
+        notifyCatalogPublished();
+        setNotice(
+          `审核已通过，正式 v${result.data.point.revision} 已保存。正在核对公开接口…`,
+        );
+        await checkPublic(result.data);
+      }
       setNotice(
         action === "publish"
-          ? "审核已通过，公开地图将读取此次发布的内容。"
+          ? `审核已通过，正式 v${result.data.point.revision} 已保存。`
           : action === "submit"
             ? "已提交，等待另一位审核人员处理。"
             : action === "retire"
@@ -339,6 +378,8 @@ export function PointWorkspace({
                 setLoading(false);
                 setMapId(e.target.value);
                 setSelected(null);
+                setNotice("");
+                setPublicationCheck(null);
                 setInput(null);
                 setNewPoint(false);
                 setDirty(false);
@@ -483,6 +524,27 @@ export function PointWorkspace({
               {notice}
             </div>
           )}
+          {publicationCheck && (
+            <div
+              className={publicationCheck.ok ? "ad-success" : "ad-callout"}
+              role="status"
+            >
+              {publicationCheck.message}
+              {publicationCheck.ok &&
+                selected?.status === "published" &&
+                selected.visibility === "public" && (
+                  <p>
+                    <a
+                      href={`/?point=${encodeURIComponent(selected.point.id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      打开公开地图核对 ↗
+                    </a>
+                  </p>
+                )}
+            </div>
+          )}
           {loading ? (
             <p className="ad-hint" role="status">
               正在读取资料…
@@ -512,6 +574,22 @@ export function PointWorkspace({
                     )}
                   </small>
                 </div>
+              )}
+              {selected && !dirty && selected.status !== "draft" && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    try {
+                      await checkPublic(selected);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {busy ? "正在处理…" : "核对公开端"}
+                </button>
               )}
               {selected?.status === "retired" && (
                 <p className="ad-callout">
@@ -621,9 +699,12 @@ export function PointWorkspace({
                       placeholder="例如：依据某版校区地图校准入口位置"
                     />
                   </label>
+                  <p className="ad-hint">
+                    修改定位坐标会一起移动点击范围。底图中原有文字不会随点位移动。
+                  </p>
                   <div className="ad-form-pair">
                     <label>
-                      横向坐标 X
+                      定位坐标 X
                       <input
                         type="number"
                         required
@@ -633,18 +714,15 @@ export function PointWorkspace({
                         value={input.geometry.anchor.x}
                         onChange={(e) => {
                           if (e.target.value)
-                            geometry({
-                              ...input.geometry,
-                              anchor: {
-                                ...input.geometry.anchor,
-                                x: Number(e.target.value),
-                              },
+                            moveAnchor({
+                              ...input.geometry.anchor,
+                              x: Number(e.target.value),
                             });
                         }}
                       />
                     </label>
                     <label>
-                      纵向坐标 Y
+                      定位坐标 Y
                       <input
                         type="number"
                         required
@@ -654,12 +732,9 @@ export function PointWorkspace({
                         value={input.geometry.anchor.y}
                         onChange={(e) => {
                           if (e.target.value)
-                            geometry({
-                              ...input.geometry,
-                              anchor: {
-                                ...input.geometry.anchor,
-                                y: Number(e.target.value),
-                              },
+                            moveAnchor({
+                              ...input.geometry.anchor,
+                              y: Number(e.target.value),
                             });
                         }}
                       />

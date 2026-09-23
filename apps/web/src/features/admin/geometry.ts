@@ -1,4 +1,29 @@
 export type XY = { x: number; y: number };
+// Translate the entire hit region; clamping individual vertices would deform it.
+export function moveGeometry<T extends { anchor: XY; polygon: XY[] }>(
+  value: T,
+  target: XY,
+  width: number,
+  height: number,
+): T {
+  if (!Number.isFinite(target.x) || !Number.isFinite(target.y))
+    throw new Error("定位坐标必须是有效数字");
+  const dx = target.x - value.anchor.x,
+    dy = target.y - value.anchor.y;
+  const translate = (p: XY): XY => ({
+    x: Math.round((p.x + dx) * 1000) / 1000,
+    y: Math.round((p.y + dy) * 1000) / 1000,
+  });
+  const anchor = translate(value.anchor),
+    polygon = value.polygon.map(translate);
+  if (
+    [anchor, ...polygon].some(
+      (p) => p.x < 0 || p.y < 0 || p.x > width || p.y > height,
+    )
+  )
+    throw new Error("移动后点击范围会超出图片，请选择更靠内的位置或先调整范围");
+  return { ...value, anchor, polygon };
+}
 export function clampPoint(p: XY, width: number, height: number): XY {
   return {
     x: Math.round(Math.min(width, Math.max(0, p.x)) * 1000) / 1000,

@@ -4,7 +4,13 @@ import "leaflet/dist/leaflet.css";
 import type { MapInfo } from "../../shared/api/client";
 import { fromMapPoint, imageBounds, toMapPoint } from "../map/coordinates";
 import type { AdminMapPoint, GeometryInput } from "./api";
-import { clampPoint, rectangle, validPolygon, type XY } from "./geometry";
+import {
+  clampPoint,
+  moveGeometry,
+  rectangle,
+  validPolygon,
+  type XY,
+} from "./geometry";
 import { ErrorBox } from "./ui";
 type Props = {
   info: MapInfo;
@@ -18,7 +24,7 @@ type Props = {
   onUndo: () => void;
   canUndo: boolean;
 };
-type Mode = "pan" | "anchor" | "polygon" | "rectangle";
+type Mode = "pan" | "move" | "label" | "polygon" | "rectangle";
 export function MapEditor(props: Props) {
   const { info, points, selectedId, value, name, editable } = props;
   const node = useRef<HTMLDivElement>(null),
@@ -90,9 +96,18 @@ export function MapEditor(props: Props) {
         info.width_px,
         info.height_px,
       );
-      if (modeRef.current === "anchor") {
-        state.onChange({ ...state.value, anchor: p });
-        setMode("pan");
+      if (modeRef.current === "move" || modeRef.current === "label") {
+        try {
+          state.onChange(
+            modeRef.current === "move"
+              ? moveGeometry(state.value, p, info.width_px, info.height_px)
+              : { ...state.value, anchor: p },
+          );
+          setMode("pan");
+          setError("");
+        } catch (e) {
+          setError((e as Error).message);
+        }
       }
       if (modeRef.current === "polygon") {
         if (drawingRef.current.length >= 200) {
@@ -174,22 +189,27 @@ export function MapEditor(props: Props) {
           iconAnchor: [9, 9],
         }),
         draggable: editable && mode === "pan",
-        title: "点位定位锚点",
+        title: "拖动点位，同时移动点击范围",
         keyboard: true,
       }).addTo(group);
-      anchor.on(
-        "dragend",
-        () =>
-          latest.current.value &&
-          latest.current.onChange({
-            ...latest.current.value,
-            anchor: clampPoint(
+      anchor.on("dragend", () => {
+        const current = latest.current.value;
+        if (!current || !latest.current.editable) return;
+        try {
+          latest.current.onChange(
+            moveGeometry(
+              current,
               fromMapPoint(anchor.getLatLng(), z),
               info.width_px,
               info.height_px,
             ),
-          }),
-      );
+          );
+          setError("");
+        } catch (e) {
+          anchor.setLatLng(toMapPoint(current.anchor, z));
+          setError((e as Error).message);
+        }
+      });
       if (editable && mode === "pan")
         value.polygon.forEach((p, i) => {
           const marker = L.marker(toMapPoint(p, z), {
@@ -316,11 +336,19 @@ export function MapEditor(props: Props) {
         {editable && value && (
           <>
             <button
-              className={mode === "anchor" ? "active" : ""}
-              onClick={() => choose("anchor")}
+              className={mode === "move" ? "active" : ""}
+              onClick={() => choose("move")}
             >
-              点击定位
+              移动整个点位
             </button>
+            {value.label_on_map && (
+              <button
+                className={mode === "label" ? "active" : ""}
+                onClick={() => choose("label")}
+              >
+                只移新增文字
+              </button>
+            )}
             <button
               className={mode === "rectangle" ? "active" : ""}
               onClick={() => choose("rectangle")}
@@ -370,15 +398,17 @@ export function MapEditor(props: Props) {
       </div>
       <div className="ad-map-note">
         <span className="ad-dot" />{" "}
-        {mode === "anchor"
-          ? "在图片上点击新的定位位置"
-          : mode === "rectangle"
-            ? `点击矩形的${drawing.length ? "另一个" : "第一个"}对角`
-            : mode === "polygon"
-              ? `依次点击边界 · 已选 ${drawing.length} 个顶点`
-              : editable && value
-                ? "紫色圆点可拖动定位，白色方点可调整点击范围"
-                : "点击轮廓选中地点；滚轮或双指缩放"}
+        {mode === "move"
+          ? "点击新位置：定位点和整个点击范围一起移动"
+          : mode === "label"
+            ? "点击新的文字位置；点击范围保持原位，底图内的字不变"
+            : mode === "rectangle"
+              ? `点击矩形的${drawing.length ? "另一个" : "第一个"}对角`
+              : mode === "polygon"
+                ? `依次点击边界 · 已选 ${drawing.length} 个顶点`
+                : editable && value
+                  ? "拖动紫色圆点会连同点击范围一起移动；白色方点调整边界"
+                  : "点击轮廓选中地点；滚轮或双指缩放"}
         {mode === "polygon" && (
           <>
             <button disabled={drawing.length < 3} onClick={complete}>
