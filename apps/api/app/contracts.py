@@ -5,7 +5,15 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FiniteFloat,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 
 CampusId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{1,63}$")]
 Revision = Annotated[int, Field(ge=1)]
@@ -144,6 +152,7 @@ class PointGeometry(DTO):
     anchor: XY
     polygon: list[XY] = Field(min_length=3)
     entrance_ids: list[UUID]
+    label_on_map: bool = False
 
 
 class MapFeatures(DTO):
@@ -424,6 +433,14 @@ class OfficialChannel(DTO):
     source: SourceRef
 
 
+class PointLocationInput(DTO):
+    map_id: UUID
+    map_revision: Revision
+    anchor: XY
+    polygon: list[XY] = Field(min_length=3, max_length=200)
+    label_on_map: bool = True
+
+
 class PointDraftInput(DTO):
     campus_id: CampusId
     name: str = Field(min_length=1, max_length=120)
@@ -433,11 +450,20 @@ class PointDraftInput(DTO):
     category: PointCategory
     summary: str = Field(max_length=2000)
     visibility: Visibility
-    source_ids: list[UUID] = Field(min_length=1, max_length=20)
+    source_note: str = Field(min_length=1, max_length=2000)
+    geometry: PointLocationInput
+
+    @field_validator("name", "source_note")
+    @classmethod
+    def meaningful_text(cls, value):
+        if not value.strip():
+            raise ValueError("text cannot be blank")
+        return value.strip()
 
 
 class PointDraftUpdate(PointDraftInput):
-    expected_revision: Revision
+    expected_revision: int = Field(ge=0)
+    expected_point_revision: Revision
 
 
 class ReviewRequest(DTO):
@@ -445,11 +471,125 @@ class ReviewRequest(DTO):
     note: str = Field(min_length=1, max_length=1000)
 
 
+class PointChange(DTO):
+    revision: Revision
+    base_revision: Revision
+    state: Literal["draft", "in_review", "rejected", "published", "discarded"]
+    operation: Literal["upsert", "retire"]
+    payload: PointDraftInput | None
+    contributor_ids: list[UUID]
+    editor_id: UUID
+    submitted_by: UUID | None
+    submitted_at: datetime | None
+    review_note: str
+    updated_at: datetime
+
+
 class AdminPoint(DTO):
     point: Point
     status: ContentStatus
     visibility: Visibility
-    source_ids: list[UUID]
+    geometries: list[PointGeometry]
+    draft: PointChange | None
+
+
+class PointRetireRequest(DTO):
+    expected_revision: int = Field(ge=0)
+    expected_point_revision: Revision
+    note: str = Field(min_length=1, max_length=1000)
+
+
+class AdminMapPoint(DTO):
+    id: UUID
+    name: str
+    status: ContentStatus
+    geometry: PointGeometry | None
+    draft_geometry: PointLocationInput | None
+    draft_state: str | None
+
+
+StaffRole = Literal["admin", "reviewer", "editor", "viewer"]
+StaffUsername = Annotated[str, Field(pattern=r"^[a-z][a-z0-9._-]{2,63}$")]
+
+
+class StaffUser(DTO):
+    id: UUID
+    username: StaffUsername
+    display_name: str
+    role: StaffRole
+    campus_ids: list[CampusId]
+    point_ids: list[UUID]
+    is_active: bool
+    must_change_password: bool
+    revision: Revision
+    created_at: datetime
+    updated_at: datetime
+
+
+class StaffUserInput(DTO):
+    display_name: str = Field(min_length=1, max_length=80)
+    role: StaffRole
+    campus_ids: list[CampusId] = Field(default_factory=list, max_length=100)
+    point_ids: list[UUID] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def role_scope(self):
+        if not self.display_name.strip():
+            raise ValueError("display name required")
+        self.display_name = self.display_name.strip()
+        if self.role == "admin" and (self.campus_ids or self.point_ids):
+            raise ValueError("administrators have global scope")
+        if self.role != "admin" and not self.campus_ids:
+            raise ValueError("non-administrators need a campus scope")
+        if len(set(self.campus_ids)) != len(self.campus_ids) or len(set(self.point_ids)) != len(
+            self.point_ids
+        ):
+            raise ValueError("duplicate scope")
+        return self
+
+
+class StaffUserCreate(StaffUserInput):
+    username: StaffUsername
+    password: SecretStr = Field(min_length=12, max_length=128)
+
+
+class StaffUserUpdate(StaffUserInput):
+    expected_revision: Revision
+    is_active: bool
+    new_password: SecretStr | None = Field(default=None, min_length=12, max_length=128)
+
+
+class StaffLogin(DTO):
+    username: StaffUsername
+    password: SecretStr = Field(min_length=1, max_length=128)
+
+
+class StaffPasswordChange(DTO):
+    current_password: SecretStr = Field(min_length=1, max_length=128)
+    new_password: SecretStr = Field(min_length=12, max_length=128)
+
+
+class StaffSession(DTO):
+    user: StaffUser
+    permissions: list[str]
+    csrf_token: str
+    expires_at: datetime
+
+
+class ActionResult(DTO):
+    ok: bool = True
+
+
+class AuditEvent(DTO):
+    id: UUID
+    actor_id: UUID
+    actor_name: str
+    action: str
+    campus_id: CampusId | None
+    point_id: UUID | None
+    note: str
+    details: dict
+    created_at: datetime
 
 
 class InquiryStats(DTO):

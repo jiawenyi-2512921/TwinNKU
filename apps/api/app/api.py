@@ -25,7 +25,7 @@ from app.contracts import (
 )
 from app.core.errors import DomainError, request_id
 from app.database import get_db
-from app.models import CampusRecord, FloorRecord, MapRecord, PointRecord
+from app.models import CampusRecord, FloorRecord, MapRecord, PointRecord, StaffUserRecord
 from app.modules.floors.service import public_floors
 
 router = APIRouter()
@@ -121,6 +121,14 @@ def system_status(request: Request, db: DB):
             version=request.app.state.settings.app_version,
             capabilities=Capabilities(
                 map=has_map,
+                admin=bool(
+                    request.app.state.settings.admin_enabled
+                    and db.scalar(
+                        select(StaffUserRecord.id)
+                        .where(StaffUserRecord.role == "admin", StaffUserRecord.is_active.is_(True))
+                        .limit(1)
+                    )
+                ),
                 floors=bool(
                     request.app.state.settings.floors_enabled
                     and db.scalar(public_floors().with_only_columns(FloorRecord.id).limit(1))

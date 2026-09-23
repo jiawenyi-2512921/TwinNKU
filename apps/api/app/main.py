@@ -5,6 +5,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm.exc import StaleDataError
 from starlette.exceptions import HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -17,6 +18,7 @@ from app.core.errors import (
     http_error_handler,
     validation_error_handler,
 )
+from app.modules.admin.router import router as admin_router
 from app.modules.floors.router import router as floors_router
 from app.modules.maps.router import router as maps_router
 
@@ -39,6 +41,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(DomainError, domain_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(HTTPException, http_error_handler)
+
+    @app.exception_handler(StaleDataError)
+    async def revision_conflict(request: Request, _exc: StaleDataError):
+        return error_response(
+            request, 409, "REVISION_CONFLICT", "内容已被他人修改，请重新加载后再保存"
+        )
 
     @app.exception_handler(SQLAlchemyError)
     async def database_error(request: Request, _exc: SQLAlchemyError):
@@ -69,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(router)
     app.include_router(maps_router)
     app.include_router(floors_router)
+    app.include_router(admin_router)
     return app
 
 
