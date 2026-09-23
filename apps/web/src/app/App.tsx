@@ -43,7 +43,6 @@ export function App() {
   const [category, setCategory] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
-  const [showUnnamed, setShowUnnamed] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const search = useRef<HTMLInputElement>(null);
   const selectPoint = useCallback((id: string | null) => {
@@ -144,12 +143,10 @@ export function App() {
     const q = query.trim().toLocaleLowerCase();
     return points.filter(
       (p) =>
-        (showUnnamed || p.name !== "未命名建筑") &&
         (category === "all" || p.category === category) &&
         [p.name, ...p.aliases].some((s) => s.toLocaleLowerCase().includes(q)),
     );
-  }, [points, query, category, showUnnamed]);
-  const unnamedCount = points.filter((p) => p.name === "未命名建筑").length;
+  }, [points, query, category]);
   const selected = points.find((p) => p.id === selectedId);
   const groups = categories.filter(
     (c) => c === "all" || points.some((p) => p.category === c),
@@ -254,16 +251,6 @@ export function App() {
               </button>
             ))}
           </div>
-          {unnamedCount > 0 && (
-            <label className="unnamed-filter">
-              <input
-                type="checkbox"
-                checked={showUnnamed}
-                onChange={(e) => setShowUnnamed(e.target.checked)}
-              />
-              显示待确认建筑（{unnamedCount}处）
-            </label>
-          )}
           <div className="list-heading">
             <span>
               探索地点 <b>{filtered.length.toString().padStart(2, "0")}</b>
@@ -292,11 +279,7 @@ export function App() {
                     </span>
                     <span className="point-row-text">
                       <strong>{p.name}</strong>
-                      <small>
-                        {p.name === "未命名建筑"
-                          ? "名称与用途待核对"
-                          : categoryLabels[p.category]}
-                      </small>
+                      <small>{categoryLabels[p.category]}</small>
                     </span>
                     <Icon name="arrow" size={15} />
                   </button>
