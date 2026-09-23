@@ -20,7 +20,14 @@ type Catalog = {
   features: MapFeatures | null;
   points: Point[];
 };
-const categories = ["all", "academic", "public_area", "landscape"] as const;
+const categories = [
+  "all",
+  "academic",
+  "public_area",
+  "landscape",
+  "residence",
+  "dining",
+] as const;
 
 export function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -38,6 +45,7 @@ export function App() {
     setSelectedId(id);
     setShowList(false);
     const url = new URL(window.location.href);
+    url.searchParams.delete("floor");
     if (id) url.searchParams.set("point", id);
     else url.searchParams.delete("point");
     window.history.replaceState(null, "", url);
