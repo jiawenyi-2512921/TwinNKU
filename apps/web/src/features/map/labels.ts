@@ -75,6 +75,7 @@ export function labelPriority(name: string, category: string): number {
       "综合实验楼",
       "大通学生活动中心",
       "马蹄湖",
+      "周恩来雕像",
     ].includes(name)
   )
     return 100;
