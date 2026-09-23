@@ -40,5 +40,6 @@ def as_floor(record):
                 url=f"/api/v1/floors/{record.id}/images/{record.revision}/{image['variant']}",
             )
             for image in record.images
+            if image["variant"] == "labeled"
         ],
     )

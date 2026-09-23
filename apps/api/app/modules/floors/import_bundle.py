@@ -1,4 +1,4 @@
-"""Import reviewed clean/labeled pairs without re-encoding or copying source photos."""
+"""Import reviewed labeled plans; legacy pairs remain readable by the importer."""
 
 import argparse
 import hashlib
@@ -48,15 +48,14 @@ class BundleFloor(DTO):
     ordinal: int = Field(ge=-20, le=200)
     revision: Revision
     attribution: str = Field(min_length=1, max_length=2000)
-    images: list[BundleImage] = Field(min_length=2, max_length=2)
+    images: list[BundleImage] = Field(min_length=1, max_length=2)
 
     @model_validator(mode="after")
-    def exact_pair(self):
-        if {i.variant for i in self.images} != {"labeled", "clean"}:
-            raise ValueError(
-                "exactly one labeled and one clean image are required; photos excluded"
-            )
-        if self.images[0].sha256 == self.images[1].sha256:
+    def labeled_required(self):
+        variants = [i.variant for i in self.images]
+        if "labeled" not in variants or len(set(variants)) != len(variants):
+            raise ValueError("one labeled image is required; variants must be unique")
+        if len(self.images) == 2 and self.images[0].sha256 == self.images[1].sha256:
             raise ValueError("clean and labeled roles must not use identical image bytes")
         return self
 
@@ -235,7 +234,7 @@ def import_bundle(
     db.flush()
     return {
         "floors": len(bundle.floors),
-        "images": len(bundle.floors) * 2,
+        "images": sum(len(f.images) for f in bundle.floors),
         "status": "published" if publish else "draft",
     }
 

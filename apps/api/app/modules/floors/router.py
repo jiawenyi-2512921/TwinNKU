@@ -78,7 +78,7 @@ def get_image(
     floor_id: UUID, revision: int, variant: Literal["labeled", "clean"], request: Request, db: DB
 ):
     record = require_floor(floor_id, request, db)
-    if revision != record.revision:
+    if revision != record.revision or variant != "labeled":
         raise DomainError("NOT_FOUND", "楼层图版本不存在", 404)
     asset = next((a for a in record.images if a["variant"] == variant), None)
     root = request.app.state.settings.floor_assets_dir.resolve()
