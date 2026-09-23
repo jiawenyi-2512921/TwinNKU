@@ -8,6 +8,9 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
         <path d="m16 16 4.5 4.5" />
       </>
     ),
+    refresh: (
+      <path d="M20 7v5h-5M4 17v-5h5M5.2 7a8 8 0 0 1 13-1L20 9M4 15l1.8 3a8 8 0 0 0 13-1" />
+    ),
     close: <path d="m6 6 12 12M18 6 6 18" />,
     arrow: <path d="m9 5 7 7-7 7" />,
     pin: (
