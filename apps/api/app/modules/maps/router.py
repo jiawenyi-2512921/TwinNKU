@@ -3,18 +3,19 @@ from uuid import UUID
 
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.api import DB, ERRORS, envelope, require_campus
 from app.contracts import CampusId, Envelope, MapFeatures, MapInfo, MapTiles, PointGeometry
 from app.core.errors import DomainError
-from app.models import CampusRecord, MapRecord, PointGeometryRecord, PointRecord
+from app.models import CampusRecord, FloorRecord, MapRecord, PointGeometryRecord, PointRecord
+from app.modules.floors.service import public_floors
 
 router = APIRouter()
 IMPLEMENTED = {"x-implementation-status": "implemented", "x-module": "M01", "x-auth": "public"}
 
 
-def public_maps():
+def public_maps(request):
     return (
         select(MapRecord)
         .join(CampusRecord)
@@ -22,13 +23,18 @@ def public_maps():
             CampusRecord.is_active.is_(True),
             MapRecord.status == "published",
             MapRecord.visibility == "public",
+            or_(
+                (MapRecord.kind == "campus") & request.app.state.settings.map_enabled,
+                (MapRecord.id.in_(public_floors().with_only_columns(FloorRecord.map_id)))
+                & request.app.state.settings.floors_enabled,
+            ),
         )
     )
 
 
 def require_map(map_id, request, db):
-    record = db.scalar(public_maps().where(MapRecord.id == str(map_id)))
-    if not request.app.state.settings.map_enabled or record is None:
+    record = db.scalar(public_maps(request).where(MapRecord.id == str(map_id)))
+    if record is None:
         raise DomainError("NOT_FOUND", "地图不存在或尚未公开", 404)
     return record
 
@@ -50,7 +56,9 @@ def as_map(record):
             tile_size=record.tile_size,
             min_zoom=0,
             max_native_zoom=record.max_native_zoom,
-        ),
+        )
+        if record.kind == "campus"
+        else None,
     )
 
 
@@ -65,11 +73,9 @@ def as_map(record):
 def list_maps(campus_id: CampusId, request: Request, db: DB):
     require_campus(db, campus_id)
     records = db.scalars(
-        public_maps().where(MapRecord.campus_id == campus_id).order_by(MapRecord.title)
+        public_maps(request).where(MapRecord.campus_id == campus_id).order_by(MapRecord.title)
     ).all()
-    return envelope(
-        request, [as_map(r) for r in records] if request.app.state.settings.map_enabled else []
-    )
+    return envelope(request, [as_map(r) for r in records])
 
 
 @router.get(
@@ -131,7 +137,11 @@ def get_features(map_id: UUID, request: Request, db: DB):
 )
 def get_tile(map_id: UUID, revision: int, z: int, x: int, y: int, request: Request, db: DB):
     record = require_map(map_id, request, db)
-    if revision != record.revision or not 0 <= z <= record.max_native_zoom:
+    if (
+        record.kind != "campus"
+        or revision != record.revision
+        or not 0 <= z <= record.max_native_zoom
+    ):
         raise DomainError("NOT_FOUND", "地图版本或图块不存在", 404)
     size = record.tile_size * 2 ** (record.max_native_zoom - z)
     if not (
