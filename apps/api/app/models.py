@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -112,6 +113,43 @@ class MapImportRecord(Base):
     __tablename__ = "map_imports"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     map_id: Mapped[str] = mapped_column(ForeignKey("maps.id", ondelete="RESTRICT"))
+    revision: Mapped[int] = mapped_column(Integer)
+    manifest_sha256: Mapped[str] = mapped_column(String(64))
+    reviewer: Mapped[str] = mapped_column(String(120))
+    rights_note: Mapped[str] = mapped_column(Text)
+    published: Mapped[bool] = mapped_column(Boolean)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+
+class FloorRecord(Base):
+    __tablename__ = "floors"
+    __table_args__ = (
+        UniqueConstraint("point_id", "ordinal", name="uq_floors_point_ordinal"),
+        UniqueConstraint("map_id", name="uq_floors_map"),
+        CheckConstraint("revision >= 1", name="ck_floors_revision"),
+        CheckConstraint("status IN ('draft','published','retired')", name="ck_floors_status"),
+        CheckConstraint(
+            "visibility IN ('public','internal','restricted')", name="ck_floors_visibility"
+        ),
+        Index("ix_floors_point", "point_id", "status", "visibility"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    point_id: Mapped[str] = mapped_column(ForeignKey("points.id", ondelete="RESTRICT"))
+    map_id: Mapped[str] = mapped_column(ForeignKey("maps.id", ondelete="RESTRICT"))
+    label: Mapped[str] = mapped_column(String(64))
+    ordinal: Mapped[int] = mapped_column(Integer)
+    revision: Mapped[int] = mapped_column(Integer)
+    attribution: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(24), default="draft")
+    visibility: Mapped[str] = mapped_column(String(24), default="internal")
+    manifest_sha256: Mapped[str] = mapped_column(String(64))
+    images: Mapped[list] = mapped_column(JSON)
+
+
+class FloorImportRecord(Base):
+    __tablename__ = "floor_imports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    floor_id: Mapped[str] = mapped_column(ForeignKey("floors.id", ondelete="RESTRICT"))
     revision: Mapped[int] = mapped_column(Integer)
     manifest_sha256: Mapped[str] = mapped_column(String(64))
     reviewer: Mapped[str] = mapped_column(String(120))

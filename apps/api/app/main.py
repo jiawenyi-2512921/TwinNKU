@@ -17,6 +17,7 @@ from app.core.errors import (
     http_error_handler,
     validation_error_handler,
 )
+from app.modules.floors.router import router as floors_router
 from app.modules.maps.router import router as maps_router
 
 logger = logging.getLogger("twinnku")
@@ -67,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(router)
     app.include_router(maps_router)
+    app.include_router(floors_router)
     return app
 
 

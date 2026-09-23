@@ -25,7 +25,8 @@ from app.contracts import (
 )
 from app.core.errors import DomainError, request_id
 from app.database import get_db
-from app.models import CampusRecord, MapRecord, PointRecord
+from app.models import CampusRecord, FloorRecord, MapRecord, PointRecord
+from app.modules.floors.service import public_floors
 
 router = APIRouter()
 DB = Annotated[Session, Depends(get_db)]
@@ -106,6 +107,7 @@ def system_status(request: Request, db: DB):
             .join(CampusRecord)
             .where(
                 MapRecord.status == "published",
+                MapRecord.kind == "campus",
                 MapRecord.visibility == "public",
                 CampusRecord.is_active.is_(True),
             )
@@ -116,7 +118,14 @@ def system_status(request: Request, db: DB):
     return envelope(
         request,
         SystemStatus(
-            version=request.app.state.settings.app_version, capabilities=Capabilities(map=has_map)
+            version=request.app.state.settings.app_version,
+            capabilities=Capabilities(
+                map=has_map,
+                floors=bool(
+                    request.app.state.settings.floors_enabled
+                    and db.scalar(public_floors().with_only_columns(FloorRecord.id).limit(1))
+                ),
+            ),
         ),
     )
 
