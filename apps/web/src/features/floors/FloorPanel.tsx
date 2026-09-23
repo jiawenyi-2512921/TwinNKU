@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type Floor, type FloorImage } from "../../shared/api/client";
+import { api, type Floor } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import { floorLocation, resolveFloor } from "../../shared/navigation";
 import { FloorViewer } from "./FloorViewer";
@@ -14,7 +14,6 @@ export function FloorPanel({
 }) {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [selectedId, setSelectedId] = useState("");
-  const [variant, setVariant] = useState<FloorImage["variant"]>("labeled");
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -28,7 +27,6 @@ export function FloorPanel({
     setFloors([]);
     setSelectedId("");
     setStatus("loading");
-    setVariant("labeled");
     api
       .floors(pointId, controller.signal)
       .then(({ data }) => {
@@ -59,8 +57,8 @@ export function FloorPanel({
   }, [expanded]);
 
   const floor = floors.find((f) => f.id === selectedId);
-  const asset = floor?.images?.find((a) => a.variant === variant);
-  const title = `${pointName} · ${floor?.label ?? ""} · ${variant === "labeled" ? "已标注图" : "无标注图"}`;
+  const asset = floor?.images?.find((a) => a.variant === "labeled");
+  const title = `${pointName} · ${floor?.label ?? ""} · 已标注图`;
   function selectFloor(id: string) {
     if (!floors.some((f) => f.id === id && f.point_id === pointId)) return;
     setSelectedId(id);
@@ -89,20 +87,6 @@ export function FloorPanel({
             </option>
           ))}
         </select>
-        <div className="floor-variants" aria-label="图纸版本">
-          <button
-            aria-pressed={variant === "labeled"}
-            onClick={() => setVariant("labeled")}
-          >
-            已标注
-          </button>
-          <button
-            aria-pressed={variant === "clean"}
-            onClick={() => setVariant("clean")}
-          >
-            无标注
-          </button>
-        </div>
       </div>
     );
   }
@@ -143,7 +127,7 @@ export function FloorPanel({
           {selectors("preview")}
           {asset ? (
             <FloorViewer
-              key={`${floor.id}-${floor.revision}-${variant}`}
+              key={`${floor.id}-${floor.revision}-labeled`}
               asset={asset}
               title={title}
             />
@@ -191,16 +175,13 @@ export function FloorPanel({
                 {selectors("expanded")}
                 {asset && (
                   <FloorViewer
-                    key={`${floor.id}-${floor.revision}-${variant}`}
+                    key={`${floor.id}-${floor.revision}-labeled`}
                     asset={asset}
                     title={title}
                   />
                 )}
                 <footer>
-                  <span>
-                    {floor.label} ·{" "}
-                    {variant === "labeled" ? "已标注图" : "无标注图"}
-                  </span>
+                  <span>{floor.label} · 已标注图</span>
                   <span>
                     {asset?.width_px} × {asset?.height_px} 像素
                   </span>
