@@ -1,0 +1,3789 @@
+{
+  "schema_version": 1,
+  "map": {
+    "id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+    "campus_id": "nku-jinnan",
+    "title": "南开大学津南校区地图",
+    "kind": "campus",
+    "width_px": 8279,
+    "height_px": 5604,
+    "revision": 3,
+    "image_asset_id": "41478fd2-b14f-5739-9cbb-689f1cf3fdf8",
+    "coordinate_system": "image-pixel-top-left",
+    "tiles": {
+      "url_template": "/api/v1/maps/eee88cf5-87a0-592e-b1cc-a70674941bbf/tiles/3/{z}/{x}/{y}.png",
+      "tile_size": 512,
+      "min_zoom": 0,
+      "max_native_zoom": 5
+    },
+    "source_sha256": "aa5f84fc993dca7371e1d1bf6a5e190925ec2ce5f0d2d4dc968093346028218f",
+    "attribution": "底图：用户提供的津南校区规划图；名称依据用户提供的校区地图整理。"
+  },
+  "source_note": "沿用8279×5604同一84项名称标注底图和265张原图块，底图像素不变。点击仅覆盖已命名地点：84项名称中同楼三学院沿用同一UUID，形成82点；按用户2026-09-23最新指示，在综合业务西楼与东楼正中央新增周恩来雕像，合计83点。所有未命名建筑不设点击；张伯苓雕像、严范孙雕像、学生文化谷不添加。人工区域和雕像位置为图上显示用途，非实测边界、入口或路网。保留v2全部23个点位UUID；综合实验楼C/D可点击但未导入新楼层。",
+  "points": [
+    {
+      "point": {
+        "id": "e62f4f62-7a79-5ec8-b391-e1e2fe00056b",
+        "campus_id": "nku-jinnan",
+        "name": "南门",
+        "aliases": [
+          "南校门"
+        ],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "e62f4f62-7a79-5ec8-b391-e1e2fe00056b",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4613.818,
+          "y": 5334.577
+        },
+        "polygon": [
+          {
+            "x": 4500.628,
+            "y": 5242.973
+          },
+          {
+            "x": 4716.227,
+            "y": 5242.973
+          },
+          {
+            "x": 4716.227,
+            "y": 5474.677
+          },
+          {
+            "x": 4500.628,
+            "y": 5474.677
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "48da7106-7d24-5493-84d3-48d334d07410",
+        "campus_id": "nku-jinnan",
+        "name": "图书馆",
+        "aliases": [
+          "图书馆主楼"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "48da7106-7d24-5493-84d3-48d334d07410",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4613.818,
+          "y": 3955.131
+        },
+        "polygon": [
+          {
+            "x": 4306.589,
+            "y": 3863.527
+          },
+          {
+            "x": 4926.436,
+            "y": 3863.527
+          },
+          {
+            "x": 4926.436,
+            "y": 4019.792
+          },
+          {
+            "x": 4764.737,
+            "y": 4019.792
+          },
+          {
+            "x": 4764.737,
+            "y": 4084.454
+          },
+          {
+            "x": 4468.288,
+            "y": 4084.454
+          },
+          {
+            "x": 4468.288,
+            "y": 4025.181
+          },
+          {
+            "x": 4306.589,
+            "y": 4025.181
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "f6527692-d448-50fb-ae1f-df0a082ee28d",
+        "campus_id": "nku-jinnan",
+        "name": "公共教学楼",
+        "aliases": [
+          "公教楼",
+          "公共教学"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "f6527692-d448-50fb-ae1f-df0a082ee28d",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4241.91,
+          "y": 3125.308
+        },
+        "polygon": [
+          {
+            "x": 4031.701,
+            "y": 2748.115
+          },
+          {
+            "x": 4484.458,
+            "y": 2748.115
+          },
+          {
+            "x": 4484.458,
+            "y": 3572.55
+          },
+          {
+            "x": 4031.701,
+            "y": 3572.55
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "a3ce1544-4a2c-5712-9a47-6f0a3a458b2c",
+        "campus_id": "nku-jinnan",
+        "name": "大通学生活动中心",
+        "aliases": [
+          "大通中心",
+          "学生活动中心"
+        ],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "a3ce1544-4a2c-5712-9a47-6f0a3a458b2c",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 5508.553,
+          "y": 3109.142
+        },
+        "polygon": [
+          {
+            "x": 5400.754,
+            "y": 2872.05
+          },
+          {
+            "x": 5497.773,
+            "y": 2872.05
+          },
+          {
+            "x": 5535.503,
+            "y": 2979.819
+          },
+          {
+            "x": 5643.303,
+            "y": 2963.654
+          },
+          {
+            "x": 5691.812,
+            "y": 3044.481
+          },
+          {
+            "x": 5600.183,
+            "y": 3109.142
+          },
+          {
+            "x": 5691.812,
+            "y": 3173.804
+          },
+          {
+            "x": 5648.693,
+            "y": 3260.019
+          },
+          {
+            "x": 5557.063,
+            "y": 3238.465
+          },
+          {
+            "x": 5540.893,
+            "y": 3335.458
+          },
+          {
+            "x": 5443.874,
+            "y": 3335.458
+          },
+          {
+            "x": 5411.534,
+            "y": 3222.3
+          },
+          {
+            "x": 5319.904,
+            "y": 3243.854
+          },
+          {
+            "x": 5266.005,
+            "y": 3163.027
+          },
+          {
+            "x": 5363.024,
+            "y": 3109.142
+          },
+          {
+            "x": 5292.954,
+            "y": 3033.704
+          },
+          {
+            "x": 5352.244,
+            "y": 2952.877
+          },
+          {
+            "x": 5438.484,
+            "y": 2979.819
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "13d78a03-9905-5d19-9738-1a8c1d91e0bd",
+        "campus_id": "nku-jinnan",
+        "name": "马蹄湖",
+        "aliases": [],
+        "category": "landscape",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "13d78a03-9905-5d19-9738-1a8c1d91e0bd",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2436.268,
+          "y": 3550.996
+        },
+        "polygon": [
+          {
+            "x": 2317.689,
+            "y": 3340.846
+          },
+          {
+            "x": 2511.728,
+            "y": 3308.515
+          },
+          {
+            "x": 2624.917,
+            "y": 3405.508
+          },
+          {
+            "x": 2684.207,
+            "y": 3513.277
+          },
+          {
+            "x": 2635.697,
+            "y": 3674.931
+          },
+          {
+            "x": 2506.338,
+            "y": 3771.923
+          },
+          {
+            "x": 2382.368,
+            "y": 3761.146
+          },
+          {
+            "x": 2279.959,
+            "y": 3637.212
+          },
+          {
+            "x": 2263.789,
+            "y": 3491.723
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "7b6d0992-b614-5eab-b37c-02e9b7aad0e4",
+        "campus_id": "nku-jinnan",
+        "name": "材料科学与工程学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "7b6d0992-b614-5eab-b37c-02e9b7aad0e4",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3390.94,
+          "y": 3560.012
+        },
+        "polygon": [
+          {
+            "x": 3224.211,
+            "y": 3404.729
+          },
+          {
+            "x": 3601.365,
+            "y": 3459.941
+          },
+          {
+            "x": 3550.771,
+            "y": 3717.596
+          },
+          {
+            "x": 3187.415,
+            "y": 3657.783
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "6bc16059-d0fb-5a08-b802-2369764ca036",
+        "campus_id": "nku-jinnan",
+        "name": "电子信息与光学工程学院",
+        "aliases": [
+          "电光学院"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "6bc16059-d0fb-5a08-b802-2369764ca036",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2967.792,
+          "y": 3773.958
+        },
+        "polygon": [
+          {
+            "x": 2814.86,
+            "y": 3561.163
+          },
+          {
+            "x": 3178.216,
+            "y": 3616.374
+          },
+          {
+            "x": 3146.02,
+            "y": 4002.857
+          },
+          {
+            "x": 2732.07,
+            "y": 3915.438
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "5f1f6b6d-36c7-597d-b2d8-071781d7ecde",
+        "campus_id": "nku-jinnan",
+        "name": "公共教学楼A区",
+        "aliases": [
+          "公教A",
+          "公教A区"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "5f1f6b6d-36c7-597d-b2d8-071781d7ecde",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4139.5,
+          "y": 3370.222
+        },
+        "polygon": [
+          {
+            "x": 4024.514,
+            "y": 3165.478
+          },
+          {
+            "x": 4254.486,
+            "y": 3165.478
+          },
+          {
+            "x": 4254.486,
+            "y": 3574.966
+          },
+          {
+            "x": 4024.514,
+            "y": 3574.966
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "16cb0415-fd90-5206-89e9-205d0f372959",
+        "campus_id": "nku-jinnan",
+        "name": "公共教学楼B区",
+        "aliases": [
+          "公教B",
+          "公教B区"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "16cb0415-fd90-5206-89e9-205d0f372959",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4376.371,
+          "y": 3370.222
+        },
+        "polygon": [
+          {
+            "x": 4254.486,
+            "y": 3165.478
+          },
+          {
+            "x": 4498.257,
+            "y": 3165.478
+          },
+          {
+            "x": 4498.257,
+            "y": 3574.966
+          },
+          {
+            "x": 4254.486,
+            "y": 3574.966
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "4823a355-e1c2-5c54-983c-a33a5bd2ea27",
+        "campus_id": "nku-jinnan",
+        "name": "公共教学楼C区",
+        "aliases": [
+          "公教C",
+          "公教C区"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "4823a355-e1c2-5c54-983c-a33a5bd2ea27",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4376.371,
+          "y": 2942.33
+        },
+        "polygon": [
+          {
+            "x": 4254.486,
+            "y": 2719.182
+          },
+          {
+            "x": 4498.257,
+            "y": 2719.182
+          },
+          {
+            "x": 4498.257,
+            "y": 3165.478
+          },
+          {
+            "x": 4254.486,
+            "y": 3165.478
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "80e56ecd-c3c9-5fee-89a7-75961c0892ac",
+        "campus_id": "nku-jinnan",
+        "name": "公共教学楼D区",
+        "aliases": [
+          "公教D",
+          "公教D区"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "80e56ecd-c3c9-5fee-89a7-75961c0892ac",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4139.5,
+          "y": 2942.33
+        },
+        "polygon": [
+          {
+            "x": 4024.514,
+            "y": 2719.182
+          },
+          {
+            "x": 4254.486,
+            "y": 2719.182
+          },
+          {
+            "x": 4254.486,
+            "y": 3165.478
+          },
+          {
+            "x": 4024.514,
+            "y": 3165.478
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "c0752c0a-51a7-5576-9b09-df21d43570c4",
+        "campus_id": "nku-jinnan",
+        "name": "计算机学院、网络空间安全学院、人工智能学院",
+        "aliases": [
+          "计算机学院",
+          "网络空间安全学院",
+          "人工智能学院"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "c0752c0a-51a7-5576-9b09-df21d43570c4",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3362.194,
+          "y": 3876.33
+        },
+        "polygon": [
+          {
+            "x": 3187.415,
+            "y": 3699.192
+          },
+          {
+            "x": 3569.169,
+            "y": 3754.404
+          },
+          {
+            "x": 3536.973,
+            "y": 4067.271
+          },
+          {
+            "x": 3155.219,
+            "y": 3984.453
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "a0bf5008-a90d-594d-a63c-82dbde4d7f17",
+        "campus_id": "nku-jinnan",
+        "name": "理科食堂",
+        "aliases": [],
+        "category": "dining",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "a0bf5008-a90d-594d-a63c-82dbde4d7f17",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2874.653,
+          "y": 4223.704
+        },
+        "polygon": [
+          {
+            "x": 2745.868,
+            "y": 4035.064
+          },
+          {
+            "x": 3058.631,
+            "y": 4085.675
+          },
+          {
+            "x": 3008.037,
+            "y": 4416.946
+          },
+          {
+            "x": 2686.076,
+            "y": 4357.133
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "8d301ca8-eabf-5276-8073-94e63865e286",
+        "campus_id": "nku-jinnan",
+        "name": "前沿交叉学科中心",
+        "aliases": [
+          "前沿交叉学科研究中心",
+          "前沿学科交叉中心"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "8d301ca8-eabf-5276-8073-94e63865e286",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4928.305,
+          "y": 2509.838
+        },
+        "polygon": [
+          {
+            "x": 4696.033,
+            "y": 2328.099
+          },
+          {
+            "x": 5160.577,
+            "y": 2328.099
+          },
+          {
+            "x": 5160.577,
+            "y": 2691.576
+          },
+          {
+            "x": 4696.033,
+            "y": 2691.576
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "2b934df1-59d1-5d48-9d77-6208e564ae87",
+        "campus_id": "nku-jinnan",
+        "name": "软件学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "2b934df1-59d1-5d48-9d77-6208e564ae87",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3005.737,
+          "y": 3456.49
+        },
+        "polygon": [
+          {
+            "x": 2833.258,
+            "y": 3317.31
+          },
+          {
+            "x": 3210.412,
+            "y": 3386.325
+          },
+          {
+            "x": 3182.816,
+            "y": 3593.369
+          },
+          {
+            "x": 2796.462,
+            "y": 3528.956
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "caaf4219-3920-529b-9288-f99e535f8ec8",
+        "campus_id": "nku-jinnan",
+        "name": "体育馆",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "caaf4219-3920-529b-9288-f99e535f8ec8",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4597.911,
+          "y": 1706.198
+        },
+        "polygon": [
+          {
+            "x": 4401.668,
+            "y": 1375.695
+          },
+          {
+            "x": 4774.223,
+            "y": 1375.695
+          },
+          {
+            "x": 4870.812,
+            "y": 1716.167
+          },
+          {
+            "x": 4792.621,
+            "y": 2024.433
+          },
+          {
+            "x": 4410.867,
+            "y": 2024.433
+          },
+          {
+            "x": 4337.276,
+            "y": 1720.768
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "519f46df-db7b-5913-8008-44dc8d49e386",
+        "campus_id": "nku-jinnan",
+        "name": "学5-A",
+        "aliases": [
+          "学5A",
+          "学5A宿舍楼"
+        ],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "519f46df-db7b-5913-8008-44dc8d49e386",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3062.08,
+          "y": 4776.973
+        },
+        "polygon": [
+          {
+            "x": 2883.852,
+            "y": 4679.202
+          },
+          {
+            "x": 3265.606,
+            "y": 4752.818
+          },
+          {
+            "x": 3242.608,
+            "y": 4872.443
+          },
+          {
+            "x": 2856.255,
+            "y": 4803.429
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "8fa3e83f-535a-5d1c-a078-1f1f10c3c7ff",
+        "campus_id": "nku-jinnan",
+        "name": "学5-B",
+        "aliases": [
+          "学5B",
+          "学5B宿舍楼"
+        ],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "8fa3e83f-535a-5d1c-a078-1f1f10c3c7ff",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3173.617,
+          "y": 4632.042
+        },
+        "polygon": [
+          {
+            "x": 3054.031,
+            "y": 4518.167
+          },
+          {
+            "x": 3329.998,
+            "y": 4573.379
+          },
+          {
+            "x": 3284.003,
+            "y": 4743.616
+          },
+          {
+            "x": 3026.434,
+            "y": 4693.005
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "51142932-c38c-540a-9d99-a199e1e9bbd1",
+        "campus_id": "nku-jinnan",
+        "name": "学5-D",
+        "aliases": [
+          "学5D",
+          "学5D宿舍楼"
+        ],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "51142932-c38c-540a-9d99-a199e1e9bbd1",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2750.468,
+          "y": 4670.0
+        },
+        "polygon": [
+          {
+            "x": 2644.681,
+            "y": 4541.172
+          },
+          {
+            "x": 2893.051,
+            "y": 4591.783
+          },
+          {
+            "x": 2860.854,
+            "y": 4798.828
+          },
+          {
+            "x": 2603.286,
+            "y": 4748.217
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "3abe38c8-3efd-5179-8263-dfbadc301d84",
+        "campus_id": "nku-jinnan",
+        "name": "学6",
+        "aliases": [
+          "学6宿舍楼"
+        ],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "3abe38c8-3efd-5179-8263-dfbadc301d84",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2753.918,
+          "y": 4903.5
+        },
+        "polygon": [
+          {
+            "x": 2571.089,
+            "y": 4812.631
+          },
+          {
+            "x": 2957.443,
+            "y": 4881.645
+          },
+          {
+            "x": 2934.446,
+            "y": 4992.069
+          },
+          {
+            "x": 2552.692,
+            "y": 4927.655
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "11e83810-0c96-5d6e-b38d-3a0b8f0f9c67",
+        "campus_id": "nku-jinnan",
+        "name": "学7-A",
+        "aliases": [
+          "学7A",
+          "学7A宿舍楼"
+        ],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "11e83810-0c96-5d6e-b38d-3a0b8f0f9c67",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3511.676,
+          "y": 4305.372
+        },
+        "polygon": [
+          {
+            "x": 3389.791,
+            "y": 4150.089
+          },
+          {
+            "x": 3688.754,
+            "y": 4223.704
+          },
+          {
+            "x": 3633.561,
+            "y": 4458.355
+          },
+          {
+            "x": 3334.597,
+            "y": 4389.34
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "8bad2beb-6be1-5236-94d6-8ea59d21859f",
+        "campus_id": "nku-jinnan",
+        "name": "综合实验楼A区",
+        "aliases": [
+          "综合实验楼A"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "8bad2beb-6be1-5236-94d6-8ea59d21859f",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 5077.787,
+          "y": 3370.222
+        },
+        "polygon": [
+          {
+            "x": 4958.201,
+            "y": 3165.478
+          },
+          {
+            "x": 5197.372,
+            "y": 3165.478
+          },
+          {
+            "x": 5197.372,
+            "y": 3574.966
+          },
+          {
+            "x": 4958.201,
+            "y": 3574.966
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "605c0b38-0420-5faa-b980-d3977b5feafe",
+        "campus_id": "nku-jinnan",
+        "name": "综合实验楼B区",
+        "aliases": [
+          "综合实验楼B"
+        ],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "605c0b38-0420-5faa-b980-d3977b5feafe",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4840.915,
+          "y": 3370.222
+        },
+        "polygon": [
+          {
+            "x": 4723.629,
+            "y": 3165.478
+          },
+          {
+            "x": 4958.201,
+            "y": 3165.478
+          },
+          {
+            "x": 4958.201,
+            "y": 3574.966
+          },
+          {
+            "x": 4723.629,
+            "y": 3574.966
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "d4ddb35d-cc51-5563-beb1-c62b2101fc90",
+        "campus_id": "nku-jinnan",
+        "name": "西北门",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "d4ddb35d-cc51-5563-beb1-c62b2101fc90",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2657.257,
+          "y": 630.45
+        },
+        "polygon": [
+          {
+            "x": 2571.018,
+            "y": 495.738
+          },
+          {
+            "x": 2748.887,
+            "y": 495.738
+          },
+          {
+            "x": 2748.887,
+            "y": 792.104
+          },
+          {
+            "x": 2571.018,
+            "y": 792.104
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "4cd4ef2d-7516-54c8-b5f5-b12dfd23bfd6",
+        "campus_id": "nku-jinnan",
+        "name": "北门",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "4cd4ef2d-7516-54c8-b5f5-b12dfd23bfd6",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4613.818,
+          "y": 883.708
+        },
+        "polygon": [
+          {
+            "x": 4495.238,
+            "y": 765.162
+          },
+          {
+            "x": 4721.617,
+            "y": 765.162
+          },
+          {
+            "x": 4721.617,
+            "y": 986.088
+          },
+          {
+            "x": 4495.238,
+            "y": 986.088
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "49716065-7f23-57bd-86fa-1fb69f25b8a6",
+        "campus_id": "nku-jinnan",
+        "name": "西门",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "49716065-7f23-57bd-86fa-1fb69f25b8a6",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 1002.535,
+          "y": 2462.527
+        },
+        "polygon": [
+          {
+            "x": 846.226,
+            "y": 2230.823
+          },
+          {
+            "x": 1185.794,
+            "y": 2230.823
+          },
+          {
+            "x": 1185.794,
+            "y": 2672.677
+          },
+          {
+            "x": 846.226,
+            "y": 2672.677
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "f798dc2d-ad47-56dd-9d3a-df70a9c23b2c",
+        "campus_id": "nku-jinnan",
+        "name": "东门",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "f798dc2d-ad47-56dd-9d3a-df70a9c23b2c",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 7928.652,
+          "y": 3179.192
+        },
+        "polygon": [
+          {
+            "x": 7723.833,
+            "y": 3022.927
+          },
+          {
+            "x": 8031.061,
+            "y": 3022.927
+          },
+          {
+            "x": 8031.061,
+            "y": 3330.069
+          },
+          {
+            "x": 7723.833,
+            "y": 3330.069
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "22536d5e-0204-5c0c-a304-b591a58e107b",
+        "campus_id": "nku-jinnan",
+        "name": "西南门",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "22536d5e-0204-5c0c-a304-b591a58e107b",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 1875.711,
+          "y": 5086.708
+        },
+        "polygon": [
+          {
+            "x": 1762.521,
+            "y": 4957.385
+          },
+          {
+            "x": 1988.9,
+            "y": 4957.385
+          },
+          {
+            "x": 1988.9,
+            "y": 5189.088
+          },
+          {
+            "x": 1762.521,
+            "y": 5189.088
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "3704068e-7656-5f5a-93a5-3469bded38a1",
+        "campus_id": "nku-jinnan",
+        "name": "新校区规划建设指挥部",
+        "aliases": [],
+        "category": "commerce",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "3704068e-7656-5f5a-93a5-3469bded38a1",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2290.739,
+          "y": 996.865
+        },
+        "polygon": [
+          {
+            "x": 2182.939,
+            "y": 813.658
+          },
+          {
+            "x": 2484.778,
+            "y": 889.096
+          },
+          {
+            "x": 2452.438,
+            "y": 1228.569
+          },
+          {
+            "x": 2118.26,
+            "y": 1136.965
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "6c5890fe-d7c4-55ae-9071-6da8d5613cfa",
+        "campus_id": "nku-jinnan",
+        "name": "校医院",
+        "aliases": [],
+        "category": "commerce",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "6c5890fe-d7c4-55ae-9071-6da8d5613cfa",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2829.736,
+          "y": 1077.692
+        },
+        "polygon": [
+          {
+            "x": 2839.923,
+            "y": 1019.201
+          },
+          {
+            "x": 2790.395,
+            "y": 1048.002
+          },
+          {
+            "x": 2778.052,
+            "y": 1111.473
+          },
+          {
+            "x": 2813.184,
+            "y": 1156.725
+          },
+          {
+            "x": 2876.672,
+            "y": 1169.064
+          },
+          {
+            "x": 2925.171,
+            "y": 1145.555
+          },
+          {
+            "x": 2937.514,
+            "y": 1082.079
+          },
+          {
+            "x": 2903.412,
+            "y": 1031.54
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "5442fba3-2f65-543e-9af0-28e4fa31c65e",
+        "campus_id": "nku-jinnan",
+        "name": "文科商业街",
+        "aliases": [],
+        "category": "commerce",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "5442fba3-2f65-543e-9af0-28e4fa31c65e",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2792.007,
+          "y": 1330.95
+        },
+        "polygon": [
+          {
+            "x": 2812.736,
+            "y": 1262.786
+          },
+          {
+            "x": 2761.025,
+            "y": 1295.09
+          },
+          {
+            "x": 2738.392,
+            "y": 1345.17
+          },
+          {
+            "x": 2790.907,
+            "y": 1429.182
+          },
+          {
+            "x": 2858.379,
+            "y": 1400.515
+          },
+          {
+            "x": 2868.485,
+            "y": 1308.83
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "6487a019-1ec2-5cb1-a17c-ba508418ba3e",
+        "campus_id": "nku-jinnan",
+        "name": "文科食堂",
+        "aliases": [],
+        "category": "dining",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "6487a019-1ec2-5cb1-a17c-ba508418ba3e",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3023.775,
+          "y": 1675.812
+        },
+        "polygon": [
+          {
+            "x": 2959.08,
+            "y": 1539.122
+          },
+          {
+            "x": 2845.906,
+            "y": 1541.1
+          },
+          {
+            "x": 2831.149,
+            "y": 1622.196
+          },
+          {
+            "x": 2886.169,
+            "y": 1685.91
+          },
+          {
+            "x": 3147.2,
+            "y": 1816.084
+          },
+          {
+            "x": 3247.524,
+            "y": 1695.77
+          },
+          {
+            "x": 3256.611,
+            "y": 1598.606
+          },
+          {
+            "x": 3217.944,
+            "y": 1545.384
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "6873ab3a-f761-5842-88e6-4e880069d059",
+        "campus_id": "nku-jinnan",
+        "name": "学10-B",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "6873ab3a-f761-5842-88e6-4e880069d059",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2112.87,
+          "y": 1363.281
+        },
+        "polygon": [
+          {
+            "x": 2026.63,
+            "y": 1282.454
+          },
+          {
+            "x": 1989.046,
+            "y": 1445.212
+          },
+          {
+            "x": 2041.56,
+            "y": 1457.336
+          },
+          {
+            "x": 2052.065,
+            "y": 1459.761
+          },
+          {
+            "x": 2241.13,
+            "y": 1503.397
+          },
+          {
+            "x": 2254.47,
+            "y": 1445.643
+          },
+          {
+            "x": 2089.65,
+            "y": 1296.997
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "d8f51314-c456-5cb5-8ba9-231fd508e798",
+        "campus_id": "nku-jinnan",
+        "name": "学10-A",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "d8f51314-c456-5cb5-8ba9-231fd508e798",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2350.029,
+          "y": 1406.388
+        },
+        "polygon": [
+          {
+            "x": 2129.04,
+            "y": 1314.785
+          },
+          {
+            "x": 2115.705,
+            "y": 1372.538
+          },
+          {
+            "x": 2378.294,
+            "y": 1433.148
+          },
+          {
+            "x": 2391.634,
+            "y": 1375.394
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "58109a60-eed0-5251-8905-aed18c1629eb",
+        "campus_id": "nku-jinnan",
+        "name": "留学生A",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "58109a60-eed0-5251-8905-aed18c1629eb",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2549.458,
+          "y": 1702.754
+        },
+        "polygon": [
+          {
+            "x": 2414.708,
+            "y": 1616.538
+          },
+          {
+            "x": 2369.071,
+            "y": 1799.531
+          },
+          {
+            "x": 2356.033,
+            "y": 1851.815
+          },
+          {
+            "x": 2539.077,
+            "y": 1897.444
+          },
+          {
+            "x": 2584.714,
+            "y": 1714.447
+          },
+          {
+            "x": 2597.752,
+            "y": 1662.163
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "abcbed9f-4381-582d-a460-8673b9a1e617",
+        "campus_id": "nku-jinnan",
+        "name": "留学生B",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "abcbed9f-4381-582d-a460-8673b9a1e617",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2258.399,
+          "y": 1568.042
+        },
+        "polygon": [
+          {
+            "x": 2112.87,
+            "y": 1519.546
+          },
+          {
+            "x": 2098.527,
+            "y": 1577.057
+          },
+          {
+            "x": 2344.331,
+            "y": 1638.329
+          },
+          {
+            "x": 2358.674,
+            "y": 1580.813
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "90128f27-48cd-5907-a93d-9d21b820eaa6",
+        "campus_id": "nku-jinnan",
+        "name": "留学生C",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "90128f27-48cd-5907-a93d-9d21b820eaa6",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2204.499,
+          "y": 1708.142
+        },
+        "polygon": [
+          {
+            "x": 2064.36,
+            "y": 1702.754
+          },
+          {
+            "x": 2048.713,
+            "y": 1765.497
+          },
+          {
+            "x": 2184.691,
+            "y": 1799.391
+          },
+          {
+            "x": 2200.338,
+            "y": 1736.647
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "a7bf52d2-830d-5fa3-b6c9-824d1ed88c7f",
+        "campus_id": "nku-jinnan",
+        "name": "留学生D",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "a7bf52d2-830d-5fa3-b6c9-824d1ed88c7f",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2166.77,
+          "y": 1837.465
+        },
+        "polygon": [
+          {
+            "x": 2015.85,
+            "y": 1848.242
+          },
+          {
+            "x": 2000.203,
+            "y": 1910.986
+          },
+          {
+            "x": 2146.638,
+            "y": 1947.482
+          },
+          {
+            "x": 2162.285,
+            "y": 1884.744
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "581b00fe-62d6-5032-9084-7a2bdc318d03",
+        "campus_id": "nku-jinnan",
+        "name": "留学生E",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "581b00fe-62d6-5032-9084-7a2bdc318d03",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2430.878,
+          "y": 1902.127
+        },
+        "polygon": [
+          {
+            "x": 2204.499,
+            "y": 1880.573
+          },
+          {
+            "x": 2188.852,
+            "y": 1943.316
+          },
+          {
+            "x": 2413.738,
+            "y": 1999.367
+          },
+          {
+            "x": 2429.385,
+            "y": 1936.629
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "443604e9-52c1-5f3a-87ea-21c8bcbe32a4",
+        "campus_id": "nku-jinnan",
+        "name": "专家公寓",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "443604e9-52c1-5f3a-87ea-21c8bcbe32a4",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2053.58,
+          "y": 2069.169
+        },
+        "polygon": [
+          {
+            "x": 1967.34,
+            "y": 1972.177
+          },
+          {
+            "x": 1910.352,
+            "y": 2218.942
+          },
+          {
+            "x": 2098.209,
+            "y": 2267.831
+          },
+          {
+            "x": 2166.478,
+            "y": 2283.587
+          },
+          {
+            "x": 2214.983,
+            "y": 2073.577
+          },
+          {
+            "x": 2177.415,
+            "y": 2020.662
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "c29e95a7-ceaa-5e0f-ba87-1becb8ad666a",
+        "campus_id": "nku-jinnan",
+        "name": "教1",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "c29e95a7-ceaa-5e0f-ba87-1becb8ad666a",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3239.374,
+          "y": 1115.412
+        },
+        "polygon": [
+          {
+            "x": 2996.826,
+            "y": 1013.031
+          },
+          {
+            "x": 2985.593,
+            "y": 1076.712
+          },
+          {
+            "x": 3468.632,
+            "y": 1161.86
+          },
+          {
+            "x": 3479.864,
+            "y": 1098.179
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "81ba4a0e-d2cb-53ff-824f-371a755a7b7a",
+        "campus_id": "nku-jinnan",
+        "name": "教2",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "81ba4a0e-d2cb-53ff-824f-371a755a7b7a",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2986.046,
+          "y": 1201.627
+        },
+        "polygon": [
+          {
+            "x": 2980.656,
+            "y": 1083.081
+          },
+          {
+            "x": 2862.34,
+            "y": 1226.371
+          },
+          {
+            "x": 2851.108,
+            "y": 1290.052
+          },
+          {
+            "x": 2940.409,
+            "y": 1311.266
+          },
+          {
+            "x": 3004.107,
+            "y": 1322.496
+          },
+          {
+            "x": 3044.354,
+            "y": 1094.31
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "580814dd-f37d-59a2-9182-315941c6a495",
+        "campus_id": "nku-jinnan",
+        "name": "学4-B",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "580814dd-f37d-59a2-9182-315941c6a495",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3255.544,
+          "y": 1298.619
+        },
+        "polygon": [
+          {
+            "x": 3093.845,
+            "y": 1314.785
+          },
+          {
+            "x": 3083.55,
+            "y": 1373.158
+          },
+          {
+            "x": 3354.272,
+            "y": 1513.899
+          },
+          {
+            "x": 3407.358,
+            "y": 1523.253
+          },
+          {
+            "x": 3423.269,
+            "y": 1433.04
+          },
+          {
+            "x": 3433.564,
+            "y": 1374.667
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "253700eb-4638-5e1a-9928-564608d94ddd",
+        "campus_id": "nku-jinnan",
+        "name": "学4-A",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "253700eb-4638-5e1a-9928-564608d94ddd",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3136.965,
+          "y": 1444.108
+        },
+        "polygon": [
+          {
+            "x": 3382.548,
+            "y": 1466.389
+          },
+          {
+            "x": 2942.926,
+            "y": 1476.438
+          },
+          {
+            "x": 2932.631,
+            "y": 1534.812
+          },
+          {
+            "x": 3410.36,
+            "y": 1619.023
+          },
+          {
+            "x": 3420.655,
+            "y": 1560.649
+          },
+          {
+            "x": 3435.629,
+            "y": 1475.743
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "62ea5659-365c-5207-8d6c-50bed6d2b702",
+        "campus_id": "nku-jinnan",
+        "name": "学3",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "62ea5659-365c-5207-8d6c-50bed6d2b702",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3686.742,
+          "y": 1207.015
+        },
+        "polygon": [
+          {
+            "x": 3568.163,
+            "y": 1153.131
+          },
+          {
+            "x": 3524.175,
+            "y": 1402.541
+          },
+          {
+            "x": 3582.559,
+            "y": 1412.833
+          },
+          {
+            "x": 3844.501,
+            "y": 1262.032
+          },
+          {
+            "x": 3854.802,
+            "y": 1203.658
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "6c254a2b-f717-557a-a0cd-a0bd8d966b60",
+        "campus_id": "nku-jinnan",
+        "name": "学2-B",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "6c254a2b-f717-557a-a0cd-a0bd8d966b60",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3729.862,
+          "y": 1395.612
+        },
+        "polygon": [
+          {
+            "x": 3627.452,
+            "y": 1357.892
+          },
+          {
+            "x": 3617.158,
+            "y": 1416.266
+          },
+          {
+            "x": 3763.603,
+            "y": 1485.852
+          },
+          {
+            "x": 3816.684,
+            "y": 1495.212
+          },
+          {
+            "x": 3834.471,
+            "y": 1394.383
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "89dd8abb-3b46-50c3-9534-746e84c1cdc2",
+        "campus_id": "nku-jinnan",
+        "name": "学2-A",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "89dd8abb-3b46-50c3-9534-746e84c1cdc2",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3632.842,
+          "y": 1541.1
+        },
+        "polygon": [
+          {
+            "x": 3783.471,
+            "y": 1509.75
+          },
+          {
+            "x": 3498.093,
+            "y": 1514.158
+          },
+          {
+            "x": 3487.798,
+            "y": 1572.531
+          },
+          {
+            "x": 3816.899,
+            "y": 1630.543
+          },
+          {
+            "x": 3836.557,
+            "y": 1519.104
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "8947c554-faa5-5b70-afdc-4f92621543ae",
+        "campus_id": "nku-jinnan",
+        "name": "学1-B",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "8947c554-faa5-5b70-afdc-4f92621543ae",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3508.873,
+          "y": 1659.646
+        },
+        "polygon": [
+          {
+            "x": 3309.444,
+            "y": 1638.092
+          },
+          {
+            "x": 3299.149,
+            "y": 1696.466
+          },
+          {
+            "x": 3734.411,
+            "y": 1773.192
+          },
+          {
+            "x": 3744.706,
+            "y": 1714.819
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "e8ad68b2-9d0b-593e-99f7-d5ce4c26cc8e",
+        "campus_id": "nku-jinnan",
+        "name": "学1-C",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "e8ad68b2-9d0b-593e-99f7-d5ce4c26cc8e",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3309.444,
+          "y": 1751.25
+        },
+        "polygon": [
+          {
+            "x": 3293.274,
+            "y": 1691.977
+          },
+          {
+            "x": 3263.322,
+            "y": 1861.789
+          },
+          {
+            "x": 3321.712,
+            "y": 1872.081
+          },
+          {
+            "x": 3351.664,
+            "y": 1702.269
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "a67fe47d-2c16-5674-8241-506ae885faf7",
+        "campus_id": "nku-jinnan",
+        "name": "学1-A",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "a67fe47d-2c16-5674-8241-506ae885faf7",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3708.302,
+          "y": 1794.358
+        },
+        "polygon": [
+          {
+            "x": 3692.132,
+            "y": 1762.027
+          },
+          {
+            "x": 3664.056,
+            "y": 1921.224
+          },
+          {
+            "x": 3717.136,
+            "y": 1930.583
+          },
+          {
+            "x": 3745.213,
+            "y": 1771.381
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "4ffdf254-13f7-517e-824e-213d560f21cb",
+        "campus_id": "nku-jinnan",
+        "name": "学1-D",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "4ffdf254-13f7-517e-824e-213d560f21cb",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3476.533,
+          "y": 1880.573
+        },
+        "polygon": [
+          {
+            "x": 3266.324,
+            "y": 1864.408
+          },
+          {
+            "x": 3256.029,
+            "y": 1922.781
+          },
+          {
+            "x": 3685.982,
+            "y": 1998.57
+          },
+          {
+            "x": 3696.277,
+            "y": 1940.202
+          },
+          {
+            "x": 3531.727,
+            "y": 1911.19
+          },
+          {
+            "x": 3425.566,
+            "y": 1892.476
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "720cadd2-fd14-5274-839c-1e0e5b750822",
+        "campus_id": "nku-jinnan",
+        "name": "周恩来政府管理学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "720cadd2-fd14-5274-839c-1e0e5b750822",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3045.335,
+          "y": 2139.219
+        },
+        "polygon": [
+          {
+            "x": 3002.215,
+            "y": 1972.177
+          },
+          {
+            "x": 2993.791,
+            "y": 2019.935
+          },
+          {
+            "x": 2970.393,
+            "y": 2152.599
+          },
+          {
+            "x": 2960.098,
+            "y": 2210.972
+          },
+          {
+            "x": 3198.96,
+            "y": 2253.083
+          },
+          {
+            "x": 3230.783,
+            "y": 2072.656
+          },
+          {
+            "x": 3241.078,
+            "y": 2014.282
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "85ce8a88-725b-5114-80c8-c3ff9278c55f",
+        "campus_id": "nku-jinnan",
+        "name": "历史学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "85ce8a88-725b-5114-80c8-c3ff9278c55f",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3411.854,
+          "y": 2198.492
+        },
+        "polygon": [
+          {
+            "x": 3341.784,
+            "y": 2053.004
+          },
+          {
+            "x": 3296.858,
+            "y": 2307.722
+          },
+          {
+            "x": 3360.557,
+            "y": 2318.951
+          },
+          {
+            "x": 3461.409,
+            "y": 2336.728
+          },
+          {
+            "x": 3472.642,
+            "y": 2273.047
+          },
+          {
+            "x": 3490.412,
+            "y": 2079.203
+          },
+          {
+            "x": 3410.792,
+            "y": 2065.166
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "f7dc23cb-4184-523d-bd9c-c9f4ca1573f5",
+        "campus_id": "nku-jinnan",
+        "name": "马克思主义学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "f7dc23cb-4184-523d-bd9c-c9f4ca1573f5",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3702.912,
+          "y": 2090.723
+        },
+        "polygon": [
+          {
+            "x": 3535.823,
+            "y": 2096.112
+          },
+          {
+            "x": 3525.528,
+            "y": 2154.485
+          },
+          {
+            "x": 3679.46,
+            "y": 2181.621
+          },
+          {
+            "x": 3689.755,
+            "y": 2123.248
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "e0ce1449-5217-5b9f-abcd-36e8a2d8cbba",
+        "campus_id": "nku-jinnan",
+        "name": "汉语言文化学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "e0ce1449-5217-5b9f-abcd-36e8a2d8cbba",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2932.146,
+          "y": 2392.477
+        },
+        "polygon": [
+          {
+            "x": 2856.686,
+            "y": 2306.262
+          },
+          {
+            "x": 2817.463,
+            "y": 2490.736
+          },
+          {
+            "x": 2959.813,
+            "y": 2520.986
+          },
+          {
+            "x": 3028.885,
+            "y": 2403.453
+          },
+          {
+            "x": 3041.212,
+            "y": 2345.473
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "130b3b3c-adcc-5b3a-b00c-b52a049b1eb3",
+        "campus_id": "nku-jinnan",
+        "name": "法学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "130b3b3c-adcc-5b3a-b00c-b52a049b1eb3",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3126.185,
+          "y": 2570.296
+        },
+        "polygon": [
+          {
+            "x": 3077.675,
+            "y": 2365.535
+          },
+          {
+            "x": 2843.384,
+            "y": 2508.555
+          },
+          {
+            "x": 2829.936,
+            "y": 2571.805
+          },
+          {
+            "x": 3056.638,
+            "y": 2619.978
+          },
+          {
+            "x": 3115.755,
+            "y": 2627.031
+          },
+          {
+            "x": 3167.305,
+            "y": 2384.577
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "b15e0fbc-d6c0-511e-b0d6-c397ec0f9c92",
+        "campus_id": "nku-jinnan",
+        "name": "哲学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "b15e0fbc-d6c0-511e-b0d6-c397ec0f9c92",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3670.572,
+          "y": 2349.369
+        },
+        "polygon": [
+          {
+            "x": 3535.823,
+            "y": 2230.823
+          },
+          {
+            "x": 3497.436,
+            "y": 2355.372
+          },
+          {
+            "x": 3488.079,
+            "y": 2408.443
+          },
+          {
+            "x": 3636.702,
+            "y": 2434.642
+          },
+          {
+            "x": 3646.064,
+            "y": 2381.576
+          },
+          {
+            "x": 3660.1,
+            "y": 2301.972
+          },
+          {
+            "x": 3663.215,
+            "y": 2253.282
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "c6c9853e-868d-5d4f-80bb-739a4bae1a03",
+        "campus_id": "nku-jinnan",
+        "name": "金融学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "c6c9853e-868d-5d4f-80bb-739a4bae1a03",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3481.923,
+          "y": 2591.85
+        },
+        "polygon": [
+          {
+            "x": 3325.614,
+            "y": 2419.419
+          },
+          {
+            "x": 3277.428,
+            "y": 2646.058
+          },
+          {
+            "x": 3477.768,
+            "y": 2688.632
+          },
+          {
+            "x": 3541.035,
+            "y": 2702.076
+          },
+          {
+            "x": 3551.12,
+            "y": 2654.642
+          },
+          {
+            "x": 3583.95,
+            "y": 2474.317
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "8dca8fa1-dac8-561d-b140-9bbe2d5094ad",
+        "campus_id": "nku-jinnan",
+        "name": "旅游与服务学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "8dca8fa1-dac8-561d-b140-9bbe2d5094ad",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 1827.201,
+          "y": 2370.923
+        },
+        "polygon": [
+          {
+            "x": 1697.842,
+            "y": 2225.435
+          },
+          {
+            "x": 1649.596,
+            "y": 2418.886
+          },
+          {
+            "x": 1636.558,
+            "y": 2471.17
+          },
+          {
+            "x": 1882.362,
+            "y": 2532.437
+          },
+          {
+            "x": 1930.608,
+            "y": 2338.986
+          },
+          {
+            "x": 1943.646,
+            "y": 2286.701
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "88e8704d-0322-5580-8d55-fa7b4130238f",
+        "campus_id": "nku-jinnan",
+        "name": "环境科学与工程学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "88e8704d-0322-5580-8d55-fa7b4130238f",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 1719.402,
+          "y": 2995.985
+        },
+        "polygon": [
+          {
+            "x": 1525.363,
+            "y": 2861.273
+          },
+          {
+            "x": 1484.938,
+            "y": 3023.353
+          },
+          {
+            "x": 1443.214,
+            "y": 3190.664
+          },
+          {
+            "x": 1626.258,
+            "y": 3236.288
+          },
+          {
+            "x": 1729.524,
+            "y": 3223.151
+          },
+          {
+            "x": 1802.547,
+            "y": 2930.364
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "b041e7c6-3481-51c1-b06f-9a33197ea0db",
+        "campus_id": "nku-jinnan",
+        "name": "新闻与传播学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "b041e7c6-3481-51c1-b06f-9a33197ea0db",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2452.438,
+          "y": 3060.646
+        },
+        "polygon": [
+          {
+            "x": 2355.419,
+            "y": 2963.654
+          },
+          {
+            "x": 2334.495,
+            "y": 3041.727
+          },
+          {
+            "x": 2558.367,
+            "y": 3101.695
+          },
+          {
+            "x": 2579.291,
+            "y": 3023.622
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "0c3346e1-c824-5501-828d-ef68b83489be",
+        "campus_id": "nku-jinnan",
+        "name": "药学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "0c3346e1-c824-5501-828d-ef68b83489be",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 1816.421,
+          "y": 3599.492
+        },
+        "polygon": [
+          {
+            "x": 1767.911,
+            "y": 3448.615
+          },
+          {
+            "x": 1715.774,
+            "y": 3674.381
+          },
+          {
+            "x": 1941.603,
+            "y": 3726.504
+          },
+          {
+            "x": 1993.741,
+            "y": 3500.738
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "910898c7-7347-524f-ad05-95f387cf48e3",
+        "campus_id": "nku-jinnan",
+        "name": "医学院",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "910898c7-7347-524f-ad05-95f387cf48e3",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 1595.432,
+          "y": 3912.023
+        },
+        "polygon": [
+          {
+            "x": 1498.413,
+            "y": 3771.923
+          },
+          {
+            "x": 1445.063,
+            "y": 4002.937
+          },
+          {
+            "x": 1744.417,
+            "y": 4072.028
+          },
+          {
+            "x": 1757.757,
+            "y": 4014.275
+          },
+          {
+            "x": 1784.432,
+            "y": 3898.767
+          },
+          {
+            "x": 1797.767,
+            "y": 3841.014
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "d7ae1380-229d-57f7-9a75-f6e9ddc0f04c",
+        "campus_id": "nku-jinnan",
+        "name": "木斋图书馆",
+        "aliases": [],
+        "category": "history",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "d7ae1380-229d-57f7-9a75-f6e9ddc0f04c",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2306.909,
+          "y": 2823.554
+        },
+        "polygon": [
+          {
+            "x": 2231.449,
+            "y": 2688.842
+          },
+          {
+            "x": 2174.251,
+            "y": 2902.242
+          },
+          {
+            "x": 2236.731,
+            "y": 2918.978
+          },
+          {
+            "x": 2322.173,
+            "y": 2891.659
+          },
+          {
+            "x": 2340.311,
+            "y": 2823.996
+          },
+          {
+            "x": 2293.924,
+            "y": 2705.579
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "4bee984a-e00e-5df0-8f24-a0d9bc4a34be",
+        "campus_id": "nku-jinnan",
+        "name": "思源堂",
+        "aliases": [],
+        "category": "history",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "4bee984a-e00e-5df0-8f24-a0d9bc4a34be",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2554.848,
+          "y": 2667.288
+        },
+        "polygon": [
+          {
+            "x": 2430.878,
+            "y": 2586.462
+          },
+          {
+            "x": 2409.954,
+            "y": 2664.535
+          },
+          {
+            "x": 2649.442,
+            "y": 2728.69
+          },
+          {
+            "x": 2670.371,
+            "y": 2650.617
+          },
+          {
+            "x": 2577.027,
+            "y": 2603.295
+          },
+          {
+            "x": 2524.966,
+            "y": 2589.35
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "f1fd78ac-098f-5e71-b8ad-cae8e73b67a6",
+        "campus_id": "nku-jinnan",
+        "name": "秀山堂",
+        "aliases": [],
+        "category": "history",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "f1fd78ac-098f-5e71-b8ad-cae8e73b67a6",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2452.438,
+          "y": 3060.646
+        },
+        "polygon": [
+          {
+            "x": 2355.419,
+            "y": 2963.654
+          },
+          {
+            "x": 2334.495,
+            "y": 3041.727
+          },
+          {
+            "x": 2558.367,
+            "y": 3101.695
+          },
+          {
+            "x": 2579.291,
+            "y": 3023.622
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "c5c74c67-e46e-5a1f-91fe-e979eb15986b",
+        "campus_id": "nku-jinnan",
+        "name": "综合实验楼",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "c5c74c67-e46e-5a1f-91fe-e979eb15986b",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4947.996,
+          "y": 3125.308
+        },
+        "polygon": [
+          {
+            "x": 4764.737,
+            "y": 2748.115
+          },
+          {
+            "x": 4727.007,
+            "y": 2963.654
+          },
+          {
+            "x": 4727.007,
+            "y": 3276.185
+          },
+          {
+            "x": 4764.737,
+            "y": 3529.442
+          },
+          {
+            "x": 5147.425,
+            "y": 3529.442
+          },
+          {
+            "x": 5147.425,
+            "y": 2807.388
+          },
+          {
+            "x": 5142.035,
+            "y": 2748.115
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "6d346555-295b-51bf-8194-2a706d7e407f",
+        "campus_id": "nku-jinnan",
+        "name": "综合实验楼D区",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "6d346555-295b-51bf-8194-2a706d7e407f",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 5098.915,
+          "y": 2812.777
+        },
+        "polygon": [
+          {
+            "x": 4958.776,
+            "y": 2721.173
+          },
+          {
+            "x": 5190.545,
+            "y": 2721.173
+          },
+          {
+            "x": 5190.545,
+            "y": 3163.027
+          },
+          {
+            "x": 4958.776,
+            "y": 3163.027
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "16d2e605-c0eb-53d5-98c5-d374797479dc",
+        "campus_id": "nku-jinnan",
+        "name": "综合实验楼C区",
+        "aliases": [],
+        "category": "academic",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "16d2e605-c0eb-53d5-98c5-d374797479dc",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4780.907,
+          "y": 2985.208
+        },
+        "polygon": [
+          {
+            "x": 4721.617,
+            "y": 2721.173
+          },
+          {
+            "x": 4958.776,
+            "y": 2721.173
+          },
+          {
+            "x": 4958.776,
+            "y": 3163.027
+          },
+          {
+            "x": 4721.617,
+            "y": 3163.027
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "956300f9-e598-56bd-981b-a4f5d42211c5",
+        "campus_id": "nku-jinnan",
+        "name": "综合业务西楼",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "956300f9-e598-56bd-981b-a4f5d42211c5",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4258.079,
+          "y": 4224.554
+        },
+        "polygon": [
+          {
+            "x": 4117.94,
+            "y": 4149.115
+          },
+          {
+            "x": 4117.94,
+            "y": 4321.546
+          },
+          {
+            "x": 4360.489,
+            "y": 4337.712
+          },
+          {
+            "x": 4457.508,
+            "y": 4337.712
+          },
+          {
+            "x": 4457.508,
+            "y": 4294.604
+          },
+          {
+            "x": 4360.489,
+            "y": 4170.669
+          },
+          {
+            "x": 4274.249,
+            "y": 4149.115
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "c092641b-9c13-526a-af6d-7815505acee8",
+        "campus_id": "nku-jinnan",
+        "name": "综合业务东楼",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "c092641b-9c13-526a-af6d-7815505acee8",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4969.556,
+          "y": 4224.554
+        },
+        "polygon": [
+          {
+            "x": 4856.367,
+            "y": 4149.115
+          },
+          {
+            "x": 4764.737,
+            "y": 4294.604
+          },
+          {
+            "x": 4764.737,
+            "y": 4337.712
+          },
+          {
+            "x": 4856.367,
+            "y": 4337.712
+          },
+          {
+            "x": 5093.525,
+            "y": 4326.935
+          },
+          {
+            "x": 5093.525,
+            "y": 4273.05
+          },
+          {
+            "x": 5071.965,
+            "y": 4149.115
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "f20b1b60-5b8d-5ecb-94cb-a07bcbf61b53",
+        "campus_id": "nku-jinnan",
+        "name": "主体育场",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "f20b1b60-5b8d-5ecb-94cb-a07bcbf61b53",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 5287.564,
+          "y": 1665.035
+        },
+        "polygon": [
+          {
+            "x": 5077.355,
+            "y": 1293.231
+          },
+          {
+            "x": 5319.904,
+            "y": 1250.123
+          },
+          {
+            "x": 5460.044,
+            "y": 1454.885
+          },
+          {
+            "x": 5524.723,
+            "y": 1762.027
+          },
+          {
+            "x": 5406.144,
+            "y": 1961.4
+          },
+          {
+            "x": 5185.155,
+            "y": 1945.235
+          },
+          {
+            "x": 5071.965,
+            "y": 1767.415
+          },
+          {
+            "x": 5007.286,
+            "y": 1465.662
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "a8f98b09-0feb-59d6-b19c-d9b2df5d7ea7",
+        "campus_id": "nku-jinnan",
+        "name": "文科体育场",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "a8f98b09-0feb-59d6-b19c-d9b2df5d7ea7",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4047.87,
+          "y": 1621.927
+        },
+        "polygon": [
+          {
+            "x": 4085.6,
+            "y": 1023.808
+          },
+          {
+            "x": 4376.659,
+            "y": 1077.692
+          },
+          {
+            "x": 4198.79,
+            "y": 1982.954
+          },
+          {
+            "x": 3853.831,
+            "y": 1929.069
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "48a3ba46-78c0-5409-9fdb-8a35d9e125cc",
+        "campus_id": "nku-jinnan",
+        "name": "理科体育场",
+        "aliases": [],
+        "category": "public_area",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "48a3ba46-78c0-5409-9fdb-8a35d9e125cc",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2177.549,
+          "y": 4386.208
+        },
+        "polygon": [
+          {
+            "x": 2042.8,
+            "y": 4057.512
+          },
+          {
+            "x": 2333.859,
+            "y": 4116.785
+          },
+          {
+            "x": 2258.399,
+            "y": 4666.408
+          },
+          {
+            "x": 1972.73,
+            "y": 4601.746
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "435bbb06-099d-51a0-af63-9a0a3427c2ec",
+        "campus_id": "nku-jinnan",
+        "name": "新开湖",
+        "aliases": [],
+        "category": "landscape",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "435bbb06-099d-51a0-af63-9a0a3427c2ec",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 6015.211,
+          "y": 3060.646
+        },
+        "polygon": [
+          {
+            "x": 5713.372,
+            "y": 2915.158
+          },
+          {
+            "x": 5955.921,
+            "y": 2920.546
+          },
+          {
+            "x": 6160.74,
+            "y": 2904.381
+          },
+          {
+            "x": 6327.829,
+            "y": 3012.15
+          },
+          {
+            "x": 6376.339,
+            "y": 3189.969
+          },
+          {
+            "x": 6198.47,
+            "y": 3362.4
+          },
+          {
+            "x": 5907.411,
+            "y": 3324.681
+          },
+          {
+            "x": 5702.592,
+            "y": 3222.3
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "0e387c9e-cdcd-5426-9bc4-f3b818a035ea",
+        "campus_id": "nku-jinnan",
+        "name": "实验动物中心",
+        "aliases": [],
+        "category": "commerce",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "0e387c9e-cdcd-5426-9bc4-f3b818a035ea",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 1757.132,
+          "y": 4467.035
+        },
+        "polygon": [
+          {
+            "x": 1767.911,
+            "y": 4337.712
+          },
+          {
+            "x": 1724.883,
+            "y": 4510.25
+          },
+          {
+            "x": 1834.709,
+            "y": 4537.623
+          },
+          {
+            "x": 1877.738,
+            "y": 4365.085
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "9258e917-b7d3-5566-a00b-2b6a09505a49",
+        "campus_id": "nku-jinnan",
+        "name": "理科商业街",
+        "aliases": [],
+        "category": "commerce",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "9258e917-b7d3-5566-a00b-2b6a09505a49",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3093.845,
+          "y": 4251.496
+        },
+        "polygon": [
+          {
+            "x": 3115.405,
+            "y": 4122.173
+          },
+          {
+            "x": 3072.35,
+            "y": 4366.276
+          },
+          {
+            "x": 3109.508,
+            "y": 4372.828
+          },
+          {
+            "x": 3152.563,
+            "y": 4128.725
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "50ffd9d2-2f3f-52bc-8ace-1ec086e89c8e",
+        "campus_id": "nku-jinnan",
+        "name": "学7-B",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "50ffd9d2-2f3f-52bc-8ace-1ec086e89c8e",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3266.324,
+          "y": 4251.496
+        },
+        "polygon": [
+          {
+            "x": 3163.915,
+            "y": 4165.281
+          },
+          {
+            "x": 3122.73,
+            "y": 4398.774
+          },
+          {
+            "x": 3340.366,
+            "y": 4437.134
+          },
+          {
+            "x": 3381.546,
+            "y": 4203.647
+          },
+          {
+            "x": 3328.465,
+            "y": 4194.287
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "5d543565-b92f-571d-b53a-1de0860fc43f",
+        "campus_id": "nku-jinnan",
+        "name": "学5-C",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "5d543565-b92f-571d-b53a-1de0860fc43f",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 2818.956,
+          "y": 4493.977
+        },
+        "polygon": [
+          {
+            "x": 2689.597,
+            "y": 4413.15
+          },
+          {
+            "x": 2654.966,
+            "y": 4609.495
+          },
+          {
+            "x": 2713.356,
+            "y": 4619.787
+          },
+          {
+            "x": 2902.242,
+            "y": 4510.821
+          },
+          {
+            "x": 2912.537,
+            "y": 4452.448
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "506991eb-8974-5a86-9e5f-31639a4a0439",
+        "campus_id": "nku-jinnan",
+        "name": "学8",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "506991eb-8974-5a86-9e5f-31639a4a0439",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3476.533,
+          "y": 4687.962
+        },
+        "polygon": [
+          {
+            "x": 3320.224,
+            "y": 4547.862
+          },
+          {
+            "x": 3281.847,
+            "y": 4765.431
+          },
+          {
+            "x": 3425.167,
+            "y": 4790.698
+          },
+          {
+            "x": 3483.556,
+            "y": 4800.99
+          },
+          {
+            "x": 3511.638,
+            "y": 4641.793
+          },
+          {
+            "x": 3521.933,
+            "y": 4583.42
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "6d4d4a83-2dc5-5262-b7af-cffd4a9b3f02",
+        "campus_id": "nku-jinnan",
+        "name": "教3",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "6d4d4a83-2dc5-5262-b7af-cffd4a9b3f02",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3093.845,
+          "y": 4946.608
+        },
+        "polygon": [
+          {
+            "x": 2953.706,
+            "y": 4871.169
+          },
+          {
+            "x": 2941.541,
+            "y": 4940.158
+          },
+          {
+            "x": 3191.021,
+            "y": 4984.133
+          },
+          {
+            "x": 3203.186,
+            "y": 4915.144
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "ae29e7e7-161d-56bd-b371-7b9e8fc58062",
+        "campus_id": "nku-jinnan",
+        "name": "学9",
+        "aliases": [],
+        "category": "residence",
+        "summary": "",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "ae29e7e7-161d-56bd-b371-7b9e8fc58062",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 3406.464,
+          "y": 4995.104
+        },
+        "polygon": [
+          {
+            "x": 3239.374,
+            "y": 4925.054
+          },
+          {
+            "x": 3227.209,
+            "y": 4994.042
+          },
+          {
+            "x": 3524.461,
+            "y": 5046.44
+          },
+          {
+            "x": 3536.626,
+            "y": 4977.451
+          }
+        ],
+        "entrance_ids": []
+      }
+    },
+    {
+      "point": {
+        "id": "82e888ca-59f8-5c55-b8ab-4b80175c6ceb",
+        "campus_id": "nku-jinnan",
+        "name": "周恩来雕像",
+        "aliases": [
+          "周总理雕像"
+        ],
+        "category": "patriotic",
+        "summary": "位于综合业务西楼与综合业务东楼正中央。位置依据用户确认；景点介绍和讲解资料待补充。",
+        "revision": 1,
+        "updated_at": "2026-09-23T00:00:00Z"
+      },
+      "geometry": {
+        "point_id": "82e888ca-59f8-5c55-b8ab-4b80175c6ceb",
+        "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+        "map_revision": 3,
+        "anchor": {
+          "x": 4613.818,
+          "y": 4251.496
+        },
+        "polygon": [
+          {
+            "x": 4559.918,
+            "y": 4186.835
+          },
+          {
+            "x": 4667.717,
+            "y": 4186.835
+          },
+          {
+            "x": 4667.717,
+            "y": 4332.323
+          },
+          {
+            "x": 4559.918,
+            "y": 4332.323
+          }
+        ],
+        "entrance_ids": []
+      }
+    }
+  ],
+  "tile_hashes": {}
+}

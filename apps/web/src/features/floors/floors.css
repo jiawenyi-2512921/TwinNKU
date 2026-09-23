@@ -1,0 +1,228 @@
+.floor-panel {
+  padding-top: 18px;
+}
+.floor-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.floor-panel-heading > span {
+  color: var(--muted, #817985);
+  font-size: 12px;
+}
+.floor-selectors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.floor-selectors select {
+  border: 1px solid #ddd4e1;
+  border-radius: 8px;
+  padding: 8px 25px 8px 10px;
+  background: white;
+  color: #422747;
+  font: inherit;
+}
+.floor-variants {
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 9px;
+  background: #f1edf4;
+  margin-left: auto;
+}
+.floor-variants button {
+  border: 0;
+  background: transparent;
+  color: #74627c;
+  padding: 6px 9px;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+.floor-variants button[aria-pressed="true"] {
+  background: white;
+  color: #682c6e;
+  box-shadow: 0 1px 4px #37223a14;
+}
+.floor-viewer {
+  height: 230px;
+  min-height: 160px;
+  border: 1px solid #e4dde7;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  background: #f7f6f8;
+}
+.floor-canvas {
+  height: 100%;
+  width: 100%;
+  background: #f7f6f8;
+}
+.floor-canvas:focus-visible {
+  outline: 3px solid #9659a0;
+  outline-offset: -3px;
+}
+.floor-viewer-tools {
+  position: absolute;
+  z-index: 500;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  background: white;
+  border-radius: 9px;
+  padding: 3px;
+  box-shadow: 0 3px 14px #40234a1a;
+}
+.floor-viewer-tools button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: #5a3b65;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.floor-viewer-tools button:hover {
+  background: #f0e9f3;
+}
+.floor-viewer-tools button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.floor-zoom {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 500;
+  background: #fffe;
+  padding: 4px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  color: #62576c;
+  pointer-events: none;
+}
+.floor-image-status {
+  position: absolute;
+  z-index: 600;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  background: #f7f6f8ee;
+  font-size: 13px;
+  color: #6a5973;
+}
+.floor-image-status button {
+  border: 1px solid #cbb5d0;
+  background: white;
+  padding: 7px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.floor-expand {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 11px;
+  width: 100%;
+  margin-top: 12px;
+  background: #733674;
+  color: white;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.floor-note {
+  color: #8b7f8f;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.floor-empty {
+  text-align: center;
+  color: #87768c;
+  padding: 24px 0;
+  font-size: 13px;
+}
+.floor-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(1150px, calc(100vw - 56px));
+  height: min(850px, calc(100dvh - 56px));
+  max-width: none;
+  max-height: none;
+  padding: 24px;
+  border: 1px solid #e9e0ec;
+  border-radius: 20px;
+  background: #fdfbfe;
+  color: #3f294b;
+  box-shadow: 0 20px 90px #24132b44;
+}
+.floor-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.floor-dialog::backdrop {
+  background: #241c32a8;
+  backdrop-filter: blur(4px);
+}
+.floor-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.floor-dialog-header span {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #9571a1;
+}
+.floor-dialog-header h2 {
+  font-size: 23px;
+  margin: 6px 0 0;
+}
+.floor-dialog .floor-selectors {
+  margin: 0;
+}
+.floor-dialog .floor-viewer {
+  flex: 1;
+  height: auto;
+}
+.floor-dialog footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #8b7a90;
+  font-size: 12px;
+}
+@media (max-width: 760px) {
+  .floor-dialog {
+    width: 100vw;
+    height: 100dvh;
+    padding: 18px 14px;
+    border-radius: 0;
+    border: 0;
+  }
+  .floor-dialog-header h2 {
+    font-size: 19px;
+  }
+  .floor-dialog .floor-viewer-tools button {
+    width: 38px;
+    height: 38px;
+  }
+}

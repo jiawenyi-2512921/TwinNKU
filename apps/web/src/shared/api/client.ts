@@ -8,6 +8,8 @@ export type PointGeometry = components["schemas"]["PointGeometry"];
 export type XY = components["schemas"]["XY"];
 export type RouteSegment = components["schemas"]["RouteSegment"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
+export type Floor = components["schemas"]["Floor"];
+export type FloorImage = components["schemas"]["FloorImage"];
 type Meta = components["schemas"]["Meta"];
 
 export class ApiError extends Error {
@@ -60,4 +62,6 @@ export const api = {
     get<MapInfo[]>(`/campuses/${encodeURIComponent(campus)}/maps`, signal),
   mapFeatures: (id: string, signal?: AbortSignal) =>
     get<MapFeatures>(`/maps/${encodeURIComponent(id)}/features`, signal),
+  floors: (pointId: string, signal?: AbortSignal) =>
+    get<Floor[]>(`/points/${encodeURIComponent(pointId)}/floors`, signal),
 };

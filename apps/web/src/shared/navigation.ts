@@ -1,0 +1,36 @@
+// Sharing uses the visible, validated selection. Unrelated URL parameters survive.
+export function pointLocation(href: string, pointId: string | null): string {
+  const url = new URL(href);
+  if (!pointId || url.searchParams.get("point") !== pointId) {
+    url.searchParams.delete("floor");
+  }
+  if (pointId) url.searchParams.set("point", pointId);
+  else url.searchParams.delete("point");
+  return url.href;
+}
+
+export function floorLocation(
+  href: string,
+  pointId: string,
+  floorId: string | null,
+): string {
+  const url = new URL(href);
+  // A response from a previously selected building cannot rewrite the new link.
+  if (url.searchParams.get("point") !== pointId) return href;
+  if (floorId) url.searchParams.set("floor", floorId);
+  else url.searchParams.delete("floor");
+  return url.href;
+}
+
+export function resolveFloor(
+  floors: readonly { id: string; point_id: string }[],
+  pointId: string,
+  requestedId: string | null,
+): string | null {
+  const available = floors.filter((floor) => floor.point_id === pointId);
+  return (
+    available.find((floor) => floor.id === requestedId)?.id ??
+    available[0]?.id ??
+    null
+  );
+}

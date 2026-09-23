@@ -1,0 +1,523 @@
+{
+  "schema_version": 1,
+  "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+  "revision": 3,
+  "name_reference": "用户确认的84项名称独立标注清单，IMG_0953(2).jpeg",
+  "source_sha256": "aa5f84fc993dca7371e1d1bf6a5e190925ec2ce5f0d2d4dc968093346028218f",
+  "reference_label_count": 84,
+  "named_point_count": 83,
+  "unnamed_area_count": 0,
+  "status": "manual-click-areas-not-surveyed",
+  "notes": [
+    "仅对已有名称的地点和用户新指定的周恩来雕像设置点击。未命名建筑不设置交互。",
+    "点击范围与雕像位置为人工图上定位，不代表测绘数据或实体入校许可。"
+  ],
+  "areas": [
+    {
+      "label_id": "gate-nw",
+      "name": "西北门",
+      "point_id": "d4ddb35d-cc51-5563-beb1-c62b2101fc90",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "gate-n",
+      "name": "北门",
+      "point_id": "4cd4ef2d-7516-54c8-b5f5-b12dfd23bfd6",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "gate-w",
+      "name": "西门",
+      "point_id": "49716065-7f23-57bd-86fa-1fb69f25b8a6",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "gate-e",
+      "name": "东门",
+      "point_id": "f798dc2d-ad47-56dd-9d3a-df70a9c23b2c",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "gate-sw",
+      "name": "西南门",
+      "point_id": "22536d5e-0204-5c0c-a304-b591a58e107b",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "gate-s",
+      "name": "南门",
+      "point_id": "e62f4f62-7a79-5ec8-b391-e1e2fe00056b",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "planning-office",
+      "name": "新校区规划建设指挥部",
+      "point_id": "3704068e-7656-5f5a-93a5-3469bded38a1",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "hospital",
+      "name": "校医院",
+      "point_id": "6c5890fe-d7c4-55ae-9071-6da8d5613cfa",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "arts-commercial",
+      "name": "文科商业街",
+      "point_id": "5442fba3-2f65-543e-9af0-28e4fa31c65e",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "arts-canteen",
+      "name": "文科食堂",
+      "point_id": "6487a019-1ec2-5cb1-a17c-ba508418ba3e",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-10-b",
+      "name": "学10-B",
+      "point_id": "6873ab3a-f761-5842-88e6-4e880069d059",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-10-a",
+      "name": "学10-A",
+      "point_id": "d8f51314-c456-5cb5-8ba9-231fd508e798",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "international-a",
+      "name": "留学生A",
+      "point_id": "58109a60-eed0-5251-8905-aed18c1629eb",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "international-b",
+      "name": "留学生B",
+      "point_id": "abcbed9f-4381-582d-a460-8673b9a1e617",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "international-c",
+      "name": "留学生C",
+      "point_id": "90128f27-48cd-5907-a93d-9d21b820eaa6",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "international-d",
+      "name": "留学生D",
+      "point_id": "a7bf52d2-830d-5fa3-b6c9-824d1ed88c7f",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "international-e",
+      "name": "留学生E",
+      "point_id": "581b00fe-62d6-5032-9084-7a2bdc318d03",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "expert-apartments",
+      "name": "专家公寓",
+      "point_id": "443604e9-52c1-5f3a-87ea-21c8bcbe32a4",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "faculty-1",
+      "name": "教1",
+      "point_id": "c29e95a7-ceaa-5e0f-ba87-1becb8ad666a",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "faculty-2",
+      "name": "教2",
+      "point_id": "81ba4a0e-d2cb-53ff-824f-371a755a7b7a",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-4-b",
+      "name": "学4-B",
+      "point_id": "580814dd-f37d-59a2-9182-315941c6a495",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-4-a",
+      "name": "学4-A",
+      "point_id": "253700eb-4638-5e1a-9928-564608d94ddd",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-3",
+      "name": "学3",
+      "point_id": "62ea5659-365c-5207-8d6c-50bed6d2b702",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-2-b",
+      "name": "学2-B",
+      "point_id": "6c254a2b-f717-557a-a0cd-a0bd8d966b60",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-2-a",
+      "name": "学2-A",
+      "point_id": "89dd8abb-3b46-50c3-9534-746e84c1cdc2",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-1-b",
+      "name": "学1-B",
+      "point_id": "8947c554-faa5-5b70-afdc-4f92621543ae",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-1-c",
+      "name": "学1-C",
+      "point_id": "e8ad68b2-9d0b-593e-99f7-d5ce4c26cc8e",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-1-a",
+      "name": "学1-A",
+      "point_id": "a67fe47d-2c16-5674-8241-506ae885faf7",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-1-d",
+      "name": "学1-D",
+      "point_id": "4ffdf254-13f7-517e-824e-213d560f21cb",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "zhou-government",
+      "name": "周恩来政府管理学院",
+      "point_id": "720cadd2-fd14-5274-839c-1e0e5b750822",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "history",
+      "name": "历史学院",
+      "point_id": "85ce8a88-725b-5114-80c8-c3ff9278c55f",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "marxism",
+      "name": "马克思主义学院",
+      "point_id": "f7dc23cb-4184-523d-bd9c-c9f4ca1573f5",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "chinese-language",
+      "name": "汉语言文化学院",
+      "point_id": "e0ce1449-5217-5b9f-abcd-36e8a2d8cbba",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "law",
+      "name": "法学院",
+      "point_id": "130b3b3c-adcc-5b3a-b00c-b52a049b1eb3",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "philosophy",
+      "name": "哲学院",
+      "point_id": "b15e0fbc-d6c0-511e-b0d6-c397ec0f9c92",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "finance",
+      "name": "金融学院",
+      "point_id": "c6c9853e-868d-5d4f-80bb-739a4bae1a03",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "tourism",
+      "name": "旅游与服务学院",
+      "point_id": "8dca8fa1-dac8-561d-b140-9bbe2d5094ad",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "environment",
+      "name": "环境科学与工程学院",
+      "point_id": "88e8704d-0322-5580-8d55-fa7b4130238f",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "journalism",
+      "name": "新闻与传播学院",
+      "point_id": "b041e7c6-3481-51c1-b06f-9a33197ea0db",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "pharmacy",
+      "name": "药学院",
+      "point_id": "0c3346e1-c824-5501-828d-ef68b83489be",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "medicine",
+      "name": "医学院",
+      "point_id": "910898c7-7347-524f-ad05-95f387cf48e3",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "software",
+      "name": "软件学院",
+      "point_id": "2b934df1-59d1-5d48-9d77-6208e564ae87",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "materials",
+      "name": "材料科学与工程学院",
+      "point_id": "7b6d0992-b614-5eab-b37c-02e9b7aad0e4",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "electronics-optics",
+      "name": "电子信息与光学工程学院",
+      "point_id": "6bc16059-d0fb-5a08-b802-2369764ca036",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "computer",
+      "name": "计算机学院",
+      "point_id": "c0752c0a-51a7-5576-9b09-df21d43570c4",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "muzhai",
+      "name": "木斋图书馆",
+      "point_id": "d7ae1380-229d-57f7-9a75-f6e9ddc0f04c",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "siyuan",
+      "name": "思源堂",
+      "point_id": "4bee984a-e00e-5df0-8f24-a0d9bc4a34be",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "xiushan",
+      "name": "秀山堂",
+      "point_id": "f1fd78ac-098f-5e71-b8ad-cae8e73b67a6",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "frontier",
+      "name": "前沿交叉学科中心",
+      "point_id": "8d301ca8-eabf-5276-8073-94e63865e286",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "public-teaching",
+      "name": "公共教学楼",
+      "point_id": "f6527692-d448-50fb-ae1f-df0a082ee28d",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "public-d",
+      "name": "公共教学楼 D",
+      "point_id": "80e56ecd-c3c9-5fee-89a7-75961c0892ac",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "public-c",
+      "name": "公共教学楼 C",
+      "point_id": "4823a355-e1c2-5c54-983c-a33a5bd2ea27",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "public-b",
+      "name": "公共教学楼 B",
+      "point_id": "16cb0415-fd90-5206-89e9-205d0f372959",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "public-a",
+      "name": "公共教学楼 A",
+      "point_id": "5f1f6b6d-36c7-597d-b2d8-071781d7ecde",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "laboratory",
+      "name": "综合实验楼",
+      "point_id": "c5c74c67-e46e-5a1f-91fe-e979eb15986b",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "laboratory-d",
+      "name": "综合实验楼 D",
+      "point_id": "6d346555-295b-51bf-8194-2a706d7e407f",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "laboratory-c",
+      "name": "综合实验楼 C",
+      "point_id": "16d2e605-c0eb-53d5-98c5-d374797479dc",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "laboratory-b",
+      "name": "综合实验楼 B",
+      "point_id": "605c0b38-0420-5faa-b980-d3977b5feafe",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "laboratory-a",
+      "name": "综合实验楼 A",
+      "point_id": "8bad2beb-6be1-5236-94d6-8ea59d21859f",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "library",
+      "name": "图书馆",
+      "point_id": "48da7106-7d24-5493-84d3-48d334d07410",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "office-west",
+      "name": "综合业务西楼",
+      "point_id": "956300f9-e598-56bd-981b-a4f5d42211c5",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "office-east",
+      "name": "综合业务东楼",
+      "point_id": "c092641b-9c13-526a-af6d-7815505acee8",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "datong",
+      "name": "大通学生活动中心",
+      "point_id": "a3ce1544-4a2c-5712-9a47-6f0a3a458b2c",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "gym",
+      "name": "体育馆",
+      "point_id": "caaf4219-3920-529b-9288-f99e535f8ec8",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "stadium-main",
+      "name": "主体育场",
+      "point_id": "f20b1b60-5b8d-5ecb-94cb-a07bcbf61b53",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "stadium-arts",
+      "name": "文科体育场",
+      "point_id": "a8f98b09-0feb-59d6-b19c-d9b2df5d7ea7",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "stadium-science",
+      "name": "理科体育场",
+      "point_id": "48a3ba46-78c0-5409-9fdb-8a35d9e125cc",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "lake-mati",
+      "name": "马蹄湖",
+      "point_id": "13d78a03-9905-5d19-9738-1a8c1d91e0bd",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "lake-xinkai",
+      "name": "新开湖",
+      "point_id": "435bbb06-099d-51a0-af63-9a0a3427c2ec",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "animal-center",
+      "name": "实验动物中心",
+      "point_id": "0e387c9e-cdcd-5426-9bc4-f3b818a035ea",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "science-canteen",
+      "name": "理科食堂",
+      "point_id": "a0bf5008-a90d-594d-a63c-82dbde4d7f17",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "science-commercial",
+      "name": "理科商业街",
+      "point_id": "9258e917-b7d3-5566-a00b-2b6a09505a49",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-7-b",
+      "name": "学7-B",
+      "point_id": "50ffd9d2-2f3f-52bc-8ace-1ec086e89c8e",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-7-a",
+      "name": "学7-A",
+      "point_id": "11e83810-0c96-5d6e-b38d-3a0b8f0f9c67",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "dorm-5-c",
+      "name": "学5-C",
+      "point_id": "5d543565-b92f-571d-b53a-1de0860fc43f",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-5-d",
+      "name": "学5-D",
+      "point_id": "51142932-c38c-540a-9d99-a199e1e9bbd1",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "dorm-5-b",
+      "name": "学5-B",
+      "point_id": "8fa3e83f-535a-5d1c-a078-1f1f10c3c7ff",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "dorm-5-a",
+      "name": "学5-A",
+      "point_id": "519f46df-db7b-5913-8008-44dc8d49e386",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "dorm-8",
+      "name": "学8",
+      "point_id": "506991eb-8974-5a86-9e5f-31639a4a0439",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-6",
+      "name": "学6",
+      "point_id": "3abe38c8-3efd-5179-8263-dfbadc301d84",
+      "source": "name-labels/labels.json; existing v2 click area"
+    },
+    {
+      "label_id": "faculty-3",
+      "name": "教3",
+      "point_id": "6d4d4a83-2dc5-5262-b7af-cffd4a9b3f02",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "label_id": "dorm-9",
+      "name": "学9",
+      "point_id": "ae29e7e7-161d-56bd-b371-7b9e8fc58062",
+      "source": "name-labels/labels.json; manually traced original-plan click area"
+    },
+    {
+      "name": "周恩来雕像",
+      "point_id": "82e888ca-59f8-5c55-b8ab-4b80175c6ceb",
+      "source": "用户2026-09-23最新指示：综合业务西楼与综合业务东楼正中央",
+      "reference_anchor": {
+        "x": 856,
+        "y": 789
+      },
+      "reference_canvas": {
+        "width": 1536,
+        "height": 1040
+      },
+      "position_status": "user-located-display-area-not-surveyed"
+    }
+  ]
+}

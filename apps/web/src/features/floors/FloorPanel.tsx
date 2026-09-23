@@ -1,7 +1,10 @@
+import { useEffect, useRef, useState } from "react";
+import { api, type Floor } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
+import { floorLocation, resolveFloor } from "../../shared/navigation";
+import { FloorViewer } from "./FloorViewer";
+import "./floors.css";
 
-// M05 will bind its typed Floor[] to the stable pointId and reuse MapCanvas.
-// Do not call a planned endpoint or invent floors before reviewed material arrives.
 export function FloorPanel({
   pointId,
   pointName,
@@ -9,18 +12,185 @@ export function FloorPanel({
   pointId: string;
   pointName: string;
 }) {
+  const [floors, setFloors] = useState<Floor[]>([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
+  const [retry, setRetry] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const openButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setFloors([]);
+    setSelectedId("");
+    setStatus("loading");
+    api
+      .floors(pointId, controller.signal)
+      .then(({ data }) => {
+        if (controller.signal.aborted) return;
+        const available = data.filter((f) => f.point_id === pointId);
+        setFloors(available);
+        const requested = new URLSearchParams(window.location.search).get(
+          "floor",
+        );
+        const selected = resolveFloor(available, pointId, requested);
+        setSelectedId(selected ?? "");
+        window.history.replaceState(
+          window.history.state,
+          "",
+          floorLocation(window.location.href, pointId, selected),
+        );
+        setStatus("ready");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setStatus("error");
+      });
+    return () => controller.abort();
+  }, [pointId, retry]);
+
+  useEffect(() => {
+    if (expanded) dialog.current?.showModal();
+    else if (dialog.current?.open) dialog.current.close();
+  }, [expanded]);
+
+  const floor = floors.find((f) => f.id === selectedId);
+  const asset = floor?.images?.find((a) => a.variant === "labeled");
+  const title = `${pointName} · ${floor?.label ?? ""} · 已标注图`;
+  function selectFloor(id: string) {
+    if (!floors.some((f) => f.id === id && f.point_id === pointId)) return;
+    setSelectedId(id);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      floorLocation(window.location.href, pointId, id),
+    );
+  }
+  function close() {
+    setExpanded(false);
+    openButton.current?.focus();
+  }
+  function selectors(prefix: string) {
+    return (
+      <div className="floor-selectors">
+        <label htmlFor={`${prefix}-floor`}>选择楼层</label>
+        <select
+          id={`${prefix}-floor`}
+          value={selectedId}
+          onChange={(e) => selectFloor(e.target.value)}
+        >
+          {floors.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
   return (
     <section
-      className="floor-placeholder"
+      className="floor-panel"
       data-point-id={pointId}
       aria-label={`${pointName}楼层结构`}
     >
-      <span className="floor-icon">
-        <Icon name="layers" size={26} />
-      </span>
-      <h3>楼层结构图待补充</h3>
-      <p>这里将展示{pointName}的楼层平面图，便于查看房间与公共设施。</p>
-      <span className="soft-label">暂无已发布楼层</span>
+      {status === "loading" ? (
+        <p role="status" className="floor-empty">
+          <span className="spinner" /> 正在读取楼层…
+        </p>
+      ) : status === "error" ? (
+        <div className="floor-empty" role="alert">
+          <p>暂时无法读取楼层资料</p>
+          <button
+            className="primary-button"
+            onClick={() => setRetry((n) => n + 1)}
+          >
+            重试
+          </button>
+        </div>
+      ) : !floor ? (
+        <div className="floor-placeholder">
+          <span className="floor-icon">
+            <Icon name="layers" size={26} />
+          </span>
+          <h3>暂无已发布楼层</h3>
+          <p>{pointName}的楼层资料补充后会显示在这里。</p>
+        </div>
+      ) : (
+        <>
+          <div className="floor-panel-heading">
+            <strong>楼层平面图</strong>
+            <span>{floors.length}个楼层</span>
+          </div>
+          {selectors("preview")}
+          {asset ? (
+            <FloorViewer
+              key={`${floor.id}-${floor.revision}-labeled`}
+              asset={asset}
+              title={title}
+            />
+          ) : (
+            <p>这张图暂未提供</p>
+          )}
+          <button
+            className="floor-expand"
+            ref={openButton}
+            onClick={() => {
+              selectFloor(selectedId);
+              setExpanded(true);
+            }}
+          >
+            <Icon name="focus" size={17} />
+            展开查看
+          </button>
+          <p className="floor-note">可拖动、双指缩放查看。图中标注供查阅。</p>
+          <dialog
+            className="floor-dialog"
+            aria-labelledby="floor-dialog-title"
+            ref={dialog}
+            onCancel={(e) => {
+              e.preventDefault();
+              close();
+            }}
+            onClose={() => setExpanded(false)}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <header className="floor-dialog-header">
+              <div>
+                <span>FLOOR PLAN</span>
+                <h2 id="floor-dialog-title">{pointName}</h2>
+              </div>
+              <button
+                className="icon-button"
+                aria-label="关闭楼层大图"
+                onClick={close}
+              >
+                <Icon name="close" />
+              </button>
+            </header>
+            {expanded && (
+              <>
+                {selectors("expanded")}
+                {asset && (
+                  <FloorViewer
+                    key={`${floor.id}-${floor.revision}-labeled`}
+                    asset={asset}
+                    title={title}
+                  />
+                )}
+                <footer>
+                  <span>{floor.label} · 已标注图</span>
+                  <span>
+                    {asset?.width_px} × {asset?.height_px} 像素
+                  </span>
+                </footer>
+              </>
+            )}
+          </dialog>
+        </>
+      )}
     </section>
   );
 }

@@ -180,6 +180,16 @@ class MediaAccess(DTO):
     presentation: Literal["image", "audio", "document", "external_link", "iframe"]
 
 
+class FloorImage(DTO):
+    variant: Literal["labeled", "clean"]
+    width_px: int = Field(gt=0)
+    height_px: int = Field(gt=0)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    media_type: Literal["image/png", "image/jpeg"]
+    size_bytes: int = Field(gt=0)
+    url: str
+
+
 class Floor(DTO):
     id: UUID
     point_id: UUID
@@ -187,6 +197,8 @@ class Floor(DTO):
     ordinal: int
     map_id: UUID
     revision: Revision
+    images: list[FloorImage] = Field(default_factory=list)
+    attribution: str = ""
 
 
 class Room(DTO):

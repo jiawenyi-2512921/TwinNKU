@@ -1015,3 +1015,10 @@ a {
     color: #8a7198;
   }
 }
+
+.point-row strong {
+  font-size: 14px;
+}
+.point-row small {
+  font-size: 12px;
+}

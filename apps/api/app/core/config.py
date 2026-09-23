@@ -11,9 +11,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_env: Literal["development", "test", "production"] = "development"
-    app_version: str = "0.2.0"
+    app_version: str = "0.3.0"
     map_enabled: bool = True
     map_assets_dir: Path = Path("var/map-assets")
+    floors_enabled: bool = True
+    floor_assets_dir: Path = Path("var/floor-assets")
     database_url: SecretStr | None = None
     db_host: str = "db"
     db_port: int = Field(default=5432, ge=1, le=65535)

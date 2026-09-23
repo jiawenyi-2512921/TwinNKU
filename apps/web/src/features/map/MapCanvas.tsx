@@ -32,7 +32,6 @@ export function MapCanvas({
   const tileLayer = useRef<L.TileLayer | null>(null);
   const select = useRef(onSelect);
   select.current = onSelect;
-  const [markersVisible, setMarkersVisible] = useState(true);
   const [tileError, setTileError] = useState(false);
   const [zoom, setZoom] = useState(0);
 
@@ -84,69 +83,118 @@ export function MapCanvas({
       features.map_revision !== info.revision
     )
       return;
-    const layer = L.layerGroup().addTo(map);
+    const outlines = L.layerGroup().addTo(map);
     const byId = new Map(points.map((p) => [p.id, p]));
-    for (const feature of features.points) {
-      if (feature.map_revision !== info.revision || feature.map_id !== info.id)
-        continue;
-      const point = byId.get(feature.point_id);
-      if (!point) continue;
+    const valid = features.points.filter(
+      (feature) =>
+        feature.map_id === info.id &&
+        feature.map_revision === info.revision &&
+        byId.has(feature.point_id),
+    );
+    const area = (polygon: (typeof valid)[number]["polygon"]) =>
+      Math.abs(
+        polygon.reduce((sum, a, i) => {
+          const b = polygon[(i + 1) % polygon.length];
+          return sum + a.x * b.y - b.x * a.y;
+        }, 0),
+      );
+    // Parent groups draw first; smaller building sections retain click priority.
+    for (const feature of [...valid].sort(
+      (a, b) => area(b.polygon) - area(a.polygon),
+    )) {
+      const point = byId.get(feature.point_id)!;
       const selected = selectedId === point.id;
       const base = {
-        color: selected ? "#713573" : "#715781",
-        weight: selected ? 2.5 : 1.2,
-        opacity: selected ? 1 : 0.45,
+        color: "#713573",
+        weight: selected ? 2.5 : 1.5,
+        opacity: selected ? 1 : 0,
         fillColor: "#9251a1",
-        fillOpacity: selected ? 0.25 : 0.035,
+        fillOpacity: selected ? 0.2 : 0,
       };
       const polygon = L.polygon(
         feature.polygon.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
-        base,
-      ).addTo(layer);
+        { ...base, bubblingMouseEvents: false },
+      ).addTo(outlines);
       const tooltip = document.createElement("span");
       tooltip.textContent = point.name;
       polygon.bindTooltip(tooltip, {
         direction: "top",
         className: "point-tooltip",
+        sticky: true,
       });
       polygon.on("click", () => select.current(point.id));
       polygon.on("mouseover", () =>
-        polygon.setStyle({ fillOpacity: 0.3, opacity: 1 }),
+        polygon.setStyle({ fillOpacity: 0.24, opacity: 1 }),
       );
       polygon.on("mouseout", () => polygon.setStyle(base));
-      if (markersVisible) {
-        const markerNode = document.createElement("span");
-        markerNode.className = `map-pin${selected ? " is-selected" : ""}`;
-        markerNode.textContent = String(
-          points.findIndex((p) => p.id === point.id) + 1,
-        ).padStart(2, "0");
-        const icon = L.divIcon({
-          html: markerNode,
-          className: "map-pin-holder",
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
+      const path = polygon.getElement();
+      if (path) {
+        path.setAttribute("tabindex", "0");
+        path.setAttribute("role", "button");
+        path.setAttribute("aria-label", `查看${point.name}`);
+        path.setAttribute("aria-pressed", String(selected));
+        path.addEventListener("keydown", (event) => {
+          const key = (event as KeyboardEvent).key;
+          if (key === "Enter" || key === " ") {
+            event.preventDefault();
+            select.current(point.id);
+          }
         });
-        const marker = L.marker(
-          toMapPoint(feature.anchor, info.tiles.max_native_zoom),
-          { icon, title: point.name, alt: point.name, keyboard: true },
-        ).addTo(layer);
-        marker.on("click", () => select.current(point.id));
-        const label = document.createElement("span");
-        label.textContent = point.name;
-        marker.bindTooltip(label, {
-          direction: "top",
-          offset: [0, -16],
-          className: "point-tooltip",
+        path.addEventListener("focus", () => {
+          polygon.setStyle({ fillOpacity: 0.24, opacity: 1 });
+          polygon.openTooltip();
         });
-        marker
-          .getElement()
-          ?.setAttribute("aria-label", `在地图上选择${point.name}`);
+        path.addEventListener("blur", () => {
+          polygon.setStyle(base);
+          polygon.closeTooltip();
+        });
       }
     }
     return () => {
-      layer.remove();
+      outlines.remove();
     };
-  }, [info, features, points, selectedId, markersVisible]);
+  }, [info, features, points, selectedId]);
+
+  useEffect(() => {
+    const map = instance.current;
+    // The base image already contains every other name. Only add the newly
+    // requested statue, in image coordinates so its lettering scales with it.
+    const statueId = "82e888ca-59f8-5c55-b8ab-4b80175c6ceb";
+    const point = points.find((p) => p.id === statueId);
+    const feature = features.points.find((p) => p.point_id === statueId);
+    if (
+      !map ||
+      !info.tiles ||
+      !point ||
+      !feature ||
+      features.map_id !== info.id ||
+      features.map_revision !== info.revision ||
+      feature.map_id !== info.id ||
+      feature.map_revision !== info.revision
+    )
+      return;
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${info.width_px} ${info.height_px}`);
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    svg.classList.add("map-image-annotation");
+    const text = document.createElementNS(ns, "text");
+    const referenceScale = info.width_px / 1536;
+    text.setAttribute("x", String(feature.anchor.x));
+    text.setAttribute("y", String(feature.anchor.y));
+    text.setAttribute("dy", ".37em");
+    text.setAttribute("font-size", String(11.3 * referenceScale));
+    text.setAttribute("stroke-width", String(2.4 * referenceScale));
+    text.textContent = point.name;
+    svg.appendChild(text);
+    const annotation = L.svgOverlay(svg, imageBounds(info), {
+      interactive: false,
+    }).addTo(map);
+    return () => {
+      annotation.remove();
+    };
+  }, [info, features, points]);
 
   useEffect(() => {
     const map = instance.current;
@@ -242,14 +290,6 @@ export function MapCanvas({
           }}
         >
           <Icon name="focus" />
-        </button>
-        <button
-          title="地点标记"
-          aria-label="地点标记"
-          aria-pressed={markersVisible}
-          onClick={() => setMarkersVisible((v) => !v)}
-        >
-          <Icon name="pin" />
         </button>
       </div>
       {tileError && (

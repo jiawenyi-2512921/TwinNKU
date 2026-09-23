@@ -177,8 +177,6 @@ planned(
     c.ActionAck,
     auth="owner",
 )
-planned("GET", "/points/{point_id}/floors", "listFloors", "M05", list[c.Floor])
-planned("GET", "/floors/{floor_id}", "getFloor", "M05", c.Floor, auth="resource_policy")
 planned("GET", "/floors/{floor_id}/rooms", "listRooms", "M05", list[c.Room], auth="resource_policy")
 planned("GET", "/campuses/{campus_id}/tours", "listTourTemplates", "M06", list[c.TourTemplate])
 planned(

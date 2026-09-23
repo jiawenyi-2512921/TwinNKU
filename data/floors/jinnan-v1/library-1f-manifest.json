@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "source_note": "用户提供的飞书楼层资料。本批仅核对并收集图书馆1层的无标注及已标注PNG原文件；其余90层不在本批。排除实拍照片和第20项，不包含房间导航数据。",
+  "floors": [
+    {
+      "id": "91719ef5-6e0b-510c-a24c-4f47b6749e76",
+      "point_id": "48da7106-7d24-5493-84d3-48d334d07410",
+      "map_id": "a50e2cb3-5335-5da4-9731-c130edf7e689",
+      "label": "1层",
+      "ordinal": 1,
+      "revision": 1,
+      "attribution": "用户整理提供的楼层图；按提交原文件展示。",
+      "images": [
+        {
+          "variant": "labeled",
+          "filename": "labeled.png",
+          "width_px": 1675,
+          "height_px": 937,
+          "sha256": "52d85727e25fbac029c4d3ce1cea8f7a130ae05f5bc61d078809bb6ae0895a00",
+          "media_type": "image/png",
+          "size_bytes": 980417
+        },
+        {
+          "variant": "clean",
+          "filename": "clean.png",
+          "width_px": 1838,
+          "height_px": 1084,
+          "sha256": "28f38f361935590444b5cf27c1c6063ef33d5eb467df148248dc3f722558fa66",
+          "media_type": "image/png",
+          "size_bytes": 1374029
+        }
+      ]
+    }
+  ]
+}

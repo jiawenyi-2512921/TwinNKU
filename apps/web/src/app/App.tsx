@@ -7,6 +7,7 @@ import {
   type Point,
 } from "../shared/api/client";
 import { Icon } from "../shared/ui/Icon";
+import { pointLocation } from "../shared/navigation";
 import { MapCanvas } from "../features/map/MapCanvas";
 import {
   PointDetails,
@@ -20,7 +21,17 @@ type Catalog = {
   features: MapFeatures | null;
   points: Point[];
 };
-const categories = ["all", "academic", "public_area", "landscape"] as const;
+const categories = [
+  "all",
+  "academic",
+  "public_area",
+  "landscape",
+  "residence",
+  "dining",
+  "commerce",
+  "history",
+  "patriotic",
+] as const;
 
 export function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -37,10 +48,11 @@ export function App() {
   const selectPoint = useCallback((id: string | null) => {
     setSelectedId(id);
     setShowList(false);
-    const url = new URL(window.location.href);
-    if (id) url.searchParams.set("point", id);
-    else url.searchParams.delete("point");
-    window.history.replaceState(null, "", url);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      pointLocation(window.location.href, id),
+    );
   }, []);
 
   useEffect(() => {
@@ -168,7 +180,7 @@ export function App() {
         {showHelp && (
           <div className="help-popover">
             <strong>从地图开始探索</strong>
-            <p>拖动或双指缩放地图，点击地点标记或左侧列表查看详情。</p>
+            <p>拖动或双指缩放地图，点击已命名建筑或地点列表查看详情。</p>
             <p>使用“回到全图”恢复全景，按 Esc 关闭详情，按 / 搜索地点。</p>
           </div>
         )}
@@ -185,7 +197,7 @@ export function App() {
               <br />
               <em>走近南开。</em>
             </h1>
-            <p>在校园的风景里，开启你的探索。</p>
+            <p>找地点、看建筑，逐步走近校园的故事。</p>
           </div>
           <form
             className="place-search"
@@ -269,11 +281,6 @@ export function App() {
                       <strong>{p.name}</strong>
                       <small>{categoryLabels[p.category]}</small>
                     </span>
-                    <span className="point-index">
-                      {String(
-                        points.findIndex((item) => item.id === p.id) + 1,
-                      ).padStart(2, "0")}
-                    </span>
                     <Icon name="arrow" size={15} />
                   </button>
                 </li>
@@ -355,11 +362,7 @@ export function App() {
             </div>
           )}
           {selected && (
-            <PointDetails
-              point={selected}
-              index={points.findIndex((p) => p.id === selected.id)}
-              onClose={() => selectPoint(null)}
-            />
+            <PointDetails point={selected} onClose={() => selectPoint(null)} />
           )}
           {status === "error" && catalog && (
             <div className="tile-warning" role="status">
@@ -370,7 +373,7 @@ export function App() {
           {!selected && catalog?.map && (
             <div className="map-hint">
               <Icon name="pin" size={17} />
-              <span>点击地点，发现校园</span>
+              <span>点建筑看详情 · 放大查看图中文字</span>
               <span className="hint-key">拖动 · 缩放</span>
             </div>
           )}

@@ -8,7 +8,7 @@ COPY apps/api/app ./app
 COPY apps/api/migrations ./migrations
 COPY apps/api/alembic.ini ./
 RUN useradd --uid 10001 --create-home twinnku \
-    && mkdir -p /data/maps && chown twinnku:twinnku /data/maps
+    && mkdir -p /data/maps /data/floors && chown twinnku:twinnku /data/maps /data/floors
 ENV PATH="/app/.venv/bin:$PATH"
 USER 10001
 EXPOSE 8000
