@@ -109,35 +109,19 @@
   border-left: 1px solid #eae1ed;
   padding-left: 11px;
 }
-.map-name-holder {
-  background: none !important;
-  border: 0 !important;
+.map-image-annotation,
+.map-image-annotation * {
+  pointer-events: none;
 }
-.map-name {
-  display: block;
-  box-sizing: border-box;
-  padding: 5px 9px;
-  border: 1px solid #dfd4e3;
-  border-radius: 6px;
-  color: #302436;
-  background: #fffffff5;
-  box-shadow: 0 2px 7px #28342226;
-  font-family: inherit;
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 20px;
-  text-align: center;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-}
-.map-name-holder:hover .map-name,
-.map-name.is-selected {
-  border-color: #713573;
-  color: #54265d;
-  background: #fff;
-  box-shadow:
-    0 0 0 2px #9560a134,
-    0 3px 12px #28342226;
+.map-image-annotation text {
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-weight: 500;
+  text-anchor: middle;
+  fill: #593354;
+  stroke: #fffef9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
 }
 .map-canvas path:focus-visible {
   outline: none;

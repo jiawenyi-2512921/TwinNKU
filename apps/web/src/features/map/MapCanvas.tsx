@@ -9,12 +9,6 @@ import type {
 } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import { imageBounds, toMapPoint } from "./coordinates";
-import {
-  labelPriority,
-  placeLabels,
-  shouldLabel,
-  type LabelCandidate,
-} from "./labels";
 
 type Props = {
   info: MapInfo;
@@ -38,7 +32,6 @@ export function MapCanvas({
   const tileLayer = useRef<L.TileLayer | null>(null);
   const select = useRef(onSelect);
   select.current = onSelect;
-  const [labelsVisible, setLabelsVisible] = useState(true);
   const [tileError, setTileError] = useState(false);
   const [zoom, setZoom] = useState(0);
 
@@ -91,7 +84,6 @@ export function MapCanvas({
     )
       return;
     const outlines = L.layerGroup().addTo(map);
-    const labels = L.layerGroup().addTo(map);
     const byId = new Map(points.map((p) => [p.id, p]));
     const valid = features.points.filter(
       (feature) =>
@@ -158,96 +150,51 @@ export function MapCanvas({
         });
       }
     }
-    const context = document.createElement("canvas").getContext("2d");
-    if (context)
-      context.font = `600 14px ${getComputedStyle(element.current!).fontFamily}`;
-    const redrawLabels = () => {
-      labels.clearLayers();
-      const size = map.getSize();
-      const candidates: LabelCandidate[] = [];
-      for (const feature of valid) {
-        const point = byId.get(feature.point_id)!;
-        const selected = selectedId === point.id;
-        if (!labelsVisible && !selected) continue;
-        const priority = labelPriority(point.name, point.category);
-        const corners = feature.polygon.map((p) =>
-          map.latLngToContainerPoint(
-            toMapPoint(p, info.tiles!.max_native_zoom),
-          ),
-        );
-        const footprint = Math.max(
-          Math.max(...corners.map((p) => p.x)) -
-            Math.min(...corners.map((p) => p.x)),
-          Math.max(...corners.map((p) => p.y)) -
-            Math.min(...corners.map((p) => p.y)),
-        );
-        if (!shouldLabel(priority, footprint, selected)) continue;
-        const anchor = map.latLngToContainerPoint(
-          toMapPoint(feature.anchor, info.tiles!.max_native_zoom),
-        );
-        const textWidth =
-          context?.measureText(point.name).width ?? point.name.length * 14;
-        const width = Math.min(174, Math.ceil(textWidth) + 22);
-        const height = Math.ceil(textWidth / (width - 20)) * 20 + 12;
-        candidates.push({
-          id: point.id,
-          x: anchor.x,
-          y: anchor.y,
-          width,
-          height,
-          priority,
-          selected,
-        });
-      }
-      const narrow = window.matchMedia("(max-width: 760px)").matches;
-      const excluded = [
-        { left: 8, top: 8, right: Math.min(290, size.x - 8), bottom: 56 },
-      ];
-      if (selectedId && !narrow)
-        excluded.push({
-          left: size.x - 355,
-          top: 12,
-          right: size.x,
-          bottom: size.y,
-        });
-      for (const label of placeLabels(
-        candidates,
-        { width: size.x, height: size.y },
-        excluded,
-      )) {
-        const point = byId.get(label.id)!;
-        const node = document.createElement("span");
-        node.className = `map-name${label.selected ? " is-selected" : ""}`;
-        node.textContent = point.name;
-        node.style.width = `${label.width}px`;
-        const icon = L.divIcon({
-          html: node,
-          className: "map-name-holder",
-          iconSize: [label.width, label.height],
-          iconAnchor: [0, 0],
-        });
-        const marker = L.marker(
-          map.containerPointToLatLng([label.box.left, label.box.top]),
-          {
-            icon,
-            title: point.name,
-            alt: point.name,
-            keyboard: true,
-            zIndexOffset: label.selected ? 1000 : 0,
-          },
-        ).addTo(labels);
-        marker.on("click", () => select.current(point.id));
-        marker.getElement()?.setAttribute("aria-label", `查看${point.name}`);
-      }
-    };
-    redrawLabels();
-    map.on("moveend zoomend resize", redrawLabels);
     return () => {
-      map.off("moveend zoomend resize", redrawLabels);
       outlines.remove();
-      labels.remove();
     };
-  }, [info, features, points, selectedId, labelsVisible]);
+  }, [info, features, points, selectedId]);
+
+  useEffect(() => {
+    const map = instance.current;
+    // The base image already contains every other name. Only add the newly
+    // requested statue, in image coordinates so its lettering scales with it.
+    const statueId = "82e888ca-59f8-5c55-b8ab-4b80175c6ceb";
+    const point = points.find((p) => p.id === statueId);
+    const feature = features.points.find((p) => p.point_id === statueId);
+    if (
+      !map ||
+      !info.tiles ||
+      !point ||
+      !feature ||
+      features.map_id !== info.id ||
+      features.map_revision !== info.revision ||
+      feature.map_id !== info.id ||
+      feature.map_revision !== info.revision
+    )
+      return;
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", `0 0 ${info.width_px} ${info.height_px}`);
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    svg.classList.add("map-image-annotation");
+    const text = document.createElementNS(ns, "text");
+    const referenceScale = info.width_px / 1536;
+    text.setAttribute("x", String(feature.anchor.x));
+    text.setAttribute("y", String(feature.anchor.y));
+    text.setAttribute("dy", ".37em");
+    text.setAttribute("font-size", String(11.3 * referenceScale));
+    text.setAttribute("stroke-width", String(2.4 * referenceScale));
+    text.textContent = point.name;
+    svg.appendChild(text);
+    const annotation = L.svgOverlay(svg, imageBounds(info), {
+      interactive: false,
+    }).addTo(map);
+    return () => {
+      annotation.remove();
+    };
+  }, [info, features, points]);
 
   useEffect(() => {
     const map = instance.current;
@@ -343,14 +290,6 @@ export function MapCanvas({
           }}
         >
           <Icon name="focus" />
-        </button>
-        <button
-          title="显示地点名称"
-          aria-label="显示地点名称"
-          aria-pressed={labelsVisible}
-          onClick={() => setLabelsVisible((v) => !v)}
-        >
-          <Icon name="pin" />
         </button>
       </div>
       {tileError && (
