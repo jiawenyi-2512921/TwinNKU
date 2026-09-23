@@ -1,7 +1,7 @@
-"""Build an explicit clean/labeled pair bundle; never scan or copy a photo directory.
+"""Build a labeled-only floor bundle; never scan or copy a photo directory.
 
 Run with the API environment: uv run python ../../scripts/build_floor_bundle.py INTAKE OUT
-Fill clean_file/labeled_file in a private copy of data/floors/jinnan-v1/intake.json first.
+Fill labeled_file in a private copy of data/floors/jinnan-v1/intake.json first.
 """
 
 import argparse
@@ -25,11 +25,11 @@ def build(intake_path: Path, output: Path, *, partial: bool = False):
         if building["source_number"] in excluded:
             continue
         for row in building["floors"]:
-            if not row.get("clean_file") or not row.get("labeled_file"):
+            if not row.get("labeled_file"):
                 missing.append(f"{building['name']} {row['label']}")
                 continue
             images = []
-            for variant in ["labeled", "clean"]:
+            for variant in ["labeled"]:
                 source = Path(row[f"{variant}_file"])
                 if not source.is_absolute():
                     source = intake_path.parent / source
@@ -40,10 +40,6 @@ def build(intake_path: Path, output: Path, *, partial: bool = False):
                 relative = f"{row['id']}/{row['revision']}/{filename}"
                 images.append({"variant": variant, "filename": filename, **metadata})
                 copies.append((source, relative))
-            if images[0]["sha256"] == images[1]["sha256"]:
-                raise ValueError(
-                    f"{building['name']} {row['label']}: two roles reference identical bytes"
-                )
             floors.append(
                 {k: row[k] for k in ["id", "map_id", "label", "ordinal", "revision"]}
                 | {
@@ -54,7 +50,7 @@ def build(intake_path: Path, output: Path, *, partial: bool = False):
             )
     if missing and not partial:
         raise ValueError(
-            f"{len(missing)} floors lack an explicit pair; no output created: " + ", ".join(missing)
+            f"{len(missing)} floors lack a labeled image; no output created: " + ", ".join(missing)
         )
     bundle = FloorBundle(schema_version=1, source_note=intake["source_note"], floors=floors)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -69,7 +65,7 @@ def build(intake_path: Path, output: Path, *, partial: bool = False):
     finally:
         if stage.exists():
             shutil.rmtree(stage)
-    return {"floors": len(floors), "images": len(copies), "skipped_unpaired": missing}
+    return {"floors": len(floors), "images": len(copies), "skipped_missing_labeled": missing}
 
 
 if __name__ == "__main__":
@@ -77,7 +73,7 @@ if __name__ == "__main__":
     parser.add_argument("intake", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument(
-        "--partial", action="store_true", help="Explicitly omit incomplete pairs and list them"
+        "--partial", action="store_true", help="Explicitly omit floors missing a labeled image and list them"
     )
     args = parser.parse_args()
     print(json.dumps(build(args.intake, args.output, partial=args.partial), ensure_ascii=False))

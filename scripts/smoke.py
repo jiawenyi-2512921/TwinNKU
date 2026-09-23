@@ -49,10 +49,18 @@ else:
     print("Map content is not published or MAP_ENABLED is false; map checks not run.")
 
 if capabilities["floors"]:
-    with urllib.request.urlopen(
-        base + "/api/v1/campuses/nku-jinnan/points", timeout=10
-    ) as response:
-        points = json.load(response)["data"]
+    points = []
+    page = 1
+    while True:
+        with urllib.request.urlopen(
+            base + f"/api/v1/campuses/nku-jinnan/points?page_size=100&page={page}", timeout=10
+        ) as response:
+            result = json.load(response)
+        points.extend(result["data"])
+        pagination = result["meta"].get("pagination") or {}
+        if not result["data"] or len(points) >= pagination.get("total", len(points)):
+            break
+        page += 1
     checked = 0
     for point in points:
         with urllib.request.urlopen(
@@ -61,7 +69,7 @@ if capabilities["floors"]:
             floors = json.load(response)["data"]
         for floor in floors:
             assert floor["point_id"] == point["id"]
-            assert {a["variant"] for a in floor["images"]} == {"clean", "labeled"}
+            assert {a["variant"] for a in floor["images"]} == {"labeled"}
             for asset in floor["images"]:
                 with urllib.request.urlopen(
                     base + asset["url"], timeout=30
@@ -72,6 +80,6 @@ if capabilities["floors"]:
                     assert hashlib.sha256(data).hexdigest() == asset["sha256"]
             checked += 1
     assert checked, "floor capability enabled without a published floor in nku-jinnan"
-    print("PASS", checked, "published floors and byte-identical clean/labeled images")
+    print("PASS", checked, "published floors and byte-identical labeled images")
 else:
     print("No published floors or FLOORS_ENABLED is false; floor image checks not run.")
