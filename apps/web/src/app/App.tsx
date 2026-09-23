@@ -28,6 +28,9 @@ const categories = [
   "landscape",
   "residence",
   "dining",
+  "commerce",
+  "history",
+  "patriotic",
 ] as const;
 
 export function App() {
@@ -40,6 +43,7 @@ export function App() {
   const [category, setCategory] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
+  const [showUnnamed, setShowUnnamed] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const search = useRef<HTMLInputElement>(null);
   const selectPoint = useCallback((id: string | null) => {
@@ -140,10 +144,12 @@ export function App() {
     const q = query.trim().toLocaleLowerCase();
     return points.filter(
       (p) =>
+        (showUnnamed || p.name !== "未命名建筑") &&
         (category === "all" || p.category === category) &&
         [p.name, ...p.aliases].some((s) => s.toLocaleLowerCase().includes(q)),
     );
-  }, [points, query, category]);
+  }, [points, query, category, showUnnamed]);
+  const unnamedCount = points.filter((p) => p.name === "未命名建筑").length;
   const selected = points.find((p) => p.id === selectedId);
   const groups = categories.filter(
     (c) => c === "all" || points.some((p) => p.category === c),
@@ -177,7 +183,7 @@ export function App() {
         {showHelp && (
           <div className="help-popover">
             <strong>从地图开始探索</strong>
-            <p>拖动或双指缩放地图，点击地点标记或左侧列表查看详情。</p>
+            <p>拖动或双指缩放地图，点击建筑轮廓、地点名称或列表查看详情。</p>
             <p>使用“回到全图”恢复全景，按 Esc 关闭详情，按 / 搜索地点。</p>
           </div>
         )}
@@ -194,7 +200,7 @@ export function App() {
               <br />
               <em>走近南开。</em>
             </h1>
-            <p>在校园的风景里，开启你的探索。</p>
+            <p>找地点、看建筑，逐步走近校园的故事。</p>
           </div>
           <form
             className="place-search"
@@ -248,6 +254,16 @@ export function App() {
               </button>
             ))}
           </div>
+          {unnamedCount > 0 && (
+            <label className="unnamed-filter">
+              <input
+                type="checkbox"
+                checked={showUnnamed}
+                onChange={(e) => setShowUnnamed(e.target.checked)}
+              />
+              显示待确认建筑（{unnamedCount}处）
+            </label>
+          )}
           <div className="list-heading">
             <span>
               探索地点 <b>{filtered.length.toString().padStart(2, "0")}</b>
@@ -276,12 +292,11 @@ export function App() {
                     </span>
                     <span className="point-row-text">
                       <strong>{p.name}</strong>
-                      <small>{categoryLabels[p.category]}</small>
-                    </span>
-                    <span className="point-index">
-                      {String(
-                        points.findIndex((item) => item.id === p.id) + 1,
-                      ).padStart(2, "0")}
+                      <small>
+                        {p.name === "未命名建筑"
+                          ? "名称与用途待核对"
+                          : categoryLabels[p.category]}
+                      </small>
                     </span>
                     <Icon name="arrow" size={15} />
                   </button>
@@ -364,11 +379,7 @@ export function App() {
             </div>
           )}
           {selected && (
-            <PointDetails
-              point={selected}
-              index={points.findIndex((p) => p.id === selected.id)}
-              onClose={() => selectPoint(null)}
-            />
+            <PointDetails point={selected} onClose={() => selectPoint(null)} />
           )}
           {status === "error" && catalog && (
             <div className="tile-warning" role="status">
@@ -379,7 +390,7 @@ export function App() {
           {!selected && catalog?.map && (
             <div className="map-hint">
               <Icon name="pin" size={17} />
-              <span>点击地点，发现校园</span>
+              <span>点建筑看详情 · 放大显示更多名称</span>
               <span className="hint-key">拖动 · 缩放</span>
             </div>
           )}
