@@ -103,9 +103,6 @@ def planned(
     )
 
 
-planned("GET", "/campuses/{campus_id}/maps", "listMaps", "M01", list[c.MapInfo])
-planned("GET", "/maps/{map_id}", "getMap", "M01", c.MapInfo)
-planned("GET", "/maps/{map_id}/features", "getMapFeatures", "M01", c.MapFeatures)
 planned("GET", "/points/{point_id}/media", "listPointMedia", "M02", list[c.MediaInfo])
 planned(
     "GET",
