@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "source_note": "用户最新要求仅交付已标注图。图书馆1层原标注PNG不重编码；本批只更新该层为revision 2，无标注图和实拍不打包。",
+  "floors": [
+    {
+      "id": "91719ef5-6e0b-510c-a24c-4f47b6749e76",
+      "point_id": "48da7106-7d24-5493-84d3-48d334d07410",
+      "map_id": "a50e2cb3-5335-5da4-9731-c130edf7e689",
+      "label": "1层",
+      "ordinal": 1,
+      "revision": 2,
+      "attribution": "用户整理提供的楼层图；按提交原文件展示。",
+      "images": [
+        {
+          "variant": "labeled",
+          "filename": "labeled.png",
+          "width_px": 1675,
+          "height_px": 937,
+          "sha256": "52d85727e25fbac029c4d3ce1cea8f7a130ae05f5bc61d078809bb6ae0895a00",
+          "media_type": "image/png",
+          "size_bytes": 980417
+        }
+      ]
+    }
+  ]
+}
