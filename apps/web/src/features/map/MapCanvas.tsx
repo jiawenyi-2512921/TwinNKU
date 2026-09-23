@@ -157,37 +157,39 @@ export function MapCanvas({
 
   useEffect(() => {
     const map = instance.current;
-    // The base image already contains every other name. Only add the newly
-    // requested statue, in image coordinates so its lettering scales with it.
-    const statueId = "82e888ca-59f8-5c55-b8ab-4b80175c6ceb";
-    const point = points.find((p) => p.id === statueId);
-    const feature = features.points.find((p) => p.point_id === statueId);
     if (
       !map ||
       !info.tiles ||
-      !point ||
-      !feature ||
       features.map_id !== info.id ||
-      features.map_revision !== info.revision ||
-      feature.map_id !== info.id ||
-      feature.map_revision !== info.revision
+      features.map_revision !== info.revision
     )
       return;
+    const byId = new Map(points.map((point) => [point.id, point]));
+    const labels = features.points.filter(
+      (feature) =>
+        feature.label_on_map &&
+        feature.map_id === info.id &&
+        feature.map_revision === info.revision &&
+        byId.has(feature.point_id),
+    );
+    if (!labels.length) return;
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", `0 0 ${info.width_px} ${info.height_px}`);
     svg.setAttribute("preserveAspectRatio", "none");
     svg.setAttribute("aria-hidden", "true");
     svg.classList.add("map-image-annotation");
-    const text = document.createElementNS(ns, "text");
-    const referenceScale = info.width_px / 1536;
-    text.setAttribute("x", String(feature.anchor.x));
-    text.setAttribute("y", String(feature.anchor.y));
-    text.setAttribute("dy", ".37em");
-    text.setAttribute("font-size", String(11.3 * referenceScale));
-    text.setAttribute("stroke-width", String(2.4 * referenceScale));
-    text.textContent = point.name;
-    svg.appendChild(text);
+    for (const feature of labels) {
+      const text = document.createElementNS(ns, "text");
+      const referenceScale = info.width_px / 1536;
+      text.setAttribute("x", String(feature.anchor.x));
+      text.setAttribute("y", String(feature.anchor.y));
+      text.setAttribute("dy", ".37em");
+      text.setAttribute("font-size", String(11.3 * referenceScale));
+      text.setAttribute("stroke-width", String(2.4 * referenceScale));
+      text.textContent = byId.get(feature.point_id)!.name;
+      svg.appendChild(text);
+    }
     const annotation = L.svgOverlay(svg, imageBounds(info), {
       interactive: false,
     }).addTo(map);
