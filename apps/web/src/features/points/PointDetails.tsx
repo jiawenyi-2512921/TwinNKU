@@ -15,6 +15,7 @@ export const categoryLabels: Record<Point["category"], string> = {
   history: "校史文化",
 };
 export function pointIcon(point: Point) {
+  if (point.category === "patriotic") return "pin";
   return point.category === "landscape"
     ? "leaf"
     : point.name.endsWith("门")
