@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type Floor, type FloorImage } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
+import { floorLocation, resolveFloor } from "../../shared/navigation";
 import { FloorViewer } from "./FloorViewer";
 import "./floors.css";
 
@@ -32,12 +33,17 @@ export function FloorPanel({
       .floors(pointId, controller.signal)
       .then(({ data }) => {
         if (controller.signal.aborted) return;
-        setFloors(data);
+        const available = data.filter((f) => f.point_id === pointId);
+        setFloors(available);
         const requested = new URLSearchParams(window.location.search).get(
           "floor",
         );
-        setSelectedId(
-          data.find((f) => f.id === requested)?.id ?? data[0]?.id ?? "",
+        const selected = resolveFloor(available, pointId, requested);
+        setSelectedId(selected ?? "");
+        window.history.replaceState(
+          window.history.state,
+          "",
+          floorLocation(window.location.href, pointId, selected),
         );
         setStatus("ready");
       })
@@ -56,10 +62,13 @@ export function FloorPanel({
   const asset = floor?.images?.find((a) => a.variant === variant);
   const title = `${pointName} · ${floor?.label ?? ""} · ${variant === "labeled" ? "已标注图" : "无标注图"}`;
   function selectFloor(id: string) {
+    if (!floors.some((f) => f.id === id && f.point_id === pointId)) return;
     setSelectedId(id);
-    const url = new URL(window.location.href);
-    url.searchParams.set("floor", id);
-    window.history.replaceState(null, "", url);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      floorLocation(window.location.href, pointId, id),
+    );
   }
   function close() {
     setExpanded(false);
