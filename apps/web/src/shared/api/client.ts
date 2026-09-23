@@ -28,6 +28,7 @@ export async function get<T>(
 ): Promise<{ data: T; meta: Meta }> {
   const response = await fetch(`/api/v1${path}`, {
     signal,
+    cache: "no-store",
     credentials: "same-origin",
     headers: { Accept: "application/json" },
   });
@@ -51,6 +52,8 @@ export async function get<T>(
 }
 
 export const api = {
+  point: (id: string, signal?: AbortSignal) =>
+    get<Point>(`/points/${encodeURIComponent(id)}`, signal),
   status: (signal?: AbortSignal) => get<SystemStatus>("/system/status", signal),
   campuses: (signal?: AbortSignal) => get<Campus[]>("/campuses", signal),
   points: (campus: string, query: string, signal?: AbortSignal, page = 1) =>
