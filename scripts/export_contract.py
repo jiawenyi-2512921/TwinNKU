@@ -26,20 +26,30 @@ def build():
     event_schema = ChatEvent.model_json_schema(ref_template="#/components/schemas/{model}")
     schemas.update(event_schema.pop("$defs", {}))
     schemas["ChatEvent"] = event_schema
-    spec["components"]["securitySchemes"] = {
-        "SessionCookie": {
-            "type": "apiKey",
-            "in": "cookie",
-            "name": "twinnku_session",
-            "description": "Opaque session; staff role comes from trusted identity provider.",
-        },
-    }
+    spec["components"].setdefault("securitySchemes", {}).update(
+        {
+            "SessionCookie": {
+                "type": "apiKey",
+                "in": "cookie",
+                "name": "twinnku_session",
+                "description": "Opaque session; staff role comes from trusted identity provider.",
+            },
+        }
+    )
     for path, methods in spec["paths"].items():
         for method, operation in methods.items():
             auth = operation.get("x-auth", "public")
             if auth not in {"public", "resource_policy"}:
-                operation["security"] = [{"SessionCookie": []}]
-            if method in {"post", "put", "patch", "delete"} and auth != "public":
+                operation["security"] = [
+                    {"StaffCookie" if auth == "staff" else "SessionCookie": []}
+                ]
+            if (
+                method in {"post", "put", "patch", "delete"}
+                and auth != "public"
+                and not any(
+                    p.get("name") == "X-CSRF-Token" for p in operation.get("parameters", [])
+                )
+            ):
                 operation.setdefault("parameters", []).append(
                     {
                         "name": "X-CSRF-Token",
