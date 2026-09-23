@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,11 +12,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_env: Literal["development", "test", "production"] = "development"
-    app_version: str = "0.3.0"
+    app_version: str = "0.4.0"
     map_enabled: bool = True
     map_assets_dir: Path = Path("var/map-assets")
     floors_enabled: bool = True
     floor_assets_dir: Path = Path("var/floor-assets")
+    admin_enabled: bool = False
+    admin_public_origin: str | None = None
+    admin_session_hours: int = Field(default=8, ge=1, le=24)
     database_url: SecretStr | None = None
     db_host: str = "db"
     db_port: int = Field(default=5432, ge=1, le=65535)
@@ -42,7 +46,24 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def production_is_explicit(self):
+        if self.admin_public_origin:
+            origin = urlsplit(self.admin_public_origin)
+            if (
+                origin.scheme not in {"http", "https"}
+                or not origin.netloc
+                or origin.path
+                or origin.query
+                or origin.fragment
+                or origin.username
+            ):
+                raise ValueError("ADMIN_PUBLIC_ORIGIN must be an exact origin without path")
         if self.app_env == "production":
+            if self.admin_enabled and (
+                not self.admin_public_origin or not self.admin_public_origin.startswith("https://")
+            ):
+                raise ValueError(
+                    "enabled production admin requires an explicit HTTPS ADMIN_PUBLIC_ORIGIN"
+                )
             url = make_url(self.resolved_database_url)
             if url.drivername != "postgresql+psycopg":
                 raise ValueError("production requires PostgreSQL with psycopg")
