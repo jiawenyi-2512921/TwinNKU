@@ -172,3 +172,16 @@ def test_same_ordinal_cannot_rebind_a_second_floor(db, client, floor_bundle):
     f["map_id"] = str(uuid4())
     with pytest.raises(ValueError, match="ordinal"):
         install(floor_bundle, db, client)
+
+
+def test_import_rejects_a_single_image_disguised_as_two_variants(db, client, floor_bundle):
+    root, data = floor_bundle
+    f = data["floors"][0]
+    original = root / f["id"] / "1/labeled.png"
+    duplicate = root / f["id"] / "1/clean.png"
+    duplicate.write_bytes(original.read_bytes())
+    f["images"][1] = {"variant": "clean", "filename": "clean.png", **inspect_image(duplicate)}
+    with pytest.raises(ValidationError, match="identical image bytes"):
+        install(floor_bundle, db, client)
+    assert db.query(FloorRecord).count() == 0
+    assert not client.app.state.settings.floor_assets_dir.exists()
