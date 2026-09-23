@@ -24,8 +24,8 @@
 
 ## 已知限制与未运行部分
 
-- 本地没有Docker Engine、Nginx及真实PostgreSQL。Compose命令、named volume所有权和容器迁移仍需CI/部署方验证；不能把SQLite结果当作PostgreSQL通过。
-- 本轮GitHub连接创建分支返回403 `Resource not accessible by integration`；网页上传及远端校验另行记录，API权限未被修改。
+- 本地没有Docker Engine、Nginx及真实PostgreSQL。PR #2 首轮CI的Compose构建、迁移与HTTP冒烟通过；PostgreSQL迁移和schema检查成功，但测试仍断言旧的0001版本号，现已同步为0002_map_catalog，最终状态以该PR检查为准。资源包导入容器和真实素材仍需部署方验证。
+- 本轮GitHub连接创建分支返回403 `Resource not accessible by integration`；已通过用户授权的登录网页上传至`feat/campus-map-m01`，创建[PR #2](https://github.com/jiawenyi-2512921/TwinNKU/pull/2)。首批42个变更文件与本地测试版本逐字节一致，API权限未被修改。
 - 未连接用户服务器，未变更线上2512921.cn。用户与DeepSeek按明确提交及地图资源包部署。
 - 只完成五个试点的点击范围，其他名称仍显示在底图。圈选不是实测建筑边界、入口或路网。
 - 全景、智能体、楼层图片/房间和路线服务均未接入；相关能力保持关闭。楼层入口为待补充状态。
