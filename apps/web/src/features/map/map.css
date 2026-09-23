@@ -109,37 +109,40 @@
   border-left: 1px solid #eae1ed;
   padding-left: 11px;
 }
-.map-pin-holder {
+.map-name-holder {
   background: none !important;
   border: 0 !important;
 }
-.map-pin {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 3px solid #fff;
-  background: #7e528c;
-  color: #fff;
+.map-name {
+  display: block;
+  box-sizing: border-box;
+  padding: 5px 9px;
+  border: 1px solid #dfd4e3;
+  border-radius: 6px;
+  color: #302436;
+  background: #fffffff5;
+  box-shadow: 0 2px 7px #28342226;
   font-family: inherit;
   font-weight: 600;
-  font-size: 10px;
-  box-shadow: 0 3px 10px #43235142;
-  transition:
-    transform 0.18s,
-    background 0.18s;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
 }
-.map-pin-holder:hover .map-pin {
-  transform: scale(1.13);
-  background: #5f2d70;
-}
-.map-pin.is-selected {
-  background: #622d71;
+.map-name-holder:hover .map-name,
+.map-name.is-selected {
+  border-color: #713573;
+  color: #54265d;
+  background: #fff;
   box-shadow:
-    0 0 0 6px #9762a343,
-    0 4px 15px #49265836;
+    0 0 0 2px #9560a134,
+    0 3px 12px #28342226;
+}
+.map-canvas path:focus-visible {
+  outline: none;
+  stroke: #713573;
+  stroke-width: 3;
 }
 .point-tooltip.leaflet-tooltip {
   background: #fffc;
@@ -148,7 +151,7 @@
   color: #644871;
   border-radius: 7px;
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: 14px;
   box-shadow: 0 4px 15px #4d355519;
 }
 .tile-warning {
@@ -177,7 +180,7 @@
 .leaflet-marker-icon:focus-visible {
   outline: 3px solid #b897cd;
   outline-offset: 4px;
-  border-radius: 50%;
+  border-radius: 6px;
 }
 .leaflet-interactive {
   cursor: pointer;
@@ -226,12 +229,7 @@
     font-size: 10px;
     padding: 9px;
   }
-  .map-pin {
-    width: 30px;
-    height: 30px;
-    font-size: 9px;
-  }
   .point-tooltip.leaflet-tooltip {
-    font-size: 11px;
+    font-size: 14px;
   }
 }
