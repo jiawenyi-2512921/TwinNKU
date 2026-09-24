@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/floor-images/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Uploaded Image */
+        get: operations["previewUploadedFloor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/inquiries": {
         parameters: {
             query?: never;
@@ -320,6 +337,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/points/{point_id}/floor-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Image */
+        post: operations["uploadFloorOriginal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/points/{point_id}/publish": {
         parameters: {
             query?: never;
@@ -354,6 +388,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/points/{point_id}/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Resource */
+        post: operations["createResourceDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/points/{point_id}/retire": {
         parameters: {
             query?: never;
@@ -382,6 +433,92 @@ export interface paths {
         put?: never;
         /** Submit Point */
         post: operations["submitPointReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Resources */
+        get: operations["listAdminResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/resources/{resource_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Resource */
+        get: operations["getAdminResource"];
+        /** Update Resource */
+        put: operations["updateResourceDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/resources/{resource_id}/images/{draft_revision}/{section}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Resource */
+        get: operations["previewResourceFloor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/resources/{resource_id}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire Resource */
+        post: operations["requestResourceRetirement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/resources/{resource_id}/review/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Resource */
+        post: operations["transitionResourceReview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1039,6 +1176,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/points/{point_id}/panoramas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Panoramas */
+        get: operations["listPointPanoramas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/routes": {
         parameters: {
             query?: never;
@@ -1258,6 +1412,38 @@ export interface components {
             point: components["schemas"]["Point"];
             status: components["schemas"]["ContentStatus"];
             visibility: components["schemas"]["Visibility"];
+        };
+        /** AdminResource */
+        AdminResource: {
+            /** Current */
+            current: (components["schemas"]["FloorContent"] | components["schemas"]["PanoramaContent"]) | null;
+            draft: components["schemas"]["ResourceChange"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Images */
+            images?: components["schemas"]["FloorImage"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "floor" | "panorama";
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Point Name */
+            point_name: string;
+            /** Published Revision */
+            published_revision: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "retired";
         };
         /** AdminSource */
         AdminSource: {
@@ -1488,6 +1674,11 @@ export interface components {
             data: components["schemas"]["AdminPoint"];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[AdminResource] */
+        Envelope_AdminResource_: {
+            data: components["schemas"]["AdminResource"];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[AdminSource] */
         Envelope_AdminSource_: {
             data: components["schemas"]["AdminSource"];
@@ -1506,6 +1697,11 @@ export interface components {
         /** Envelope[ChatTurnAccepted] */
         Envelope_ChatTurnAccepted_: {
             data: components["schemas"]["ChatTurnAccepted"];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[FloorUpload] */
+        Envelope_FloorUpload_: {
+            data: components["schemas"]["FloorUpload"];
             meta: components["schemas"]["Meta"];
         };
         /** Envelope[Floor] */
@@ -1617,6 +1813,12 @@ export interface components {
             data: components["schemas"]["AdminPoint"][];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[list[AdminResource]] */
+        Envelope_list_AdminResource__: {
+            /** Data */
+            data: components["schemas"]["AdminResource"][];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[list[AdminSource]] */
         Envelope_list_AdminSource__: {
             /** Data */
@@ -1663,6 +1865,12 @@ export interface components {
         Envelope_list_OfficialChannel__: {
             /** Data */
             data: components["schemas"]["OfficialChannel"][];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[list[Panorama]] */
+        Envelope_list_Panorama__: {
+            /** Data */
+            data: components["schemas"]["Panorama"][];
             meta: components["schemas"]["Meta"];
         };
         /** Envelope[list[Point]] */
@@ -1741,6 +1949,22 @@ export interface components {
             /** Revision */
             revision: number;
         };
+        /** FloorContent */
+        FloorContent: {
+            /** Attribution */
+            attribution: string;
+            /** Images */
+            images: components["schemas"]["FloorSectionInput"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "floor";
+            /** Label */
+            label: string;
+            /** Ordinal */
+            ordinal: number;
+        };
         /** FloorImage */
         FloorImage: {
             /** Height Px */
@@ -1771,6 +1995,18 @@ export interface components {
             /** Width Px */
             width_px: number;
         };
+        /** FloorSectionInput */
+        FloorSectionInput: {
+            /**
+             * Section
+             * @default main
+             */
+            section: string;
+            /** Section Label */
+            section_label?: string | null;
+            /** Upload Id */
+            upload_id?: string | null;
+        };
         /** FloorTransition */
         FloorTransition: {
             /** Description */
@@ -1791,6 +2027,15 @@ export interface components {
              */
             to_floor_id: string;
         };
+        /** FloorUpload */
+        FloorUpload: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            image: components["schemas"]["FloorImage"];
+        };
         /** GuestSession */
         GuestSession: {
             /** Csrf Token */
@@ -1800,6 +2045,11 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
         };
         /** Health */
         Health: {
@@ -2078,6 +2328,53 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Panorama */
+        Panorama: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @default panorama
+             * @constant
+             */
+            kind: "panorama";
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Revision */
+            revision: number;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** PanoramaContent */
+        PanoramaContent: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "panorama";
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /** Point */
         Point: {
             /** Aliases */
@@ -2226,6 +2523,62 @@ export interface components {
         PointRetireRequest: {
             /** Expected Point Revision */
             expected_point_revision: number;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Note */
+            note: string;
+        };
+        /** ResourceChange */
+        ResourceChange: {
+            /** Base Revision */
+            base_revision: number;
+            /** Contributor Ids */
+            contributor_ids: string[];
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "upsert" | "retire";
+            payload: components["schemas"]["ResourceDraftData"] | null;
+            /** Review Note */
+            review_note: string;
+            /** Revision */
+            revision: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "draft" | "in_review" | "rejected" | "published" | "discarded";
+            /** Submitted By */
+            submitted_by: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ResourceDraftData */
+        ResourceDraftData: {
+            /** Content */
+            content: components["schemas"]["FloorContent"] | components["schemas"]["PanoramaContent"];
+            /** Source Note */
+            source_note: string;
+        };
+        /** ResourceDraftSave */
+        ResourceDraftSave: {
+            /** Content */
+            content: components["schemas"]["FloorContent"] | components["schemas"]["PanoramaContent"];
+            /** Expected Published Revision */
+            expected_published_revision: number;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Source Note */
+            source_note: string;
+        };
+        /** ResourceRetireRequest */
+        ResourceRetireRequest: {
+            /** Expected Published Revision */
+            expected_published_revision: number;
             /** Expected Revision */
             expected_revision: number;
             /** Note */
@@ -2646,6 +2999,19 @@ export interface components {
             mime_type: string;
             /** Sha256 */
             sha256: string;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
         };
         /** ViewContext */
         ViewContext: {
@@ -3120,6 +3486,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    previewUploadedFloor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4875,6 +5270,45 @@ export interface operations {
             };
         };
     };
+    uploadFloorOriginal: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                point_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_FloorUpload_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     publishPoint: {
         parameters: {
             query?: never;
@@ -5059,6 +5493,44 @@ export interface operations {
             };
         };
     };
+    createResourceDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                point_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceDraftSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminResource_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     retirePoint: {
         parameters: {
             query?: never;
@@ -5239,6 +5711,217 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listAdminResources: {
+        parameters: {
+            query?: {
+                point_id?: string | null;
+                state?: ("draft" | "in_review" | "rejected") | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_AdminResource__"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getAdminResource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminResource_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    updateResourceDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceDraftSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminResource_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    previewResourceFloor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource_id: string;
+                draft_revision: number;
+                section: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    requestResourceRetirement: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceRetireRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminResource_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transitionResourceReview: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                resource_id: string;
+                action: "submit" | "publish" | "reject" | "discard";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminResource_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -9386,6 +10069,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listPointPanoramas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                point_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_Panorama__"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

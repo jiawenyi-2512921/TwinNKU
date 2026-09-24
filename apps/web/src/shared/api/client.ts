@@ -9,6 +9,7 @@ export type XY = components["schemas"]["XY"];
 export type RouteSegment = components["schemas"]["RouteSegment"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
 export type Floor = components["schemas"]["Floor"];
+export type Panorama = components["schemas"]["Panorama"];
 export type FloorImage = components["schemas"]["FloorImage"];
 type Meta = components["schemas"]["Meta"];
 
@@ -65,6 +66,8 @@ export const api = {
     get<MapInfo[]>(`/campuses/${encodeURIComponent(campus)}/maps`, signal),
   mapFeatures: (id: string, signal?: AbortSignal) =>
     get<MapFeatures>(`/maps/${encodeURIComponent(id)}/features`, signal),
+  panoramas: (pointId: string, signal?: AbortSignal) =>
+    get<Panorama[]>(`/points/${encodeURIComponent(pointId)}/panoramas`, signal),
   floors: (pointId: string, signal?: AbortSignal) =>
     get<Floor[]>(`/points/${encodeURIComponent(pointId)}/floors`, signal),
 };
