@@ -1031,3 +1031,57 @@ a {
 .point-row small {
   font-size: 12px;
 }
+/* Reviewed panorama links appear on the building's public details. */
+.panorama-panel {
+  margin: 22px 0;
+}
+.panorama-panel h3 {
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.panorama-card {
+  border: 1px solid #e3e7e3;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 10px;
+  background: #fafcf9;
+}
+.panorama-card > strong {
+  font-size: 15px;
+}
+.panorama-card p {
+  color: #66746b;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.panorama-card a {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #276146;
+  font-size: 13px;
+  margin-top: 12px;
+  text-decoration: none;
+}
+.panorama-card small {
+  flex-basis: 100%;
+  color: #68786c;
+  overflow-wrap: anywhere;
+}
+.panorama-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+.panorama-error button {
+  padding: 6px 12px;
+  border: 1px solid #dae1d8;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
