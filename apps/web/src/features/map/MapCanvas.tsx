@@ -224,7 +224,7 @@ export function MapCanvas({
         paddingTopLeft: [40, 48],
         paddingBottomRight: narrow
           ? [40, Math.min(260, height * 0.5)]
-          : [370, 50],
+          : [410, 50],
         maxZoom: info.tiles!.max_native_zoom,
         animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       });
@@ -261,10 +261,6 @@ export function MapCanvas({
         aria-label="津南校区交互地图，可拖动和缩放"
         tabIndex={0}
       />
-      <div className="map-context">
-        <span className="live-dot" /> 津南校区{" "}
-        <span className="context-divider" /> {points.length}个可探索地点
-      </div>
       <div
         className={`map-controls${selectedId ? " has-selection" : ""}`}
         aria-label="地图工具"
