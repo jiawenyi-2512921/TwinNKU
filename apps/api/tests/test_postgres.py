@@ -30,7 +30,7 @@ def test_postgres_migration_and_seed():
             )
             assert (
                 db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0004_admin_console"
+                == "0005_resource_editor"
             )
     finally:
         engine.dispose()
@@ -39,10 +39,12 @@ def test_postgres_migration_and_seed():
 @pytest.mark.skipif(
     not os.environ.get("TEST_POSTGRES_URL"), reason="requires disposable PostgreSQL"
 )
-def test_postgres_admin_review_retirement_and_restore():
+@pytest.mark.parametrize("workflow", ["point", "floor"])
+def test_postgres_review_retirement_and_restore(workflow, tmp_path):
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import Session
     from test_admin import exercise_review_workflow, seed_staff
+    from test_resources import exercise_floor_workflow, make_resource_point
 
     from app.core.config import Settings
     from app.database import get_db
@@ -65,7 +67,7 @@ def test_postgres_admin_review_retirement_and_restore():
                 if db.get(CampusRecord, "nku-jinnan") is None:
                     db.add(CampusRecord(id="nku-jinnan", name="Test campus"))
                     db.commit()
-                app = create_app(Settings(app_env="test"))
+                app = create_app(Settings(app_env="test", floor_assets_dir=tmp_path / "floors"))
 
                 def override_db():
                     yield db
@@ -73,7 +75,10 @@ def test_postgres_admin_review_retirement_and_restore():
                 app.dependency_overrides[get_db] = override_db
                 with TestClient(app) as client:
                     staff = seed_staff(client, db)
-                    exercise_review_workflow(client, staff)
+                    if workflow == "point":
+                        exercise_review_workflow(client, staff)
+                    else:
+                        exercise_floor_workflow(client, db, (staff[0], make_resource_point(db)))
             outer.rollback()
     finally:
         engine.dispose()
