@@ -67,3 +67,7 @@
 ## 后台楼层与VR增量
 
 [18-resource-editor.md](18-resource-editor.md)规定新模块的角色/scope、原图上传、分区、独立审核、发布验证与HTTPS链接入口。数据库head为0005_resource_editor。完整原图交付和部署方操作见[17-floor-release.md](17-floor-release.md)。历史双图与19栋数量不再表示当前范围。
+
+## 点位介绍与下一阶段体验
+
+[19-point-introductions.md](19-point-introductions.md)说明83点来源、仅介绍导入、独立审核和前端展示；不修改地图/楼层资产。[20-visitor-experience-plan.md](20-visitor-experience-plan.md)区分本次实际交付与整体UI、AI联动、VR组织、主题参观及试用的后续计划。
