@@ -4,6 +4,7 @@ import { Icon } from "../../shared/ui/Icon";
 import { Accounts } from "./Accounts";
 import { Audit } from "./Audit";
 import { PointWorkspace } from "./PointWorkspace";
+import { ResourceWorkspace } from "./ResourceWorkspace";
 import {
   message,
   rememberSession,
@@ -14,7 +15,13 @@ import {
 } from "./api";
 import { Empty, ErrorBox, timestamp, useResource } from "./ui";
 import "./admin.css";
-type Tab = "overview" | "points" | "review" | "audit" | "accounts";
+type Tab =
+  | "overview"
+  | "points"
+  | "review"
+  | "resources"
+  | "audit"
+  | "accounts";
 function Login({
   onLogin,
   initialError,
@@ -488,6 +495,7 @@ export default function AdminApp() {
     [
       { id: "overview", title: "工作台", icon: "focus" },
       { id: "points", title: "地图点位", icon: "pin" },
+      { id: "resources", title: "楼层与 VR", icon: "layers" },
       {
         id: "review",
         title: "审核发布",
@@ -628,6 +636,9 @@ export default function AdminApp() {
                 )
               )}
             </>
+          )}
+          {tab === "resources" && (
+            <ResourceWorkspace session={session} onDirty={onDirty} />
           )}
           {tab === "audit" && <Audit />}
           {tab === "accounts" && (

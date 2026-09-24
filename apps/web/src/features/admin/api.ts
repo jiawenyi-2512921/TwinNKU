@@ -22,16 +22,19 @@ export async function request<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<Result<T>> {
+  const binary = body instanceof Blob;
   const response = await fetch(`/api/v1/admin${path}`, {
     method,
     signal,
     credentials: "same-origin",
     headers: {
       Accept: "application/json",
-      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(body === undefined
+        ? {}
+        : { "Content-Type": binary ? body.type : "application/json" }),
       ...(method === "GET" ? {} : { "X-CSRF-Token": csrf }),
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : binary ? body : JSON.stringify(body),
   });
   const result = await response.json().catch(() => null);
   if (!response.ok) {
