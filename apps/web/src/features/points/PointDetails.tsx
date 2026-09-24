@@ -4,6 +4,7 @@ import { Icon } from "../../shared/ui/Icon";
 import { floorLocation } from "../../shared/navigation";
 import { PanoramaPanel } from "./PanoramaPanel";
 import { FloorPanel } from "../floors/FloorPanel";
+import { PointIntroduction } from "./PointIntroduction";
 
 export const categoryLabels: Record<Point["category"], string> = {
   public_area: "公共空间",
@@ -153,10 +154,7 @@ export function PointDetails({
             />
           ) : (
             <>
-              <p className="point-summary">
-                {point.summary ||
-                  "已在地图上为你标出这个地点。详细介绍将随校园资料逐步补充。"}
-              </p>
+              <PointIntroduction key={point.id} summary={point.summary} />
               <PanoramaPanel key={point.id} pointId={point.id} />
               {canHaveFloors && (
                 <button className="floor-entry" onClick={() => setTab("floor")}>
