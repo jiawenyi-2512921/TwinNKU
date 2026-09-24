@@ -189,8 +189,13 @@ class MediaAccess(DTO):
     presentation: Literal["image", "audio", "document", "external_link", "iframe"]
 
 
+FLOOR_SECTION_PATTERN = r"^[a-z0-9][a-z0-9_-]{0,31}$"
+
+
 class FloorImage(DTO):
     variant: Literal["labeled", "clean"]
+    section: str = Field(default="main", pattern=FLOOR_SECTION_PATTERN)
+    section_label: str | None = Field(default=None, min_length=1, max_length=64)
     width_px: int = Field(gt=0)
     height_px: int = Field(gt=0)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
