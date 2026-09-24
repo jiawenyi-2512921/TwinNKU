@@ -1,0 +1,18 @@
+{
+  "buildings": 20,
+  "floors": 96,
+  "images": 100,
+  "migration": "0004_admin_console -> 0005_resource_editor",
+  "preserved_points": 83,
+  "preserved_geometries": 83,
+  "repeat_import": "passed",
+  "legacy_library_revision_2": "unchanged",
+  "missing_floor_detection": "passed",
+  "originals": "100 SHA256 matches",
+  "environment": "disposable SQLite and HTTP TestClient",
+  "zip_filename": "TwinNKU-floors-jinnan-20260924-v1.zip",
+  "zip_size_bytes": 81728317,
+  "zip_sha256": "fee22db8d4ab112da8eeb524c833d631dcb5d3a4236e613e72dafb99c63725d2",
+  "server_deployed": false,
+  "scope": "Labeled original files only; no source photographs or clean variants; not a room-number/on-site navigation audit"
+}
