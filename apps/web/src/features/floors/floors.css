@@ -1,15 +1,5 @@
 .floor-panel {
-  padding-top: 18px;
-}
-.floor-panel-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-.floor-panel-heading > span {
-  color: var(--muted, #817985);
-  font-size: 12px;
+  padding: 0;
 }
 .floor-selectors {
   display: flex;
@@ -26,28 +16,6 @@
   background: white;
   color: #422747;
   font: inherit;
-}
-.floor-variants {
-  display: flex;
-  padding: 3px;
-  gap: 2px;
-  border-radius: 9px;
-  background: #f1edf4;
-  margin-left: auto;
-}
-.floor-variants button {
-  border: 0;
-  background: transparent;
-  color: #74627c;
-  padding: 6px 9px;
-  border-radius: 6px;
-  font: inherit;
-  cursor: pointer;
-}
-.floor-variants button[aria-pressed="true"] {
-  background: white;
-  color: #682c6e;
-  box-shadow: 0 1px 4px #37223a14;
 }
 .floor-viewer {
   height: 230px;
@@ -129,27 +97,6 @@
   border-radius: 7px;
   cursor: pointer;
 }
-.floor-expand {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  padding: 11px;
-  width: 100%;
-  margin-top: 12px;
-  background: #733674;
-  color: white;
-  border: 0;
-  border-radius: 9px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-}
-.floor-note {
-  color: #8b7f8f;
-  font-size: 11px;
-  line-height: 1.7;
-}
 .floor-empty {
   text-align: center;
   color: #87768c;
@@ -224,5 +171,96 @@
   .floor-dialog .floor-viewer-tools button {
     width: 38px;
     height: 38px;
+  }
+}
+
+/* One published-resource entry opens one viewer, with no duplicate small preview. */
+.floor-panel:has(.floor-entry) {
+  margin-bottom: 18px;
+}
+.floor-panel .floor-empty {
+  padding: 0;
+  text-align: left;
+  font-size: 12px;
+}
+.floor-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #e3d6e9;
+  color: #62356e;
+  background: #f7f2f9;
+  text-align: left;
+}
+.floor-entry > span {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+.floor-entry small {
+  display: block;
+  font-size: 11px;
+  color: #73627d;
+  font-weight: 400;
+  margin-top: 4px;
+}
+.floor-dialog {
+  padding: 20px;
+  border-radius: 16px;
+}
+.floor-dialog .floor-selectors select {
+  min-height: 44px;
+}
+.floor-dialog .floor-viewer-tools button {
+  width: 44px;
+  height: 44px;
+}
+.floor-dialog-header span {
+  letter-spacing: 0;
+  font-size: 12px;
+  color: #796184;
+}
+.floor-dialog-header h2 {
+  font-size: 22px;
+}
+.floor-back {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #dfd4e4;
+  background: white;
+  border-radius: 10px;
+}
+.floor-back span {
+  color: #5f3c6b;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .floor-dialog {
+    padding: max(12px, env(safe-area-inset-top)) 12px
+      max(12px, env(safe-area-inset-bottom));
+    border-radius: 0;
+  }
+  .floor-dialog-header {
+    gap: 8px;
+  }
+  .floor-dialog-header h2 {
+    font-size: 18px;
+  }
+  .floor-back {
+    padding: 0 8px;
+  }
+  .floor-selectors {
+    gap: 6px;
+  }
+  .floor-dialog footer {
+    font-size: 11px;
   }
 }

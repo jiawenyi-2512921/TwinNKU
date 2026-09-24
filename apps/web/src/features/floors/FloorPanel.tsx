@@ -3,7 +3,7 @@ import { api, type Floor } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import {
   floorLocation,
-  resolveFloor,
+  reconcileFloorView,
   resolveFloorImage,
 } from "../../shared/navigation";
 import { FloorViewer } from "./FloorViewer";
@@ -24,6 +24,8 @@ export function FloorPanel({
   );
   const [retry, setRetry] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(false);
+  const selection = useRef({ floorId: "", section: "main" });
   const dialog = useRef<HTMLDialogElement>(null);
   const openButton = useRef<HTMLButtonElement>(null);
 
@@ -34,6 +36,7 @@ export function FloorPanel({
     setSelectedId("");
     setSelectedSection("main");
     setStatus("loading");
+    let initial = true;
     async function refresh() {
       pending?.abort();
       const controller = new AbortController();
@@ -41,32 +44,48 @@ export function FloorPanel({
       try {
         const { data } = await api.floors(pointId, controller.signal);
         if (controller.signal.aborted || disposed) return;
-        const available = data.filter((f) => f.point_id === pointId);
-        // Keep image object identity when unchanged so polling does not reset zoom.
+        const next = reconcileFloorView(
+          data,
+          pointId,
+          { ...selection.current, expanded: expandedRef.current },
+          initial ? new URLSearchParams(window.location.search) : null,
+        );
+        // Unchanged polling data keeps image identity and the current zoom.
         setFloors((previous) =>
-          JSON.stringify(previous) === JSON.stringify(available)
+          JSON.stringify(previous) === JSON.stringify(next.floors)
             ? previous
-            : available,
+            : next.floors,
         );
-        const params = new URLSearchParams(window.location.search);
-        const requested = params.get("floor");
-        const selected = resolveFloor(available, pointId, requested);
-        setSelectedId(selected ?? "");
-        const image = resolveFloorImage(
-          available.find((f) => f.id === selected)?.images ?? [],
-          selected === requested ? params.get("floor_section") : null,
-        );
-        const section = image?.section ?? "main";
-        setSelectedSection(section);
-        if (!selected) setExpanded(false);
-        window.history.replaceState(
-          window.history.state,
-          "",
-          floorLocation(window.location.href, pointId, selected, section),
-        );
+        setSelectedId(next.floorId);
+        setSelectedSection(next.section);
+        selection.current = { floorId: next.floorId, section: next.section };
+        expandedRef.current = next.expanded;
+        setExpanded(next.expanded);
+        if (next.syncLocation) {
+          window.history.replaceState(
+            window.history.state,
+            "",
+            floorLocation(
+              window.location.href,
+              pointId,
+              next.floorId || null,
+              next.section,
+            ),
+          );
+        }
+        initial = false;
         setStatus("ready");
       } catch {
-        if (!controller.signal.aborted && !disposed) setStatus("error");
+        if (!controller.signal.aborted && !disposed) {
+          expandedRef.current = false;
+          setExpanded(false);
+          window.history.replaceState(
+            window.history.state,
+            "",
+            floorLocation(window.location.href, pointId, null),
+          );
+          setStatus("error");
+        }
       }
     }
     function whenVisible() {
@@ -88,7 +107,7 @@ export function FloorPanel({
   useEffect(() => {
     if (expanded) dialog.current?.showModal();
     else if (dialog.current?.open) dialog.current.close();
-  }, [expanded]);
+  }, [expanded, status]);
 
   const floor = floors.find((f) => f.id === selectedId);
   const labeled = floor?.images?.filter((a) => a.variant === "labeled") ?? [];
@@ -103,6 +122,7 @@ export function FloorPanel({
         id === selectedId ? selectedSection : null,
       )?.section ?? "main";
     setSelectedSection(section);
+    selection.current = { floorId: id, section };
     window.history.replaceState(
       window.history.state,
       "",
@@ -112,6 +132,7 @@ export function FloorPanel({
   function selectSection(section: string) {
     if (!labeled.some((image) => (image.section ?? "main") === section)) return;
     setSelectedSection(section);
+    selection.current = { floorId: selectedId, section };
     window.history.replaceState(
       window.history.state,
       "",
@@ -119,7 +140,14 @@ export function FloorPanel({
     );
   }
   function close() {
+    expandedRef.current = false;
     setExpanded(false);
+    dialog.current?.close();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      floorLocation(window.location.href, pointId, null),
+    );
     openButton.current?.focus();
   }
   function selectors(prefix: string) {
@@ -179,42 +207,23 @@ export function FloorPanel({
             重试
           </button>
         </div>
-      ) : !floor ? (
-        <div className="floor-placeholder">
-          <span className="floor-icon">
-            <Icon name="layers" size={26} />
-          </span>
-          <h3>暂无已发布楼层</h3>
-          <p>{pointName}的楼层资料补充后会显示在这里。</p>
-        </div>
-      ) : (
+      ) : !floor ? null : (
         <>
-          <div className="floor-panel-heading">
-            <strong>楼层平面图</strong>
-            <span>{floors.length}个楼层</span>
-          </div>
-          {selectors("preview")}
-          {asset ? (
-            <FloorViewer
-              key={`${floor.id}-${floor.revision}-${asset.section ?? "main"}`}
-              asset={asset}
-              title={title}
-            />
-          ) : (
-            <p>这张图暂未提供</p>
-          )}
           <button
-            className="floor-expand"
+            className="floor-entry"
             ref={openButton}
             onClick={() => {
               selectFloor(selectedId);
+              expandedRef.current = true;
               setExpanded(true);
             }}
           >
-            <Icon name="focus" size={17} />
-            展开查看
+            <Icon name="layers" size={20} />
+            <span>
+              查看楼层图<small>{floors.length} 个已发布楼层</small>
+            </span>
+            <Icon name="arrow" size={18} />
           </button>
-          <p className="floor-note">可拖动、双指缩放查看。图中标注供查阅。</p>
           <dialog
             className="floor-dialog"
             aria-labelledby="floor-dialog-title"
@@ -223,20 +232,24 @@ export function FloorPanel({
               e.preventDefault();
               close();
             }}
-            onClose={() => setExpanded(false)}
+            onClose={() => {
+              expandedRef.current = false;
+              setExpanded(false);
+            }}
             onKeyDown={(e) => e.stopPropagation()}
           >
             <header className="floor-dialog-header">
               <div>
-                <span>FLOOR PLAN</span>
+                <span>楼层平面图</span>
                 <h2 id="floor-dialog-title">{pointName}</h2>
               </div>
               <button
-                className="icon-button"
-                aria-label="关闭楼层大图"
+                className="floor-back"
+                aria-label="返回校园地图"
                 onClick={close}
               >
                 <Icon name="close" />
+                <span>返回地图</span>
               </button>
             </header>
             {expanded && (
