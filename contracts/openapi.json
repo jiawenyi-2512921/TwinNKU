@@ -235,6 +235,101 @@
         "title": "AdminPoint",
         "type": "object"
       },
+      "AdminResource": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "floor": "#/components/schemas/FloorContent",
+                    "panorama": "#/components/schemas/PanoramaContent"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FloorContent"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PanoramaContent"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/FloorImage"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "floor",
+              "panorama"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "point_name": {
+            "title": "Point Name",
+            "type": "string"
+          },
+          "published_revision": {
+            "minimum": 0.0,
+            "title": "Published Revision",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "published",
+              "retired"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "point_id",
+          "point_name",
+          "kind",
+          "published_revision",
+          "status",
+          "current",
+          "draft"
+        ],
+        "title": "AdminResource",
+        "type": "object"
+      },
       "AdminSource": {
         "additionalProperties": false,
         "properties": {
@@ -783,6 +878,23 @@
         "title": "Envelope[AdminPoint]",
         "type": "object"
       },
+      "Envelope_AdminResource_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AdminResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[AdminResource]",
+        "type": "object"
+      },
       "Envelope_AdminSource_": {
         "additionalProperties": false,
         "properties": {
@@ -849,6 +961,23 @@
           "meta"
         ],
         "title": "Envelope[ChatTurnAccepted]",
+        "type": "object"
+      },
+      "Envelope_FloorUpload_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/FloorUpload"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[FloorUpload]",
         "type": "object"
       },
       "Envelope_Floor_": {
@@ -1224,6 +1353,27 @@
         "title": "Envelope[list[AdminPoint]]",
         "type": "object"
       },
+      "Envelope_list_AdminResource__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/AdminResource"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[AdminResource]]",
+        "type": "object"
+      },
       "Envelope_list_AdminSource__": {
         "additionalProperties": false,
         "properties": {
@@ -1390,6 +1540,27 @@
           "meta"
         ],
         "title": "Envelope[list[OfficialChannel]]",
+        "type": "object"
+      },
+      "Envelope_list_Panorama__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Panorama"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[Panorama]]",
         "type": "object"
       },
       "Envelope_list_Point__": {
@@ -1593,6 +1764,52 @@
         "title": "Floor",
         "type": "object"
       },
+      "FloorContent": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Attribution",
+            "type": "string"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/FloorSectionInput"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Images",
+            "type": "array"
+          },
+          "kind": {
+            "const": "floor",
+            "default": "floor",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "ordinal": {
+            "maximum": 200.0,
+            "minimum": -20.0,
+            "title": "Ordinal",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "ordinal",
+          "attribution",
+          "images"
+        ],
+        "title": "FloorContent",
+        "type": "object"
+      },
       "FloorImage": {
         "additionalProperties": false,
         "properties": {
@@ -1668,6 +1885,44 @@
         "title": "FloorImage",
         "type": "object"
       },
+      "FloorSectionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "section": {
+            "default": "main",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$",
+            "title": "Section",
+            "type": "string"
+          },
+          "section_label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Label"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id"
+          }
+        },
+        "title": "FloorSectionInput",
+        "type": "object"
+      },
       "FloorTransition": {
         "additionalProperties": false,
         "properties": {
@@ -1703,6 +1958,25 @@
         "title": "FloorTransition",
         "type": "object"
       },
+      "FloorUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "image": {
+            "$ref": "#/components/schemas/FloorImage"
+          }
+        },
+        "required": [
+          "id",
+          "image"
+        ],
+        "title": "FloorUpload",
+        "type": "object"
+      },
       "GuestSession": {
         "additionalProperties": false,
         "properties": {
@@ -1721,6 +1995,19 @@
           "csrf_token"
         ],
         "title": "GuestSession",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
         "type": "object"
       },
       "Health": {
@@ -2447,6 +2734,94 @@
         "title": "Pagination",
         "type": "object"
       },
+      "Panorama": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "panorama",
+            "default": "panorama",
+            "title": "Kind",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url",
+          "id",
+          "point_id",
+          "revision"
+        ],
+        "title": "Panorama",
+        "type": "object"
+      },
+      "PanoramaContent": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "const": "panorama",
+            "default": "panorama",
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url"
+        ],
+        "title": "PanoramaContent",
+        "type": "object"
+      },
       "Point": {
         "additionalProperties": false,
         "properties": {
@@ -2870,6 +3245,202 @@
           "note"
         ],
         "title": "PointRetireRequest",
+        "type": "object"
+      },
+      "ResourceChange": {
+        "additionalProperties": false,
+        "properties": {
+          "base_revision": {
+            "minimum": 0.0,
+            "title": "Base Revision",
+            "type": "integer"
+          },
+          "contributor_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Contributor Ids",
+            "type": "array"
+          },
+          "operation": {
+            "enum": [
+              "upsert",
+              "retire"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceDraftData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review_note": {
+            "title": "Review Note",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "in_review",
+              "rejected",
+              "published",
+              "discarded"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "submitted_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted By"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "base_revision",
+          "state",
+          "operation",
+          "payload",
+          "contributor_ids",
+          "submitted_by",
+          "review_note",
+          "updated_at"
+        ],
+        "title": "ResourceChange",
+        "type": "object"
+      },
+      "ResourceDraftData": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "discriminator": {
+              "mapping": {
+                "floor": "#/components/schemas/FloorContent",
+                "panorama": "#/components/schemas/PanoramaContent"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FloorContent"
+              },
+              {
+                "$ref": "#/components/schemas/PanoramaContent"
+              }
+            ],
+            "title": "Content"
+          },
+          "source_note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Source Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content",
+          "source_note"
+        ],
+        "title": "ResourceDraftData",
+        "type": "object"
+      },
+      "ResourceDraftSave": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "discriminator": {
+              "mapping": {
+                "floor": "#/components/schemas/FloorContent",
+                "panorama": "#/components/schemas/PanoramaContent"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FloorContent"
+              },
+              {
+                "$ref": "#/components/schemas/PanoramaContent"
+              }
+            ],
+            "title": "Content"
+          },
+          "expected_published_revision": {
+            "minimum": 0.0,
+            "title": "Expected Published Revision",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "source_note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Source Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content",
+          "source_note",
+          "expected_revision",
+          "expected_published_revision"
+        ],
+        "title": "ResourceDraftSave",
+        "type": "object"
+      },
+      "ResourceRetireRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_published_revision": {
+            "minimum": 1.0,
+            "title": "Expected Published Revision",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "expected_published_revision",
+          "note"
+        ],
+        "title": "ResourceRetireRequest",
         "type": "object"
       },
       "ReviewRequest": {
@@ -4068,6 +4639,46 @@
         "title": "UploadedFile",
         "type": "object"
       },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
       "ViewContext": {
         "additionalProperties": false,
         "properties": {
@@ -4790,6 +5401,50 @@
         "summary": "Campuses",
         "tags": [
           "admin"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/floor-images/{upload_id}": {
+      "get": {
+        "operationId": "previewUploadedFloor",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Uploaded Image",
+        "tags": [
+          "resources"
         ],
         "x-auth": "staff",
         "x-implementation-status": "implemented",
@@ -7155,6 +7810,90 @@
         "x-module": "M01"
       }
     },
+    "/api/v1/admin/points/{point_id}/floor-images": {
+      "post": {
+        "operationId": "uploadFloorOriginal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_FloorUpload_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Upload Image",
+        "tags": [
+          "resources"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
     "/api/v1/admin/points/{point_id}/publish": {
       "post": {
         "operationId": "publishPoint",
@@ -7429,6 +8168,83 @@
         "x-module": "M01"
       }
     },
+    "/api/v1/admin/points/{point_id}/resources": {
+      "post": {
+        "operationId": "createResourceDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceDraftSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminResource_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Create Resource",
+        "tags": [
+          "resources"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
     "/api/v1/admin/points/{point_id}/retire": {
       "post": {
         "operationId": "retirePoint",
@@ -7697,6 +8513,465 @@
         "summary": "Submit Point",
         "tags": [
           "admin"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/resources": {
+      "get": {
+        "operationId": "listAdminResources",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "point_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Point Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "in_review",
+                    "rejected"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_AdminResource__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "List Resources",
+        "tags": [
+          "resources"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/resources/{resource_id}": {
+      "get": {
+        "operationId": "getAdminResource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Resource Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminResource_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Get Resource",
+        "tags": [
+          "resources"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      },
+      "put": {
+        "operationId": "updateResourceDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceDraftSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminResource_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Update Resource",
+        "tags": [
+          "resources"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/resources/{resource_id}/images/{draft_revision}/{section}": {
+      "get": {
+        "operationId": "previewResourceFloor",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_revision",
+            "required": true,
+            "schema": {
+              "title": "Draft Revision",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Preview Resource",
+        "tags": [
+          "resources"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/resources/{resource_id}/retire": {
+      "post": {
+        "operationId": "requestResourceRetirement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceRetireRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminResource_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Retire Resource",
+        "tags": [
+          "resources"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/resources/{resource_id}/review/{action}": {
+      "post": {
+        "operationId": "transitionResourceReview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "enum": [
+                "submit",
+                "publish",
+                "reject",
+                "discard"
+              ],
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminResource_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Review Resource",
+        "tags": [
+          "resources"
         ],
         "x-auth": "staff",
         "x-implementation-status": "implemented",
@@ -13085,6 +14360,51 @@
         ],
         "x-auth": "public",
         "x-implementation-status": "planned",
+        "x-module": "M02"
+      }
+    },
+    "/api/v1/points/{point_id}/panoramas": {
+      "get": {
+        "operationId": "listPointPanoramas",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Panorama__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Panoramas",
+        "tags": [
+          "resources"
+        ],
+        "x-implementation-status": "implemented",
         "x-module": "M02"
       }
     },
