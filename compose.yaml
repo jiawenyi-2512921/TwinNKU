@@ -34,6 +34,7 @@ services:
       MAP_ENABLED: ${MAP_ENABLED:-true}
       MAP_ASSETS_DIR: /data/maps
       FLOORS_ENABLED: ${FLOORS_ENABLED:-true}
+      VR_ENABLED: ${VR_ENABLED:-true}
       FLOOR_ASSETS_DIR: /data/floors
       ADMIN_ENABLED: ${ADMIN_ENABLED:-false}
       ADMIN_PUBLIC_ORIGIN: ${ADMIN_PUBLIC_ORIGIN:-}
@@ -53,7 +54,7 @@ services:
     environment: *api-environment
     volumes:
       - map_assets:/data/maps:ro
-      - floor_assets:/data/floors:ro
+      - floor_assets:/data/floors
     depends_on:
       db: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
