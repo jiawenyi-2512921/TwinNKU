@@ -28,41 +28,61 @@ export function FloorPanel({
   const openButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let pending: AbortController | null = null;
+    let disposed = false;
     setFloors([]);
     setSelectedId("");
     setSelectedSection("main");
     setStatus("loading");
-    api
-      .floors(pointId, controller.signal)
-      .then(({ data }) => {
-        if (controller.signal.aborted) return;
+    async function refresh() {
+      pending?.abort();
+      const controller = new AbortController();
+      pending = controller;
+      try {
+        const { data } = await api.floors(pointId, controller.signal);
+        if (controller.signal.aborted || disposed) return;
         const available = data.filter((f) => f.point_id === pointId);
-        setFloors(available);
-        const requested = new URLSearchParams(window.location.search).get(
-          "floor",
+        // Keep image object identity when unchanged so polling does not reset zoom.
+        setFloors((previous) =>
+          JSON.stringify(previous) === JSON.stringify(available)
+            ? previous
+            : available,
         );
+        const params = new URLSearchParams(window.location.search);
+        const requested = params.get("floor");
         const selected = resolveFloor(available, pointId, requested);
         setSelectedId(selected ?? "");
         const image = resolveFloorImage(
           available.find((f) => f.id === selected)?.images ?? [],
-          selected === requested
-            ? new URLSearchParams(window.location.search).get("floor_section")
-            : null,
+          selected === requested ? params.get("floor_section") : null,
         );
         const section = image?.section ?? "main";
         setSelectedSection(section);
+        if (!selected) setExpanded(false);
         window.history.replaceState(
           window.history.state,
           "",
           floorLocation(window.location.href, pointId, selected, section),
         );
         setStatus("ready");
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setStatus("error");
-      });
-    return () => controller.abort();
+      } catch {
+        if (!controller.signal.aborted && !disposed) setStatus("error");
+      }
+    }
+    function whenVisible() {
+      if (document.visibilityState === "visible") void refresh();
+    }
+    void refresh();
+    const timer = window.setInterval(whenVisible, 30000);
+    window.addEventListener("focus", whenVisible);
+    document.addEventListener("visibilitychange", whenVisible);
+    return () => {
+      disposed = true;
+      pending?.abort();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", whenVisible);
+      document.removeEventListener("visibilitychange", whenVisible);
+    };
   }, [pointId, retry]);
 
   useEffect(() => {
