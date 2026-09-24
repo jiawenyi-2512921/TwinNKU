@@ -209,7 +209,8 @@ def test_clean_only_floor_is_rejected(floor_bundle):
         FloorBundle.model_validate(data)
 
 
-def test_builder_ignores_clean_and_photo_paths(tmp_path, floor_bundle):
+@pytest.mark.parametrize("source_number", [1, 20])
+def test_builder_ignores_clean_and_photo_paths(tmp_path, floor_bundle, source_number):
     import importlib.util
     from pathlib import Path
 
@@ -232,7 +233,7 @@ def test_builder_ignores_clean_and_photo_paths(tmp_path, floor_bundle):
                 "source_note": "Labeled-only delivery test",
                 "buildings": [
                     {
-                        "source_number": 1,
+                        "source_number": source_number,
                         "name": "测试楼",
                         "point_id": floor["point_id"],
                         "floors": [row],
@@ -248,3 +249,99 @@ def test_builder_ignores_clean_and_photo_paths(tmp_path, floor_bundle):
         "labeled.png",
         "manifest.json",
     ]
+
+
+def test_sections_are_one_floor_and_serve_their_own_original_bytes(db, client, floor_bundle):
+    root, data = floor_bundle
+    f = data["floors"][0]
+    directory = root / f["id"] / "1"
+    (directory / "clean.png").unlink()
+    (directory / "labeled.png").rename(directory / "labeled-a.png")
+    Image.new("RGB", (310, 170), "blue").save(directory / "labeled-b.png")
+    f["images"] = [
+        {
+            "variant": "labeled",
+            "section": section,
+            "section_label": section.upper() + "区",
+            "filename": f"labeled-{section}.png",
+            **inspect_image(directory / f"labeled-{section}.png"),
+        }
+        for section in ["a", "b"]
+    ]
+    install(floor_bundle, db, client)
+    floors = client.get(f"/api/v1/points/{f['point_id']}/floors").json()["data"]
+    assert len(floors) == 1 and len(floors[0]["images"]) == 2
+    for image in floors[0]["images"]:
+        assert (
+            client.get(image["url"]).content
+            == (directory / f"labeled-{image['section']}.png").read_bytes()
+        )
+    url = f"/api/v1/floors/{f['id']}/images/1/labeled"
+    assert client.get(url).status_code == 404
+    assert client.get(url + "?section=c").status_code == 404
+    assert client.get(url + "?section=../a").status_code == 422
+    db.get(PointRecord, f["point_id"]).status = "retired"
+    db.commit()
+    for section in ["a", "b"]:
+        assert client.get(url + f"?section={section}").status_code == 404
+
+
+def test_section_identity_requires_unique_names_and_matching_files(floor_bundle):
+    _, data = floor_bundle
+    f = data["floors"][0]
+    image = f["images"][0]
+    image.update(section="a", section_label="A区")
+    with pytest.raises(ValidationError, match="filename"):
+        FloorBundle.model_validate(data)
+    image["filename"] = "labeled-a.png"
+    f["images"] = [image, dict(image)]
+    with pytest.raises(ValidationError, match="unique"):
+        FloorBundle.model_validate(data)
+    f["images"] = [image]
+    image["section_label"] = " "
+    with pytest.raises(ValidationError, match="section label"):
+        FloorBundle.model_validate(data)
+
+
+def test_legacy_revision_digest_is_unchanged_by_optional_section_fields(db, client, floor_bundle):
+    _, data = floor_bundle
+    normalized = FloorBundle.model_validate(data).floors[0].model_dump(mode="json")
+    for asset in normalized["images"]:
+        del asset["section"]
+        del asset["section_label"]
+    old_digest = hashlib.sha256(
+        json.dumps(normalized, ensure_ascii=False, separators=(",", ":")).encode()
+    ).hexdigest()
+    _, f = install(floor_bundle, db, client)
+    assert db.get(FloorRecord, f["id"]).manifest_sha256 == old_digest
+    assert "section" not in db.get(FloorRecord, f["id"]).images[0]
+    install(floor_bundle, db, client)
+
+
+@pytest.mark.parametrize("orientation", [0, 1])
+def test_unspecified_or_upright_jpeg_is_served_byte_identically(
+    db, client, floor_bundle, orientation
+):
+    root, data = floor_bundle
+    f = data["floors"][0]
+    directory = root / f["id"] / "1"
+    for old in directory.iterdir():
+        old.unlink()
+    path = directory / "labeled.jpg"
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.new("RGB", (411, 207), "green").save(path, exif=exif)
+    original = path.read_bytes()
+    f["images"] = [{"variant": "labeled", "filename": path.name, **inspect_image(path)}]
+    install(floor_bundle, db, client)
+    assert client.get(f"/api/v1/floors/{f['id']}/images/1/labeled").content == original
+
+
+@pytest.mark.parametrize("orientation", [2, 6, 8, 99])
+def test_rotated_or_unknown_orientation_requires_source_review(tmp_path, orientation):
+    path = tmp_path / "source.jpg"
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.new("RGB", (40, 20), "blue").save(path, exif=exif)
+    with pytest.raises(ValueError, match="orientation"):
+        inspect_image(path)
