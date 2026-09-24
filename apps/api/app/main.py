@@ -18,6 +18,7 @@ from app.core.errors import (
     http_error_handler,
     validation_error_handler,
 )
+from app.modules.admin.resources import router as resources_router
 from app.modules.admin.router import router as admin_router
 from app.modules.floors.router import router as floors_router
 from app.modules.maps.router import router as maps_router
@@ -78,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(maps_router)
     app.include_router(floors_router)
     app.include_router(admin_router)
+    app.include_router(resources_router)
     return app
 
 

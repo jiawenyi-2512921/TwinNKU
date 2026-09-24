@@ -585,6 +585,134 @@ class ActionResult(DTO):
     ok: bool = True
 
 
+class FloorSectionInput(DTO):
+    section: str = Field(default="main", pattern=FLOOR_SECTION_PATTERN)
+    section_label: str | None = Field(default=None, min_length=1, max_length=64)
+    upload_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def named_section(self):
+        if self.section != "main" and not (self.section_label or "").strip():
+            raise ValueError("a section label is required")
+        return self
+
+
+class FloorContent(DTO):
+    kind: Literal["floor"] = "floor"
+    label: str = Field(min_length=1, max_length=64)
+    ordinal: int = Field(ge=-20, le=200)
+    attribution: str = Field(min_length=1, max_length=2000)
+    images: list[FloorSectionInput] = Field(min_length=1, max_length=32)
+
+    @model_validator(mode="after")
+    def valid_content(self):
+        if not self.label.strip() or not self.attribution.strip():
+            raise ValueError("floor label and attribution are required")
+        if len({i.section for i in self.images}) != len(self.images):
+            raise ValueError("duplicate floor section")
+        return self
+
+
+class PanoramaContent(DTO):
+    kind: Literal["panorama"] = "panorama"
+    title: str = Field(min_length=1, max_length=120)
+    url: str = Field(min_length=1, max_length=2048)
+    description: str = Field(default="", max_length=2000)
+
+    @field_validator("url")
+    @classmethod
+    def safe_external_url(cls, value):
+        import ipaddress
+        from urllib.parse import urlsplit
+
+        from pydantic import HttpUrl
+
+        if any(c.isspace() or ord(c) < 32 for c in value) or "\\" in value:
+            raise ValueError("URL contains invalid characters")
+        parsed = urlsplit(value)
+        url = HttpUrl(value)
+        host = (url.host or "").lower().strip("[]").rstrip(".")
+        if url.scheme != "https" or parsed.username or parsed.password or url.port != 443:
+            raise ValueError("use a public HTTPS URL without credentials or a custom port")
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            if "." not in host or host.endswith((".localhost", ".local", ".internal")):
+                raise ValueError("a public hostname is required") from None
+        else:
+            if not address.is_global:
+                raise ValueError("private addresses are not supported")
+        return str(url)
+
+    @field_validator("title")
+    @classmethod
+    def named_panorama(cls, value):
+        if not value.strip():
+            raise ValueError("title is required")
+        return value.strip()
+
+
+ResourceContent = Annotated[FloorContent | PanoramaContent, Field(discriminator="kind")]
+
+
+class ResourceDraftData(DTO):
+    content: ResourceContent
+    source_note: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("source_note")
+    @classmethod
+    def source_required(cls, value):
+        if not value.strip():
+            raise ValueError("source note is required")
+        return value.strip()
+
+
+class ResourceDraftSave(ResourceDraftData):
+    expected_revision: int = Field(ge=0)
+    expected_published_revision: int = Field(ge=0)
+
+
+class ResourceRetireRequest(DTO):
+    expected_revision: int = Field(ge=0)
+    expected_published_revision: Revision
+    note: str = Field(min_length=1, max_length=1000)
+
+
+class ResourceChange(DTO):
+    revision: Revision
+    base_revision: int = Field(ge=0)
+    state: Literal["draft", "in_review", "rejected", "published", "discarded"]
+    operation: Literal["upsert", "retire"]
+    payload: ResourceDraftData | None
+    contributor_ids: list[UUID]
+    submitted_by: UUID | None
+    review_note: str
+    updated_at: datetime
+
+
+class AdminResource(DTO):
+    id: UUID
+    point_id: UUID
+    point_name: str
+    kind: Literal["floor", "panorama"]
+    published_revision: int = Field(ge=0)
+    status: Literal["draft", "published", "retired"]
+    current: ResourceContent | None
+    draft: ResourceChange | None
+    images: list[FloorImage] = Field(default_factory=list)
+
+
+class FloorUpload(DTO):
+    id: UUID
+    image: FloorImage
+
+
+class Panorama(PanoramaContent):
+    id: UUID
+    point_id: UUID
+    revision: Revision
+
+
 class AuditEvent(DTO):
     id: UUID
     actor_id: UUID

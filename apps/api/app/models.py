@@ -242,3 +242,57 @@ class AdminAuditRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=now_utc, index=True
     )
+
+
+class FloorUploadRecord(Base):
+    __tablename__ = "floor_uploads"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    point_id: Mapped[str] = mapped_column(ForeignKey("points.id", ondelete="RESTRICT"), index=True)
+    uploaded_by: Mapped[str] = mapped_column(ForeignKey("staff_users.id", ondelete="RESTRICT"))
+    image: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+
+class PanoramaRecord(Base):
+    __tablename__ = "panoramas"
+    __table_args__ = (
+        CheckConstraint("revision >= 1", name="ck_panorama_revision"),
+        CheckConstraint("status IN ('published','retired')", name="ck_panorama_status"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    point_id: Mapped[str] = mapped_column(ForeignKey("points.id", ondelete="RESTRICT"), index=True)
+    title: Mapped[str] = mapped_column(String(120))
+    url: Mapped[str] = mapped_column(String(2048))
+    description: Mapped[str] = mapped_column(Text, default="")
+    revision: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(24), default="published")
+
+
+class ResourceChangeRecord(Base):
+    __tablename__ = "resource_changes"
+    __table_args__ = (
+        CheckConstraint("kind IN ('floor','panorama')", name="ck_resource_kind"),
+        CheckConstraint(
+            "state IN ('draft','in_review','rejected','published','discarded')",
+            name="ck_resource_state",
+        ),
+        CheckConstraint("operation IN ('upsert','retire')", name="ck_resource_operation"),
+        CheckConstraint("revision >= 1 AND base_revision >= 0", name="ck_resource_revision"),
+    )
+    resource_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    point_id: Mapped[str] = mapped_column(ForeignKey("points.id", ondelete="RESTRICT"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    base_revision: Mapped[int] = mapped_column(Integer)
+    state: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    operation: Mapped[str] = mapped_column(String(16), default="upsert")
+    payload: Mapped[dict | None] = mapped_column(JSON)
+    contributor_ids: Mapped[list] = mapped_column(JSON, default=list)
+    editor_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id", ondelete="RESTRICT"))
+    submitted_by: Mapped[str | None] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="RESTRICT")
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    __mapper_args__ = {"version_id_col": revision, "version_id_generator": False}

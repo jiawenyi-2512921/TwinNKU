@@ -25,7 +25,14 @@ from app.contracts import (
 )
 from app.core.errors import DomainError, request_id
 from app.database import get_db
-from app.models import CampusRecord, FloorRecord, MapRecord, PointRecord, StaffUserRecord
+from app.models import (
+    CampusRecord,
+    FloorRecord,
+    MapRecord,
+    PanoramaRecord,
+    PointRecord,
+    StaffUserRecord,
+)
 from app.modules.floors.service import public_floors
 
 router = APIRouter()
@@ -132,6 +139,21 @@ def system_status(request: Request, db: DB):
                 floors=bool(
                     request.app.state.settings.floors_enabled
                     and db.scalar(public_floors().with_only_columns(FloorRecord.id).limit(1))
+                ),
+                vr=bool(
+                    request.app.state.settings.vr_enabled
+                    and db.scalar(
+                        select(PanoramaRecord.id)
+                        .join(PointRecord)
+                        .join(CampusRecord)
+                        .where(
+                            PanoramaRecord.status == "published",
+                            PointRecord.status == "published",
+                            PointRecord.visibility == "public",
+                            CampusRecord.is_active.is_(True),
+                        )
+                        .limit(1)
+                    )
                 ),
             ),
         ),
