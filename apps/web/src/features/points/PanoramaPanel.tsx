@@ -57,13 +57,7 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
         <button onClick={() => setRetry((n) => n + 1)}>重试</button>
       </div>
     );
-  if (!items.length)
-    return (
-      <div className="content-status">
-        <span />
-        暂无已发布全景
-      </div>
-    );
+  if (!items.length) return null;
   return (
     <section className="panorama-panel" aria-label="VR 全景">
       <h3>VR 全景</h3>
