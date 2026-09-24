@@ -4,6 +4,7 @@ import {
   floorLocation,
   pointLocation,
   resolveFloor,
+  resolveFloorImage,
 } from "../src/shared/navigation.ts";
 
 const start =
@@ -53,4 +54,26 @@ test("an empty floor list or returning to overview removes a misleading floor li
   const url = new URL(floorLocation(start, "library", null));
   assert.equal(url.searchParams.get("point"), "library");
   assert.equal(url.searchParams.has("floor"), false);
+});
+
+test("section deep links follow the selected floor and clear on building changes", () => {
+  const shared = floorLocation(start, "library", "level-2", "b");
+  assert.equal(new URL(shared).searchParams.get("floor_section"), "b");
+  assert.equal(pointLocation(shared, "library"), shared);
+  for (const href of [pointLocation(shared, "dining"), pointLocation(shared, null),
+    floorLocation(shared, "library", "level-1"), floorLocation(shared, "library", null),
+    floorLocation(shared, "library", "level-2", "../secret")]) {
+    assert.equal(new URL(href).searchParams.has("floor_section"), false);
+  }
+  assert.equal(floorLocation(shared, "dining", "other", "a"), shared);
+});
+
+test("section selection excludes clean assets and safely handles legacy images", () => {
+  const images = [{variant: "clean", section: "main"},
+    {variant: "labeled", section: "a"}, {variant: "labeled", section: "b"}];
+  assert.equal(resolveFloorImage(images, "b"), images[2]);
+  assert.equal(resolveFloorImage(images, "retired"), images[1]);
+  assert.equal(resolveFloorImage(images.slice(0, 1), "main"), undefined);
+  const legacy = {variant: "labeled"};
+  assert.equal(resolveFloorImage([legacy], "main"), legacy);
 });
