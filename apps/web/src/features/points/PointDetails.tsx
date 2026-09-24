@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Point } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import { floorLocation } from "../../shared/navigation";
+import { PanoramaPanel } from "./PanoramaPanel";
 import { FloorPanel } from "../floors/FloorPanel";
 
 export const categoryLabels: Record<Point["category"], string> = {
@@ -156,9 +157,7 @@ export function PointDetails({
                 {point.summary ||
                   "已在地图上为你标出这个地点。详细介绍将随校园资料逐步补充。"}
               </p>
-              <div className="content-status">
-                <span /> 全景与讲解资料待补充
-              </div>
+              <PanoramaPanel key={point.id} pointId={point.id} />
               {canHaveFloors && (
                 <button className="floor-entry" onClick={() => setTab("floor")}>
                   <span className="floor-entry-icon">
