@@ -3,6 +3,7 @@ export function pointLocation(href: string, pointId: string | null): string {
   const url = new URL(href);
   if (!pointId || url.searchParams.get("point") !== pointId) {
     url.searchParams.delete("floor");
+    url.searchParams.delete("floor_section");
   }
   if (pointId) url.searchParams.set("point", pointId);
   else url.searchParams.delete("point");
@@ -13,13 +14,31 @@ export function floorLocation(
   href: string,
   pointId: string,
   floorId: string | null,
+  section = "main",
 ): string {
   const url = new URL(href);
   // A response from a previously selected building cannot rewrite the new link.
   if (url.searchParams.get("point") !== pointId) return href;
   if (floorId) url.searchParams.set("floor", floorId);
   else url.searchParams.delete("floor");
+  if (
+    floorId &&
+    section !== "main" &&
+    /^[a-z0-9][a-z0-9_-]{0,31}$/.test(section)
+  ) {
+    url.searchParams.set("floor_section", section);
+  } else url.searchParams.delete("floor_section");
   return url.href;
+}
+
+export function resolveFloorImage<
+  T extends { variant: string; section?: string },
+>(images: readonly T[], requestedSection: string | null): T | undefined {
+  const labeled = images.filter((image) => image.variant === "labeled");
+  return (
+    labeled.find((image) => (image.section ?? "main") === requestedSection) ??
+    labeled[0]
+  );
 }
 
 export function resolveFloor(
