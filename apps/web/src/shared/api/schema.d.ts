@@ -1750,6 +1750,13 @@ export interface components {
              * @enum {string}
              */
             media_type: "image/png" | "image/jpeg";
+            /**
+             * Section
+             * @default main
+             */
+            section: string;
+            /** Section Label */
+            section_label?: string | null;
             /** Sha256 */
             sha256: string;
             /** Size Bytes */
@@ -8245,7 +8252,9 @@ export interface operations {
     };
     getFloorImage: {
         parameters: {
-            query?: never;
+            query?: {
+                section?: string;
+            };
             header?: never;
             path: {
                 floor_id: string;
