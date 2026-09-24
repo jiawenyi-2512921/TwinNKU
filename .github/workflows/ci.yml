@@ -37,6 +37,8 @@ jobs:
         working-directory: apps/api
       - run: uv run python ../../scripts/export_contract.py --check
         working-directory: apps/api
+      - run: uv run python ../../scripts/render_api_reference.py --check
+        working-directory: apps/api
       - run: npm ci
         working-directory: apps/web
       - run: npm run generate:api && git diff --exit-code -- src/shared/api/schema.d.ts
