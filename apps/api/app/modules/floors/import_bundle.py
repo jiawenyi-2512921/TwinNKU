@@ -11,6 +11,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from PIL import Image
 from pydantic import Field, model_validator
+from sqlalchemy import select
 
 from app.contracts import DTO, FLOOR_SECTION_PATTERN, Revision
 from app.core.config import get_settings
@@ -134,9 +135,20 @@ def import_bundle(
     bundle = FloorBundle.model_validate_json((source / "manifest.json").read_bytes())
     expected_files = {"manifest.json"}
     prepared = []
+    # Serialize CLI imports with browser edits for the same buildings.
+    points = {
+        p.id: p
+        for p in db.scalars(
+            select(PointRecord)
+            .where(PointRecord.id.in_(sorted({str(f.point_id) for f in bundle.floors})))
+            .order_by(PointRecord.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    }
     # Validate the complete batch before installing any assets or changing database rows.
     for floor in bundle.floors:
-        point = db.get(PointRecord, str(floor.point_id))
+        point = points.get(str(floor.point_id))
         if point is None:
             raise ValueError(f"building must be imported first: {floor.point_id}")
         if len(f"{point.name} · {floor.label}") > 120:
