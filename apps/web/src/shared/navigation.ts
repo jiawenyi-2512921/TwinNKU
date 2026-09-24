@@ -53,3 +53,42 @@ export function resolveFloor(
     null
   );
 }
+
+// Preloading does not open the viewer; only the initial matching link may open it.
+export function reconcileFloorView<
+  T extends {
+    id: string;
+    point_id: string;
+    images?: { variant: string; section?: string }[];
+  },
+>(
+  rows: readonly T[],
+  pointId: string,
+  previous: { floorId: string; section: string; expanded: boolean },
+  initialLink: URLSearchParams | null,
+) {
+  const floors = rows.filter(
+    (floor) =>
+      floor.point_id === pointId &&
+      floor.images?.some((image) => image.variant === "labeled"),
+  );
+  const fromLink =
+    initialLink?.get("point") === pointId && initialLink.has("floor");
+  const requested = fromLink ? initialLink.get("floor") : previous.floorId;
+  const floorId = resolveFloor(floors, pointId, requested) ?? "";
+  const image = resolveFloorImage(
+    floors.find((floor) => floor.id === floorId)?.images ?? [],
+    floorId === requested
+      ? fromLink
+        ? initialLink.get("floor_section")
+        : previous.section
+      : null,
+  );
+  return {
+    floors,
+    floorId,
+    section: image?.section ?? "main",
+    expanded: Boolean(floorId && (previous.expanded || fromLink)),
+    syncLocation: Boolean(fromLink || previous.expanded || !floorId),
+  };
+}
