@@ -1609,6 +1609,25 @@
             "title": "Media Type",
             "type": "string"
           },
+          "section": {
+            "default": "main",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$",
+            "title": "Section",
+            "type": "string"
+          },
+          "section_label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Label"
+          },
           "sha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Sha256",
@@ -11618,6 +11637,17 @@
                 "clean"
               ],
               "title": "Variant",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "section",
+            "required": false,
+            "schema": {
+              "default": "main",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$",
+              "title": "Section",
               "type": "string"
             }
           }
