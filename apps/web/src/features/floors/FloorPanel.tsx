@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type Floor } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
-import { floorLocation, resolveFloor } from "../../shared/navigation";
+import {
+  floorLocation,
+  resolveFloor,
+  resolveFloorImage,
+} from "../../shared/navigation";
 import { FloorViewer } from "./FloorViewer";
 import "./floors.css";
 
@@ -14,6 +18,7 @@ export function FloorPanel({
 }) {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [selectedId, setSelectedId] = useState("");
+  const [selectedSection, setSelectedSection] = useState("main");
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -26,6 +31,7 @@ export function FloorPanel({
     const controller = new AbortController();
     setFloors([]);
     setSelectedId("");
+    setSelectedSection("main");
     setStatus("loading");
     api
       .floors(pointId, controller.signal)
@@ -38,10 +44,18 @@ export function FloorPanel({
         );
         const selected = resolveFloor(available, pointId, requested);
         setSelectedId(selected ?? "");
+        const image = resolveFloorImage(
+          available.find((f) => f.id === selected)?.images ?? [],
+          selected === requested
+            ? new URLSearchParams(window.location.search).get("floor_section")
+            : null,
+        );
+        const section = image?.section ?? "main";
+        setSelectedSection(section);
         window.history.replaceState(
           window.history.state,
           "",
-          floorLocation(window.location.href, pointId, selected),
+          floorLocation(window.location.href, pointId, selected, section),
         );
         setStatus("ready");
       })
@@ -57,15 +71,31 @@ export function FloorPanel({
   }, [expanded]);
 
   const floor = floors.find((f) => f.id === selectedId);
-  const asset = floor?.images?.find((a) => a.variant === "labeled");
-  const title = `${pointName} · ${floor?.label ?? ""} · 已标注图`;
+  const labeled = floor?.images?.filter((a) => a.variant === "labeled") ?? [];
+  const asset = resolveFloorImage(labeled, selectedSection);
+  const title = `${pointName} · ${floor?.label ?? ""}${asset?.section_label ? ` · ${asset.section_label}` : ""} · 已标注图`;
   function selectFloor(id: string) {
     if (!floors.some((f) => f.id === id && f.point_id === pointId)) return;
     setSelectedId(id);
+    const section =
+      resolveFloorImage(
+        floors.find((f) => f.id === id)?.images ?? [],
+        id === selectedId ? selectedSection : null,
+      )?.section ?? "main";
+    setSelectedSection(section);
     window.history.replaceState(
       window.history.state,
       "",
-      floorLocation(window.location.href, pointId, id),
+      floorLocation(window.location.href, pointId, id, section),
+    );
+  }
+  function selectSection(section: string) {
+    if (!labeled.some((image) => (image.section ?? "main") === section)) return;
+    setSelectedSection(section);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      floorLocation(window.location.href, pointId, selectedId, section),
     );
   }
   function close() {
@@ -87,6 +117,25 @@ export function FloorPanel({
             </option>
           ))}
         </select>
+        {labeled.length > 1 && (
+          <>
+            <label htmlFor={`${prefix}-section`}>选择分区</label>
+            <select
+              id={`${prefix}-section`}
+              value={asset?.section ?? "main"}
+              onChange={(e) => selectSection(e.target.value)}
+            >
+              {labeled.map((image) => (
+                <option
+                  key={image.section ?? "main"}
+                  value={image.section ?? "main"}
+                >
+                  {image.section_label ?? "全层"}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
       </div>
     );
   }
@@ -127,7 +176,7 @@ export function FloorPanel({
           {selectors("preview")}
           {asset ? (
             <FloorViewer
-              key={`${floor.id}-${floor.revision}-labeled`}
+              key={`${floor.id}-${floor.revision}-${asset.section ?? "main"}`}
               asset={asset}
               title={title}
             />
@@ -175,13 +224,17 @@ export function FloorPanel({
                 {selectors("expanded")}
                 {asset && (
                   <FloorViewer
-                    key={`${floor.id}-${floor.revision}-labeled`}
+                    key={`${floor.id}-${floor.revision}-${asset.section ?? "main"}`}
                     asset={asset}
                     title={title}
                   />
                 )}
                 <footer>
-                  <span>{floor.label} · 已标注图</span>
+                  <span>
+                    {floor.label}
+                    {asset?.section_label ? ` · ${asset.section_label}` : ""} ·
+                    已标注图
+                  </span>
                   <span>
                     {asset?.width_px} × {asset?.height_px} 像素
                   </span>
