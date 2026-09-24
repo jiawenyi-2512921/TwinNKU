@@ -2,7 +2,7 @@
 
 规范版本：`1.2.0`；当前应用版本：`0.4.0`。本规范记录本轮明确的产品方向与实施决策，替代此前未核验的技术计划。接口发生不兼容变化须使用新 API 主版本。
 
-2026-09-23更新：用户指定GitHub为代码、部署指导与图片素材的统一交付渠道。部署方先读[GitHub资源交接](12-github-resource-handoff.md)，从Release直接下载本批地图与楼层包。
+2026-09-24更新：GitHub为代码、部署指导与图片素材的交付渠道。部署方先读[20栋楼完整资源交付](17-floor-release.md)及[后台楼层/VR编辑](18-resource-editor.md)；本轮不重新导入地图。
 
 ## 状态含义
 
@@ -34,7 +34,7 @@
 | 对象 | 唯一来源 |
 | --- | --- |
 | DTO 和字段约束 | `apps/api/app/contracts.py` 的 Pydantic 模型 |
-| 已实现接口 | `apps/api/app/api.py`及`app/modules/*/router.py` |
+| 已实现接口 | `apps/api/app/api.py`、`app/modules/*/router.py`及`app/modules/admin/resources.py` |
 | 未实现目标接口 | `apps/api/app/planned_contract.py`，只供契约生成，生产不挂载 |
 | 完整机器契约 | 自动生成的 `contracts/openapi.json` |
 | 前端接口类型 | 自动生成的 `apps/web/src/shared/api/schema.d.ts` |
@@ -46,11 +46,11 @@
 
 ## M01地图交付
 
-新增 [地图模块说明](10-map-module.md)：接口、资产包导入、版本与楼层接入约定。地图交互、受控CLI导入已交付；v0.4.0新增[管理后台](15-admin-console.md)，落地点位编辑审核与独立员工账号，SSO与素材上传后台仍未实现。
+新增 [地图模块说明](10-map-module.md)：接口、资产包导入、版本与楼层接入约定。地图交互、受控CLI导入已交付；v0.4.0新增[管理后台](15-admin-console.md)，落地点位编辑审核与独立员工账号，楼层标注原图上传与VR链接编辑现见[18-resource-editor.md](18-resource-editor.md)；SSO、校园底图上传仍未实现。
 
 ## M05a 楼层查看
 
-用户要求提前接入楼层资料，当前只交付有标注图查看，完整M05室内路线仍待后续。详见 [11-floor-plans.md](11-floor-plans.md)。实际目录已核对19项91层；本次接入图书馆1层有标注图，其余90层仍待原文件，不等同已导入91层。
+用户要求提前接入楼层资料，当前只交付有标注图查看，完整M05室内路线仍待后续。详见 [11-floor-plans.md](11-floor-plans.md)。本批20栋、96层、100张标注原图全部核对并打包，通过本地全量导入与HTTP字节验收；第20栋已纳入。服务器上线独立验收。
 
 ## 2026-09-23地图反馈整改
 
@@ -63,3 +63,7 @@
 ## 审核后客户端更新修复
 
 [16-publication-sync-fix.md](16-publication-sync-fix.md)记录线上公开数据核对、自动刷新、整体移动点位、发布后公开端核验和前端单独升级步骤。此补丁不修改API契约、数据库或地图素材；仍以提交SHA识别本次前端版本。
+
+## 后台楼层与VR增量
+
+[18-resource-editor.md](18-resource-editor.md)规定新模块的角色/scope、原图上传、分区、独立审核、发布验证与HTTPS链接入口。数据库head为0005_resource_editor。完整原图交付和部署方操作见[17-floor-release.md](17-floor-release.md)。历史双图与19栋数量不再表示当前范围。
