@@ -637,10 +637,41 @@ a {
   font-weight: 600;
 }
 .point-summary {
+  font-size: 14px;
+  line-height: 1.85;
+  color: #514b56;
+  margin: 0 0 14px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.point-introduction {
+  margin-bottom: 20px;
+}
+.introduction-sources {
+  color: #65596e;
   font-size: 12px;
-  line-height: 1.95;
-  color: #8c8093;
-  margin: 0 0 18px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.introduction-sources summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+.introduction-sources summary:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 3px;
+}
+.introduction-sources ul {
+  padding-left: 18px;
+  margin: 6px 0;
+}
+.introduction-sources li {
+  margin-bottom: 6px;
+}
+.introduction-sources a {
+  color: #674576;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .content-status {
   font-size: 10px;
@@ -965,7 +996,7 @@ a {
     padding-bottom: 8px;
   }
   .point-summary {
-    font-size: 12px;
+    font-size: 14px;
     margin-bottom: 12px;
   }
   .content-status {
