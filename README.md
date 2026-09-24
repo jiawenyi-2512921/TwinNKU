@@ -2,13 +2,35 @@
 
 **当前交付：**高清校园地图、83个命名地点、分层权限后台，以及新增的“楼层与 VR”资料编辑：标注原图上传/替换、同层分区、来源记录、独立审核发布、下架恢复与公开端更新。本批完整楼层包覆盖 **20栋、96层、100张标注原图**，保持原字节和尺寸。
 
-**给部署方：**使用 `feat/admin-console` 分支，先读[本次完整交付与部署](docs/17-floor-release.md)和[楼层/VR后台操作](docs/18-resource-editor.md)。需要更新API、前端、迁移至0005，并单独导入楼层资源包；不要重导旧地图或覆盖后台点位。首次启用后台仍按[账号初始化](docs/15-admin-console.md)，没有默认密码。本轮未部署用户服务器。
+**基础楼层/后台版部署：**使用 `feat/admin-console` 分支，先读[本次完整交付与部署](docs/17-floor-release.md)和[楼层/VR后台操作](docs/18-resource-editor.md)。需要更新API、前端、迁移至0005，并单独导入楼层资源包；不要重导旧地图或覆盖后台点位。首次启用后台仍按[账号初始化](docs/15-admin-console.md)，没有默认密码。本轮未部署用户服务器。
 
-**2026-09-24介绍增量：**新增[83点介绍初稿与安全导入](docs/19-point-introductions.md)、正文分段与折叠来源；仅补介绍，保留后台地图修正。已运行楼层/VR版的站点按新文档更新前端并导入审核，无新增迁移。下一阶段界面与比赛目标见[体验规划](docs/20-visitor-experience-plan.md)。
+**2026-09-24介绍增量：**新增[83点介绍初稿与安全导入](docs/19-point-introductions.md)、正文分段与折叠来源；仅补介绍，保留后台地图修正。已运行楼层/VR版的站点按新文档更新前端并导入审核，无新增迁移。早期体验建议见[体验规划](docs/20-visitor-experience-plan.md)。
 
 面向公众、校友与研学群体的校园文化 AI 导览服务。以修订校园规划图为入口，逐步连接官方点位资料、全景、楼层、路线与 NK-GeniOS 智能体。
 
 本仓库是唯一开发仓库：**jiawenyi-2512921/TwinNKU**。旧的 `Twin-NKU` 仓库、旧地图重建方案与旧部署结论不作为本项目依据。
+
+## 本轮：界面精简与完整冲刺规范
+
+已实现地图主界面、按需目录、单地点面板、真实资源入口和直达楼层大图。**仅更新前端，无新增数据库迁移，不重导地图。** 部署先读[30界面交付](docs/30-interface-release.md)；真机视觉验收尚须部署后完成。
+
+全项目高标准需求与执行细节从[21总纲](docs/21-project-master-spec.md)开始：
+
+| 文档 | 内容 |
+| --- | --- |
+| [21 全项目需求总纲](docs/21-project-master-spec.md) | 用户、范围、逐项需求ID、P0—P3、发布门槛 |
+| [22 交互与界面](docs/22-experience-and-interface.md) | 每种状态、响应式布局、焦点、URL、空/错/加载 |
+| [23 架构与数据](docs/23-architecture-and-data.md) | 技术栈、表/约束、版本、outbox、worker、容量与ADR |
+| [24 智能体实施](docs/24-agent-implementation.md) | 平台证据、检索、引用、会话、SSE、动作、取消与失败 |
+| [25 资源与VR](docs/25-resources-and-vr.md) | 原图保真、楼层分区、场景台账、多点关联、内容质检 |
+| [26 主题与路线](docs/26-tours-learning-and-routing.md) | 线上编排、进度、观察任务、回顾、实测路网边界 |
+| [27 后台与运营](docs/27-admin-operations-and-channels.md) | 权限、审核、知识同步、咨询缺口、渠道与数据保留 |
+| [28 质量与比赛](docs/28-quality-evaluation-and-contest.md) | 100题评测、真实试用、性能、回归、证据与材料 |
+| [29 冲刺工作包](docs/29-sprint-backlog.md) | 逐任务依赖/实现/交付/验收/责任角色、里程碑与扩展 |
+| [30 本轮部署](docs/30-interface-release.md) | 只更新web、保留生产数据、真机检查与回退 |
+| [31 完整接口与字段](docs/31-api-reference.md) | 自动生成80项操作及全部DTO；44已实现、36计划 |
+
+**规格不等于功能完成。** 真实AI、主题研学、咨询闭环等仍须逐工作包开发。GitHub作为交付渠道，用户/DeepSeek执行部署；不把写好方案说成已经上线。
 
 ## 先阅读规范
 
