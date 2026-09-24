@@ -37,7 +37,14 @@ def as_floor(record):
         images=[
             FloorImage(
                 **{k: v for k, v in image.items() if k != "filename"},
-                url=f"/api/v1/floors/{record.id}/images/{record.revision}/{image['variant']}",
+                url=(
+                    f"/api/v1/floors/{record.id}/images/{record.revision}/{image['variant']}"
+                    + (
+                        f"?section={image['section']}"
+                        if image.get("section", "main") != "main"
+                        else ""
+                    )
+                ),
             )
             for image in record.images
             if image["variant"] == "labeled"
