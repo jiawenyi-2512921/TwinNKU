@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     map_enabled: bool = True
     map_assets_dir: Path = Path("var/map-assets")
     floors_enabled: bool = True
+    vr_enabled: bool = True
     floor_assets_dir: Path = Path("var/floor-assets")
     admin_enabled: bool = False
     admin_public_origin: str | None = None
