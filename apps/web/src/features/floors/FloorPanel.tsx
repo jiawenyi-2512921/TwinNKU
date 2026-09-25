@@ -8,13 +8,18 @@ import {
 } from "../../shared/navigation";
 import { FloorViewer } from "./FloorViewer";
 import "./floors.css";
+import type { AgentContext } from "../agent/protocol";
 
 export function FloorPanel({
   pointId,
   pointName,
+  onAsk,
 }: {
   pointId: string;
   pointName: string;
+  onAsk?: (
+    floor: Pick<AgentContext, "floor_id" | "floor_label" | "floor_section">,
+  ) => void;
 }) {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -243,6 +248,22 @@ export function FloorPanel({
                 <span>楼层平面图</span>
                 <h2 id="floor-dialog-title">{pointName}</h2>
               </div>
+              {onAsk && (
+                <button
+                  className="floor-back"
+                  onClick={() => {
+                    close();
+                    onAsk({
+                      floor_id: floor.id,
+                      floor_label: floor.label,
+                      floor_section: asset?.section ?? "main",
+                    });
+                  }}
+                >
+                  <Icon name="chat" />
+                  <span>问小开</span>
+                </button>
+              )}
               <button
                 className="floor-back"
                 aria-label="返回校园地图"
