@@ -21,6 +21,7 @@ from app.core.errors import (
 from app.modules.admin.resources import router as resources_router
 from app.modules.admin.router import router as admin_router
 from app.modules.floors.router import router as floors_router
+from app.modules.guide.router import router as guide_router
 from app.modules.maps.router import router as maps_router
 
 logger = logging.getLogger("twinnku")
@@ -80,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(floors_router)
     app.include_router(admin_router)
     app.include_router(resources_router)
+    app.include_router(guide_router)
     return app
 
 

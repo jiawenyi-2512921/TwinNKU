@@ -66,6 +66,7 @@ class Capabilities(DTO):
     vr: bool = False
     floors: bool = False
     chat: bool = False
+    chat_embed: bool = False
     tours: bool = False
     admin: bool = False
 
@@ -75,6 +76,21 @@ class SystemStatus(DTO):
     version: str
     api_version: Literal["v1"] = "v1"
     capabilities: Capabilities
+
+
+class AgentWebConfig(DTO):
+    enabled: bool
+    provider: Literal["nk-genios-websdk"] = "nk-genios-websdk"
+    display_name: Literal["小开"] = "小开"
+    # Deliberately public, unlike nk_genios_api_key, which is never serialized.
+    app_key: str | None = None
+    base_url: Literal["https://coze.nankai.edu.cn"] = "https://coze.nankai.edu.cn"
+    sdk_url: Literal["https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js"] = (
+        "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js"
+    )
+    hide_sidebar: bool = True
+    context_enabled: bool = False
+    public_site_origin: str
 
 
 class Campus(DTO):
@@ -711,6 +727,25 @@ class Panorama(PanoramaContent):
     id: UUID
     point_id: UUID
     revision: Revision
+
+
+class GuideLink(DTO):
+    kind: Literal["focus_point", "show_floor", "open_vr"]
+    label: str
+    url: str
+    point_id: UUID
+    resource_id: UUID | None = None
+    revision: Revision
+    section: str | None = None
+
+
+class GuidePoint(DTO):
+    point: Point
+    floors: list[Floor]
+    panoramas: list[Panorama]
+    links: list[GuideLink]
+    retrieved_at: datetime
+    interaction: Literal["user_click_link"] = "user_click_link"
 
 
 class AuditEvent(DTO):

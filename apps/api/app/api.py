@@ -127,6 +127,7 @@ def system_status(request: Request, db: DB):
         SystemStatus(
             version=request.app.state.settings.app_version,
             capabilities=Capabilities(
+                chat_embed=request.app.state.settings.web_agent_configured,
                 map=has_map,
                 admin=bool(
                     request.app.state.settings.admin_enabled
@@ -214,10 +215,28 @@ def list_points(
         conditions.append(PointRecord.category == category.value)
     if q and q.strip():
         escaped = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        # Decode each JSON value before searching: casting JSON to text can leave
+        # Chinese aliases escaped as \uXXXX in SQLite and in PostgreSQL JSON.
+        if db.get_bind().dialect.name == "postgresql":
+            aliases = (
+                func.json_array_elements_text(PointRecord.aliases)
+                .table_valued("value")
+                .render_derived()
+            )
+        else:
+            aliases = func.json_each(PointRecord.aliases).table_valued("value")
+        alias_match = (
+            select(1)
+            .select_from(aliases)
+            .where(aliases.c.value.ilike(f"%{escaped}%", escape="\\"))
+            .correlate(PointRecord)
+            .exists()
+        )
         conditions.append(
             or_(
                 PointRecord.name.ilike(f"%{escaped}%", escape="\\"),
                 PointRecord.summary.ilike(f"%{escaped}%", escape="\\"),
+                alias_match,
             )
         )
     total = db.scalar(select(func.count()).select_from(PointRecord).where(*conditions)) or 0
