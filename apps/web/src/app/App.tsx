@@ -13,6 +13,13 @@ import {
 import { Icon } from "../shared/ui/Icon";
 import { pointLocation } from "../shared/navigation";
 import { MapCanvas } from "../features/map/MapCanvas";
+import { AgentDock, type AgentRequest } from "../features/agent/AgentDock";
+import { useAgentConfig } from "../features/agent/useAgentConfig";
+import {
+  EMPTY_CONTEXT,
+  safeContext,
+  type AgentContext,
+} from "../features/agent/protocol";
 import {
   PointDetails,
   categoryLabels,
@@ -32,6 +39,8 @@ const categories = [
 ] as const;
 
 export function App() {
+  const agentConfig = useAgentConfig();
+  const [agentRequest, setAgentRequest] = useState<AgentRequest | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">(
     "loading",
@@ -137,6 +146,24 @@ export function App() {
     );
   }, [points, query, category]);
   const selected = points.find((p) => p.id === selectedId);
+  const agentContext = safeContext({
+    ...EMPTY_CONTEXT,
+    campus_id: catalog?.campus.id ?? "",
+    campus_name: catalog?.campus.name ?? "",
+    point_id: selected?.id ?? "",
+    point_name: selected?.name ?? "",
+    point_revision: selected ? String(selected.revision) : "",
+    map_id: catalog?.map?.id ?? "",
+    map_revision: catalog?.map ? String(catalog.map.revision) : "",
+  });
+  function askAgent(
+    floor?: Pick<AgentContext, "floor_id" | "floor_label" | "floor_section">,
+  ) {
+    setAgentRequest((before) => ({
+      sequence: (before?.sequence ?? 0) + 1,
+      context: safeContext({ ...agentContext, ...floor }),
+    }));
+  }
   const groups = categories.filter(
     (c) => c === "all" || points.some((p) => p.category === c),
   );
@@ -375,6 +402,7 @@ export function App() {
               key={selected.id}
               point={selected}
               onClose={closeDetails}
+              onAsk={agentConfig?.enabled ? askAgent : undefined}
             />
           )}
           {status === "error" && catalog && (
@@ -390,6 +418,11 @@ export function App() {
             </div>
           )}
         </section>
+        <AgentDock
+          config={agentConfig}
+          current={agentContext}
+          request={agentRequest}
+        />
       </main>
     </div>
   );
