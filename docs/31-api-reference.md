@@ -5,8 +5,8 @@
 业务约束见21—29；接口上线前必须先处理24中的协议缺口和旧角色命名，不能猜学校平台API。
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
-接口操作数：80；状态统计：{"implemented": 44, "planned": 36}。
-契约SHA256：`4b07dc381c71b895a95864a3d05036ce83536e507a92751753018031a555b1a9`。
+接口操作数：82；状态统计：{"implemented": 46, "planned": 36}。
+契约SHA256：`a3c923e1243976a0081a7f62cef655fad68c9512b6686f6fa23fc80ef64b3ea2`。
 
 ## 1. 全部端点
 
@@ -56,6 +56,7 @@
 | GET | `/api/v1/admin/users` | listStaffUsers | implemented | staff | — | 200: application/json Envelope_list_StaffUser__ |
 | POST | `/api/v1/admin/users` | createStaffUser | implemented | staff | application/json: StaffUserCreate | 201: application/json Envelope_StaffUser_ |
 | PUT | `/api/v1/admin/users/{user_id}` | updateStaffUser | implemented | staff | application/json: StaffUserUpdate | 200: application/json Envelope_StaffUser_ |
+| GET | `/api/v1/agent/web-config` | getAgentWebConfig | implemented | public | — | 200: application/json Envelope_AgentWebConfig_ |
 | POST | `/api/v1/auth/guest-session` | createGuestSession | planned | public | — | 201: application/json Envelope_GuestSession_ |
 | GET | `/api/v1/auth/me` | getIdentity | planned | guest_session | — | 200: application/json Envelope_Identity_ |
 | DELETE | `/api/v1/auth/session` | endSession | planned | guest_session | — | 200: application/json Envelope_Identity_ |
@@ -73,6 +74,7 @@
 | GET | `/api/v1/floors/{floor_id}` | getFloor | implemented | resource_policy | — | 200: application/json Envelope_Floor_ |
 | GET | `/api/v1/floors/{floor_id}/images/{revision}/{variant}` | getFloorImage | implemented | resource_policy | — | 200: image/jpeg string (binary); 200: image/png string (binary) |
 | GET | `/api/v1/floors/{floor_id}/rooms` | listRooms | planned | resource_policy | — | 200: application/json Envelope_list_Room__ |
+| GET | `/api/v1/guide/points/{point_id}` | getGuidePoint | implemented | public | — | 200: application/json Envelope_GuidePoint_ |
 | POST | `/api/v1/inquiries` | createInquiry | planned | guest_session | application/json: InquiryRequest | 201: application/json Envelope_Inquiry_ |
 | GET | `/api/v1/maps/{map_id}` | getMap | implemented | public | — | 200: application/json Envelope_MapInfo_ |
 | GET | `/api/v1/maps/{map_id}/features` | getMapFeatures | implemented | public | — | 200: application/json Envelope_MapFeatures_ |
@@ -485,6 +487,12 @@
 | --- | --- | --- | --- | --- |
 | floor_id | path | 是 | string (uuid) | — |
 
+### GET /api/v1/guide/points/{point_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| point_id | path | 是 | string (uuid) | — |
+
 ### POST /api/v1/inquiries
 
 | 字段 | 位置 | 必填 | 类型 | 约束 |
@@ -698,6 +706,22 @@
 | resource_revision | 是 | integer | 最小: 1 |
 | type | 是 | focus_point / show_route / open_vr / show_floor / play_narration / show_tour | — |
 
+### AgentWebConfig
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| app_key | 否 | string / null | —; — |
+| base_url | 否 | 'https://coze.nankai.edu.cn' | 默认: "https://coze.nankai.edu.cn" |
+| context_enabled | 否 | boolean | 默认: false |
+| display_name | 否 | '小开' | 默认: "小开" |
+| enabled | 是 | boolean | — |
+| hide_sidebar | 否 | boolean | 默认: true |
+| provider | 否 | 'nk-genios-websdk' | 默认: "nk-genios-websdk" |
+| public_site_origin | 是 | string | — |
+| sdk_url | 否 | 'https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js' | 默认: "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js" |
+
 ### AuditEvent
 
 未知字段：拒绝。
@@ -740,6 +764,7 @@
 | --- | --- | --- | --- |
 | admin | 否 | boolean | 默认: false |
 | chat | 否 | boolean | 默认: false |
+| chat_embed | 否 | boolean | 默认: false |
 | floors | 否 | boolean | 默认: false |
 | map | 否 | boolean | 默认: false |
 | routing | 否 | boolean | 默认: false |
@@ -864,6 +889,15 @@
 | data | 是 | AdminSource | — |
 | meta | 是 | Meta | — |
 
+### Envelope_AgentWebConfig_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | AgentWebConfig | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_Campus_
 
 未知字段：拒绝。
@@ -916,6 +950,15 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | data | 是 | GuestSession | — |
+| meta | 是 | Meta | — |
+
+### Envelope_GuidePoint_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | GuidePoint | — |
 | meta | 是 | Meta | — |
 
 ### Envelope_Identity_
@@ -1324,6 +1367,33 @@
 | --- | --- | --- | --- |
 | csrf_token | 是 | string | — |
 | expires_at | 是 | string (date-time) | — |
+
+### GuideLink
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| kind | 是 | focus_point / show_floor / open_vr | — |
+| label | 是 | string | — |
+| point_id | 是 | string (uuid) | — |
+| resource_id | 否 | string (uuid) / null | —; — |
+| revision | 是 | integer | 最小: 1.0 |
+| section | 否 | string / null | —; — |
+| url | 是 | string | — |
+
+### GuidePoint
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| floors | 是 | array<Floor> | — |
+| interaction | 否 | 'user_click_link' | 默认: "user_click_link" |
+| links | 是 | array<GuideLink> | — |
+| panoramas | 是 | array<Panorama> | — |
+| point | 是 | Point | — |
+| retrieved_at | 是 | string (date-time) | — |
 
 ### HTTPValidationError
 
