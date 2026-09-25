@@ -3,11 +3,22 @@ import { api, type Panorama } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 
 export function PanoramaPanel({ pointId }: { pointId: string }) {
+  const requested = new URLSearchParams(window.location.search).get("panorama");
   const [items, setItems] = useState<Panorama[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
   const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (
+      status === "ready" &&
+      requested &&
+      items.some((item) => item.id === requested)
+    )
+      document
+        .getElementById(`panorama-${requested}`)
+        ?.scrollIntoView({ block: "nearest" });
+  }, [status, requested, items]);
   useEffect(() => {
     let pending: AbortController | null = null;
     let disposed = false;
@@ -57,12 +68,26 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
         <button onClick={() => setRetry((n) => n + 1)}>重试</button>
       </div>
     );
-  if (!items.length) return null;
+  if (!items.length)
+    return requested ? (
+      <p className="content-status">
+        该全景目前未公开或已下架，可以继续查看地点介绍。
+      </p>
+    ) : null;
   return (
     <section className="panorama-panel" aria-label="VR 全景">
       <h3>VR 全景</h3>
+      {requested && !items.some((item) => item.id === requested) && (
+        <p className="content-status">
+          指定的全景目前不可用，以下是该地点现有的公开全景。
+        </p>
+      )}
       {items.map((item) => (
-        <article className="panorama-card" key={item.id}>
+        <article
+          id={`panorama-${item.id}`}
+          className={`panorama-card${item.id === requested ? " is-target" : ""}`}
+          key={item.id}
+        >
           <strong>{item.title}</strong>
           {item.description && <p>{item.description}</p>}
           <a href={item.url} target="_blank" rel="noopener noreferrer">

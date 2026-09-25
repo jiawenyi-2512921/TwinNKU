@@ -4,6 +4,7 @@ import { Icon } from "../../shared/ui/Icon";
 import { PanoramaPanel } from "./PanoramaPanel";
 import { FloorPanel } from "../floors/FloorPanel";
 import { PointIntroduction } from "./PointIntroduction";
+import type { AgentContext } from "../agent/protocol";
 
 export const categoryLabels: Record<Point["category"], string> = {
   public_area: "公共空间",
@@ -27,9 +28,13 @@ export function pointIcon(point: Point) {
 export function PointDetails({
   point,
   onClose,
+  onAsk,
 }: {
   point: Point;
   onClose: () => void;
+  onAsk?: (
+    floor?: Pick<AgentContext, "floor_id" | "floor_label" | "floor_section">,
+  ) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
@@ -80,11 +85,17 @@ export function PointDetails({
         </div>
       </header>
       <div className="detail-body">
-        <FloorPanel pointId={point.id} pointName={point.name} />
+        <FloorPanel pointId={point.id} pointName={point.name} onAsk={onAsk} />
         <PointIntroduction summary={point.summary} />
         <PanoramaPanel pointId={point.id} />
       </div>
       <footer className="detail-footer">
+        {onAsk && (
+          <button className="ask-point" onClick={() => onAsk()}>
+            <Icon name="chat" size={18} />
+            问小开，了解这里
+          </button>
+        )}
         <button className="share-point" onClick={copyLink}>
           <Icon name="link" size={16} />
           复制地点链接
