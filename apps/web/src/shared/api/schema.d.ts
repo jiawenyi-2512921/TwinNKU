@@ -685,6 +685,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/web-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Web Config */
+        get: operations["getAgentWebConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/guest-session": {
         parameters: {
             query?: never;
@@ -983,6 +1000,26 @@ export interface paths {
          * @description PLANNED, NOT IMPLEMENTED.
          */
         get: operations["listRooms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guide/points/{point_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询已公开点位及楼层、VR和可点击的导览链接
+         * @description 先通过 listPoints 获取真实 point_id。仅返回公开、已发布内容；links 是供用户点击的页面链接，不是已经执行的动作。楼层列表不表示已经识别图片内房间；不据此推断室内路线。资料来源如有记载保留在 point.summary 中；不要编造来源。
+         */
+        get: operations["getGuidePoint"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1491,6 +1528,49 @@ export interface components {
              */
             type: "focus_point" | "show_route" | "open_vr" | "show_floor" | "play_narration" | "show_tour";
         };
+        /** AgentWebConfig */
+        AgentWebConfig: {
+            /** App Key */
+            app_key?: string | null;
+            /**
+             * Base Url
+             * @default https://coze.nankai.edu.cn
+             * @constant
+             */
+            base_url: "https://coze.nankai.edu.cn";
+            /**
+             * Context Enabled
+             * @default false
+             */
+            context_enabled: boolean;
+            /**
+             * Display Name
+             * @default 小开
+             * @constant
+             */
+            display_name: "小开";
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Hide Sidebar
+             * @default true
+             */
+            hide_sidebar: boolean;
+            /**
+             * Provider
+             * @default nk-genios-websdk
+             * @constant
+             */
+            provider: "nk-genios-websdk";
+            /** Public Site Origin */
+            public_site_origin: string;
+            /**
+             * Sdk Url
+             * @default https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js
+             * @constant
+             */
+            sdk_url: "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js";
+        };
         /** AuditEvent */
         AuditEvent: {
             /** Action */
@@ -1549,6 +1629,11 @@ export interface components {
              * @default false
              */
             chat: boolean;
+            /**
+             * Chat Embed
+             * @default false
+             */
+            chat_embed: boolean;
             /**
              * Floors
              * @default false
@@ -1684,6 +1769,11 @@ export interface components {
             data: components["schemas"]["AdminSource"];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[AgentWebConfig] */
+        Envelope_AgentWebConfig_: {
+            data: components["schemas"]["AgentWebConfig"];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[Campus] */
         Envelope_Campus_: {
             data: components["schemas"]["Campus"];
@@ -1712,6 +1802,11 @@ export interface components {
         /** Envelope[GuestSession] */
         Envelope_GuestSession_: {
             data: components["schemas"]["GuestSession"];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[GuidePoint] */
+        Envelope_GuidePoint_: {
+            data: components["schemas"]["GuidePoint"];
             meta: components["schemas"]["Meta"];
         };
         /** Envelope[Identity] */
@@ -2045,6 +2140,50 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /** GuideLink */
+        GuideLink: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "focus_point" | "show_floor" | "open_vr";
+            /** Label */
+            label: string;
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Resource Id */
+            resource_id?: string | null;
+            /** Revision */
+            revision: number;
+            /** Section */
+            section?: string | null;
+            /** Url */
+            url: string;
+        };
+        /** GuidePoint */
+        GuidePoint: {
+            /** Floors */
+            floors: components["schemas"]["Floor"][];
+            /**
+             * Interaction
+             * @default user_click_link
+             * @constant
+             */
+            interaction: "user_click_link";
+            /** Links */
+            links: components["schemas"]["GuideLink"][];
+            /** Panoramas */
+            panoramas: components["schemas"]["Panorama"][];
+            point: components["schemas"]["Point"];
+            /**
+             * Retrieved At
+             * Format: date-time
+             */
+            retrieved_at: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -7277,6 +7416,26 @@ export interface operations {
             };
         };
     };
+    getAgentWebConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AgentWebConfig_"];
+                };
+            };
+        };
+    };
     createGuestSession: {
         parameters: {
             query?: never;
@@ -9117,6 +9276,55 @@ export interface operations {
             };
             /** @description Gateway Timeout */
             504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getGuidePoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                point_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_GuidePoint_"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

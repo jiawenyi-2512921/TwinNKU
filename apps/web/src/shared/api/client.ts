@@ -11,6 +11,7 @@ export type SystemStatus = components["schemas"]["SystemStatus"];
 export type Floor = components["schemas"]["Floor"];
 export type Panorama = components["schemas"]["Panorama"];
 export type FloorImage = components["schemas"]["FloorImage"];
+export type AgentWebConfig = components["schemas"]["AgentWebConfig"];
 type Meta = components["schemas"]["Meta"];
 
 export class ApiError extends Error {
@@ -53,6 +54,8 @@ export async function get<T>(
 }
 
 export const api = {
+  agentConfig: (signal?: AbortSignal) =>
+    get<AgentWebConfig>("/agent/web-config", signal),
   point: (id: string, signal?: AbortSignal) =>
     get<Point>(`/points/${encodeURIComponent(id)}`, signal),
   status: (signal?: AbortSignal) => get<SystemStatus>("/system/status", signal),
