@@ -1,7 +1,7 @@
 name: Foundation CI
 on:
   push:
-    branches: [main]
+    branches: [main, feat/admin-console]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -39,6 +39,10 @@ jobs:
         working-directory: apps/api
       - run: uv run python ../../scripts/render_api_reference.py --check
         working-directory: apps/api
+      - run: uv run python ../../scripts/export_nk_genios_plugin.py --check
+        working-directory: apps/api
+      - run: uv run python ../../scripts/build_agent_eval.py --check
+        working-directory: apps/api
       - run: npm ci
         working-directory: apps/web
       - run: npm run generate:api && git diff --exit-code -- src/shared/api/schema.d.ts
@@ -60,6 +64,7 @@ jobs:
           Path('.env').chmod(0o600)
           PY
       - run: bash scripts/deploy.sh
+      - run: python3 scripts/check_nk_genios.py --base-url http://127.0.0.1:8080 --campus-id nku-jinnan
       - if: failure()
         run: docker compose logs --tail=100
       - if: always()
