@@ -82,3 +82,36 @@ def test_postgres_review_retirement_and_restore(workflow, tmp_path):
             outer.rollback()
     finally:
         engine.dispose()
+
+
+@pytest.mark.skipif(
+    not os.environ.get("TEST_POSTGRES_URL"), reason="requires disposable PostgreSQL"
+)
+def test_postgres_public_alias_search_and_guide():
+    from fastapi.testclient import TestClient
+    from sqlalchemy.orm import Session
+    from test_guide import test_plugin_search_supports_chinese_aliases_without_exposing_drafts
+
+    from app.core.config import Settings
+    from app.database import get_db
+    from app.main import create_app
+
+    engine = create_engine(os.environ["TEST_POSTGRES_URL"])
+    try:
+        with engine.connect() as connection, connection.begin() as outer:
+            with Session(bind=connection, join_transaction_mode="create_savepoint") as db:
+                app = create_app(Settings(app_env="test"))
+
+                def override_db():
+                    yield db
+
+                app.dependency_overrides[get_db] = override_db
+                with TestClient(app) as client:
+                    test_plugin_search_supports_chinese_aliases_without_exposing_drafts(client, db)
+                    items = client.get(
+                        "/api/v1/campuses/nku-jinnan/points", params={"q": "西楼100%"}
+                    ).json()["data"]
+                    assert client.get(f"/api/v1/guide/points/{items[0]['id']}").status_code == 200
+            outer.rollback()
+    finally:
+        engine.dispose()
