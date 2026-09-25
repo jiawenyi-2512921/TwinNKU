@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     db_password: SecretStr | None = None
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "testserver", "api"]
     nk_genios_api_key: SecretStr | None = None
+    # WebSDK appKey is a browser-visible embed identifier, never a server API token.
+    nk_genios_web_enabled: bool = False
+    nk_genios_web_app_key: SecretStr | None = None
+    nk_genios_web_context_enabled: bool = False
+    nk_genios_web_hide_sidebar: bool = True
+    public_site_origin: str = "https://2512921.cn"
+
+    @property
+    def web_agent_configured(self) -> bool:
+        return bool(self.nk_genios_web_enabled and self.nk_genios_web_app_key)
 
     @property
     def resolved_database_url(self) -> str:
@@ -47,6 +57,31 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def production_is_explicit(self):
+        origin = urlsplit(self.public_site_origin)
+        if (
+            origin.scheme != "https"
+            or not origin.hostname
+            or origin.path
+            or origin.query
+            or origin.fragment
+            or origin.username
+            or origin.password
+            or origin.port not in (None, 443)
+            or any(c.isspace() for c in self.public_site_origin)
+            or "\\" in self.public_site_origin
+        ):
+            raise ValueError(
+                "PUBLIC_SITE_ORIGIN must be an HTTPS origin without path or credentials"
+            )
+        if self.nk_genios_web_app_key:
+            import re
+
+            if not re.fullmatch(
+                r"[A-Za-z0-9_-]{8,128}", self.nk_genios_web_app_key.get_secret_value()
+            ):
+                raise ValueError("NK_GENIOS_WEB_APP_KEY must be the WebSDK embed identifier")
+        if self.nk_genios_web_enabled and not self.nk_genios_web_app_key:
+            raise ValueError("NK_GENIOS_WEB_ENABLED requires NK_GENIOS_WEB_APP_KEY")
         if self.admin_public_origin:
             origin = urlsplit(self.admin_public_origin)
             if (
