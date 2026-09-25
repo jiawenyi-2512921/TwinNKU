@@ -1,5 +1,14 @@
 # Twin NKU 开发约定
 
+## 2026-09-25 当前增量：小开WebSDK
+
+- 用户明确提供 `embedFull.js` / `HiagentWebSDK.WebClient` 代码并要求最大程度完成网站嵌入及平台配置说明。本轮范围见docs/32、33；旧“仅楼层”限制不是本轮范围。
+- 已确认构造参数只有appKey/baseUrl/hideSidebar/variables，不猜测sendMessage、reset、动作回调或学校后端API。WebSDK公开嵌入标识允许按该用户请求发送给浏览器，但真实值仍不提交GitHub；服务端API密钥和统一身份凭据不得转发。
+- SDK独立文档与网站布局隔离；CSP例外限/agent/embed.html。会话内部权限由平台管理，不把iframe布局隔离说成不可信脚本的安全边界。
+- capabilities.chat_embed表示嵌入已配置；chat仍false。仅生成user_click_link导览链接，不以模型文字或postMessage猜测自动动作。
+- 知识导出只读取公开已发布API，未审核介绍初稿不能直接入库；100题文件是未执行草案。外部SDK/真实模型/手机界面/生产部署必须分别记录真实验证结果。
+- 继续由用户/DeepSeek部署服务器；本轮不自动连接服务器、不重导地图/楼层、不覆盖生产资料。
+
 适用于本仓库。用户本轮明确要求优先于旧方案和过期记录。
 
 - 当前仓库是 `jiawenyi-2512921/TwinNKU`，不是带连字符的旧仓库。
