@@ -2,6 +2,7 @@
 export function pointLocation(href: string, pointId: string | null): string {
   const url = new URL(href);
   if (!pointId || url.searchParams.get("point") !== pointId) {
+    url.searchParams.delete("panorama");
     url.searchParams.delete("floor");
     url.searchParams.delete("floor_section");
   }
