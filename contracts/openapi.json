@@ -454,6 +454,70 @@
         "title": "AgentAction",
         "type": "object"
       },
+      "AgentWebConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "app_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Key"
+          },
+          "base_url": {
+            "const": "https://coze.nankai.edu.cn",
+            "default": "https://coze.nankai.edu.cn",
+            "title": "Base Url",
+            "type": "string"
+          },
+          "context_enabled": {
+            "default": false,
+            "title": "Context Enabled",
+            "type": "boolean"
+          },
+          "display_name": {
+            "const": "小开",
+            "default": "小开",
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hide_sidebar": {
+            "default": true,
+            "title": "Hide Sidebar",
+            "type": "boolean"
+          },
+          "provider": {
+            "const": "nk-genios-websdk",
+            "default": "nk-genios-websdk",
+            "title": "Provider",
+            "type": "string"
+          },
+          "public_site_origin": {
+            "title": "Public Site Origin",
+            "type": "string"
+          },
+          "sdk_url": {
+            "const": "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js",
+            "default": "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js",
+            "title": "Sdk Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "public_site_origin"
+        ],
+        "title": "AgentWebConfig",
+        "type": "object"
+      },
       "AuditEvent": {
         "additionalProperties": false,
         "properties": {
@@ -580,6 +644,11 @@
           "chat": {
             "default": false,
             "title": "Chat",
+            "type": "boolean"
+          },
+          "chat_embed": {
+            "default": false,
+            "title": "Chat Embed",
             "type": "boolean"
           },
           "floors": {
@@ -912,6 +981,23 @@
         "title": "Envelope[AdminSource]",
         "type": "object"
       },
+      "Envelope_AgentWebConfig_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AgentWebConfig"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[AgentWebConfig]",
+        "type": "object"
+      },
       "Envelope_Campus_": {
         "additionalProperties": false,
         "properties": {
@@ -1012,6 +1098,23 @@
           "meta"
         ],
         "title": "Envelope[GuestSession]",
+        "type": "object"
+      },
+      "Envelope_GuidePoint_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GuidePoint"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[GuidePoint]",
         "type": "object"
       },
       "Envelope_Identity_": {
@@ -1995,6 +2098,119 @@
           "csrf_token"
         ],
         "title": "GuestSession",
+        "type": "object"
+      },
+      "GuideLink": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "focus_point",
+              "show_floor",
+              "open_vr"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "url",
+          "point_id",
+          "revision"
+        ],
+        "title": "GuideLink",
+        "type": "object"
+      },
+      "GuidePoint": {
+        "additionalProperties": false,
+        "properties": {
+          "floors": {
+            "items": {
+              "$ref": "#/components/schemas/Floor"
+            },
+            "title": "Floors",
+            "type": "array"
+          },
+          "interaction": {
+            "const": "user_click_link",
+            "default": "user_click_link",
+            "title": "Interaction",
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/GuideLink"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "panoramas": {
+            "items": {
+              "$ref": "#/components/schemas/Panorama"
+            },
+            "title": "Panoramas",
+            "type": "array"
+          },
+          "point": {
+            "$ref": "#/components/schemas/Point"
+          },
+          "retrieved_at": {
+            "format": "date-time",
+            "title": "Retrieved At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "point",
+          "floors",
+          "panoramas",
+          "links",
+          "retrieved_at"
+        ],
+        "title": "GuidePoint",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -10746,6 +10962,30 @@
         "x-module": "M01"
       }
     },
+    "/api/v1/agent/web-config": {
+      "get": {
+        "operationId": "getAgentWebConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AgentWebConfig_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Web Config",
+        "tags": [
+          "agent"
+        ],
+        "x-auth": "public",
+        "x-implementation-status": "implemented",
+        "x-module": "M04"
+      }
+    },
     "/api/v1/auth/guest-session": {
       "post": {
         "description": "PLANNED, NOT IMPLEMENTED. Sets opaque HttpOnly Secure SameSite=Lax cookie. Returns separate CSRF token.",
@@ -13150,6 +13390,73 @@
         "x-auth": "resource_policy",
         "x-implementation-status": "planned",
         "x-module": "M05"
+      }
+    },
+    "/api/v1/guide/points/{point_id}": {
+      "get": {
+        "description": "先通过 listPoints 获取真实 point_id。仅返回公开、已发布内容；links 是供用户点击的页面链接，不是已经执行的动作。楼层列表不表示已经识别图片内房间；不据此推断室内路线。资料来源如有记载保留在 point.summary 中；不要编造来源。",
+        "operationId": "getGuidePoint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_GuidePoint_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "查询已公开点位及楼层、VR和可点击的导览链接",
+        "tags": [
+          "guide"
+        ],
+        "x-auth": "public",
+        "x-implementation-status": "implemented",
+        "x-module": "M04"
       }
     },
     "/api/v1/inquiries": {

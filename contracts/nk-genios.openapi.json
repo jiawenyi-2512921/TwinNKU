@@ -1,0 +1,1134 @@
+{
+  "components": {
+    "schemas": {
+      "Campus": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description"
+        ],
+        "title": "Campus",
+        "type": "object"
+      },
+      "Envelope_GuidePoint_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GuidePoint"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[GuidePoint]",
+        "type": "object"
+      },
+      "Envelope_Point_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Point"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[Point]",
+        "type": "object"
+      },
+      "Envelope_list_Campus__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Campus"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[Campus]]",
+        "type": "object"
+      },
+      "Envelope_list_Floor__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Floor"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[Floor]]",
+        "type": "object"
+      },
+      "Envelope_list_Panorama__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Panorama"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[Panorama]]",
+        "type": "object"
+      },
+      "Envelope_list_Point__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[Point]]",
+        "type": "object"
+      },
+      "ErrorEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorInfo"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "error",
+          "meta"
+        ],
+        "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "ErrorInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorInfo",
+        "type": "object"
+      },
+      "FieldError": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "title": "FieldError",
+        "type": "object"
+      },
+      "Floor": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "default": "",
+            "title": "Attribution",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/FloorImage"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "map_id": {
+            "format": "uuid",
+            "title": "Map Id",
+            "type": "string"
+          },
+          "ordinal": {
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "point_id",
+          "label",
+          "ordinal",
+          "map_id",
+          "revision"
+        ],
+        "title": "Floor",
+        "type": "object"
+      },
+      "FloorImage": {
+        "additionalProperties": false,
+        "properties": {
+          "height_px": {
+            "exclusiveMinimum": true,
+            "minimum": 0.0,
+            "title": "Height Px",
+            "type": "integer"
+          },
+          "media_type": {
+            "enum": [
+              "image/png",
+              "image/jpeg"
+            ],
+            "title": "Media Type",
+            "type": "string"
+          },
+          "section": {
+            "default": "main",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$",
+            "title": "Section",
+            "type": "string"
+          },
+          "section_label": {
+            "maxLength": 64,
+            "minLength": 1,
+            "nullable": true,
+            "title": "Section Label",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "exclusiveMinimum": true,
+            "minimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "variant": {
+            "enum": [
+              "labeled",
+              "clean"
+            ],
+            "title": "Variant",
+            "type": "string"
+          },
+          "width_px": {
+            "exclusiveMinimum": true,
+            "minimum": 0.0,
+            "title": "Width Px",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "variant",
+          "width_px",
+          "height_px",
+          "sha256",
+          "media_type",
+          "size_bytes",
+          "url"
+        ],
+        "title": "FloorImage",
+        "type": "object"
+      },
+      "GuideLink": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "focus_point",
+              "show_floor",
+              "open_vr"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "resource_id": {
+            "format": "uuid",
+            "nullable": true,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "section": {
+            "nullable": true,
+            "title": "Section",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "url",
+          "point_id",
+          "revision"
+        ],
+        "title": "GuideLink",
+        "type": "object"
+      },
+      "GuidePoint": {
+        "additionalProperties": false,
+        "properties": {
+          "floors": {
+            "items": {
+              "$ref": "#/components/schemas/Floor"
+            },
+            "title": "Floors",
+            "type": "array"
+          },
+          "interaction": {
+            "default": "user_click_link",
+            "enum": [
+              "user_click_link"
+            ],
+            "title": "Interaction",
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/GuideLink"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "panoramas": {
+            "items": {
+              "$ref": "#/components/schemas/Panorama"
+            },
+            "title": "Panoramas",
+            "type": "array"
+          },
+          "point": {
+            "$ref": "#/components/schemas/Point"
+          },
+          "retrieved_at": {
+            "format": "date-time",
+            "title": "Retrieved At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "point",
+          "floors",
+          "panoramas",
+          "links",
+          "retrieved_at"
+        ],
+        "title": "GuidePoint",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Meta": {
+        "additionalProperties": false,
+        "properties": {
+          "pagination": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "page": {
+                "minimum": 1.0,
+                "title": "Page",
+                "type": "integer"
+              },
+              "page_size": {
+                "maximum": 100.0,
+                "minimum": 1.0,
+                "title": "Page Size",
+                "type": "integer"
+              },
+              "total": {
+                "minimum": 0.0,
+                "title": "Total",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "page",
+              "page_size",
+              "total"
+            ],
+            "title": "Pagination",
+            "type": "object"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "title": "Meta",
+        "type": "object"
+      },
+      "Pagination": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "Pagination",
+        "type": "object"
+      },
+      "Panorama": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "panorama",
+            "enum": [
+              "panorama"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url",
+          "id",
+          "point_id",
+          "revision"
+        ],
+        "title": "Panorama",
+        "type": "object"
+      },
+      "Point": {
+        "additionalProperties": false,
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "campus_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+            "title": "Campus Id",
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/PointCategory"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "summary": {
+            "maxLength": 2000,
+            "title": "Summary",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "campus_id",
+          "name",
+          "aliases",
+          "category",
+          "summary",
+          "revision",
+          "updated_at"
+        ],
+        "title": "Point",
+        "type": "object"
+      },
+      "PointCategory": {
+        "enum": [
+          "public_area",
+          "patriotic",
+          "academic",
+          "residence",
+          "dining",
+          "commerce",
+          "landscape",
+          "history"
+        ],
+        "title": "PointCategory",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "只读查询已公开校园资料。无后台写权限；链接需要用户点击，不会自动控制地图。",
+    "title": "Twin NKU 校园公开资料",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/v1/campuses": {
+      "get": {
+        "description": "列出已启用校区，获取真实 campus_id，不要猜测校区ID。",
+        "operationId": "listCampuses",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Campus__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [],
+        "summary": "列出已启用校区，获取真实 campus_id，不要猜测校区ID。",
+        "tags": [
+          "campuses"
+        ],
+        "x-implementation-status": "implemented",
+        "x-module": "M00"
+      }
+    },
+    "/api/v1/campuses/{campus_id}/points": {
+      "get": {
+        "description": "按校区和名称/别名搜索已公开点位；从返回值获取 point_id。结果过多先澄清。",
+        "operationId": "listPoints",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campus_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+              "title": "Campus Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 120,
+              "nullable": true,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "enum": [
+                "public_area",
+                "patriotic",
+                "academic",
+                "residence",
+                "dining",
+                "commerce",
+                "landscape",
+                "history"
+              ],
+              "nullable": true,
+              "title": "Category",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Point__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [],
+        "summary": "按校区和名称/别名搜索已公开点位",
+        "tags": [
+          "points"
+        ],
+        "x-implementation-status": "implemented",
+        "x-module": "M00"
+      }
+    },
+    "/api/v1/guide/points/{point_id}": {
+      "get": {
+        "description": "查询点位介绍、楼层、全景和已生成的网页链接；原样返回 links 中的URL供用户点击，不能声称已操作地图。",
+        "operationId": "getGuidePoint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_GuidePoint_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [],
+        "summary": "查询点位介绍、楼层、全景和已生成的网页链接",
+        "tags": [
+          "guide"
+        ],
+        "x-auth": "public",
+        "x-implementation-status": "implemented",
+        "x-module": "M04"
+      }
+    },
+    "/api/v1/points/{point_id}": {
+      "get": {
+        "description": "查询已公开点位介绍和版本；资料来源如有记载保留在 summary 中。",
+        "operationId": "getPoint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_Point_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [],
+        "summary": "查询已公开点位介绍和版本",
+        "tags": [
+          "points"
+        ],
+        "x-implementation-status": "implemented",
+        "x-module": "M00"
+      }
+    },
+    "/api/v1/points/{point_id}/floors": {
+      "get": {
+        "description": "查询已发布的楼层和标注图，不据此推断图片中的房间或通行路线。",
+        "operationId": "listFloors",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Floor__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [],
+        "summary": "查询已发布的楼层和标注图，不据此推断图片中的房间或通行路线。",
+        "tags": [
+          "floors"
+        ],
+        "x-auth": "resource_policy",
+        "x-implementation-status": "implemented",
+        "x-module": "M05"
+      }
+    },
+    "/api/v1/points/{point_id}/panoramas": {
+      "get": {
+        "description": "查询该点位已审核发布的全景链接；空列表表示当前没有可用全景。",
+        "operationId": "listPointPanoramas",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Panorama__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [],
+        "summary": "查询该点位已审核发布的全景链接",
+        "tags": [
+          "resources"
+        ],
+        "x-implementation-status": "implemented",
+        "x-module": "M02"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://2512921.cn"
+    }
+  ]
+}
