@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, quote, urljoin, urlsplit
 from uuid import UUID
 
 SDK_ORIGIN = "https://coze.nankai.edu.cn"
-SDK_URL = SDK_ORIGIN + "/resources/product/llm/public/sdk/embedLite.js"
+SDK_URL = SDK_ORIGIN + "/resources/product/llm/public/sdk/embedFull.js"
 BODY_LIMIT = 2 * 1024 * 1024
 
 
