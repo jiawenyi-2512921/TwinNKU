@@ -1665,6 +1665,14 @@
   font-size: 17px;
   margin: 0 0 18px;
 }
+.ad-resource-buildings .ad-pager {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.ad-resource-buildings .ad-pager > span {
+  flex-basis: 100%;
+}
 .ad-resource-buildings > button {
   display: flex;
   flex-direction: column;

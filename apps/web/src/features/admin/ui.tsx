@@ -7,11 +7,16 @@ export function useResource<T>(path: string | null, revision = 0) {
   useEffect(() => {
     setData(null);
     setError("");
-    if (!path) return;
+    if (!path) {
+      setLoading(false);
+      return;
+    }
     const abort = new AbortController();
     setLoading(true);
     request<T>(path, "GET", undefined, abort.signal)
-      .then(setData)
+      .then((result) => {
+        if (!abort.signal.aborted) setData(result);
+      })
       .catch((e) => {
         if (!abort.signal.aborted) setError(message(e));
       })

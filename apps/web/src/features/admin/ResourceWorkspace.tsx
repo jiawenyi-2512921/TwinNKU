@@ -34,6 +34,8 @@ export function ResourceWorkspace({
   onDirty: (dirty: boolean) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [pointPage, setPointPage] = useState(1);
+  const [pointRevision, setPointRevision] = useState(0);
   const [pointId, setPointId] = useState("");
   const [pointName, setPointName] = useState("");
   const [reviewOnly, setReviewOnly] = useState(false);
@@ -50,7 +52,8 @@ export function ResourceWorkspace({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const points = useResource<AdminPoint[]>(
-    `/points?${new URLSearchParams({ q: search, page_size: "50" })}`,
+    `/points?${new URLSearchParams({ q: search, page: String(pointPage), page_size: "20" })}`,
+    pointRevision,
   );
   const resources = useResource<Resource[]>(
     reviewOnly || pointId
@@ -317,11 +320,17 @@ export function ResourceWorkspace({
             搜索建筑
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPointPage(1);
+              }}
               placeholder="输入名称或别名"
             />
           </label>
-          <ErrorBox text={points.error} />
+          <ErrorBox
+            text={points.error}
+            onRetry={() => setPointRevision((v) => v + 1)}
+          />
           {points.loading && <p role="status">正在查找建筑…</p>}
           {points.data?.data.map((p) => (
             <button
@@ -340,9 +349,12 @@ export function ResourceWorkspace({
               detail="请换一个名称；这里只显示你获授权的点位。"
             />
           )}
-          {(points.data?.meta.pagination?.total ?? 0) > 50 && (
-            <p>请输入更完整的建筑名称缩小范围。</p>
-          )}
+          <nav aria-label="建筑列表分页">
+            <Pager
+              page={points.data?.meta.pagination}
+              onChange={setPointPage}
+            />
+          </nav>
         </aside>
         <div className="ad-resource-main">
           <div className="ad-card">
