@@ -10,6 +10,7 @@ from test_api import add_point
 from test_floors import floor_bundle as floor_bundle
 from test_floors import install
 
+from app.contracts import AgentWebConfig
 from app.core.config import Settings
 from app.models import CampusRecord, MapRecord, PanoramaRecord, PointRecord
 
@@ -17,6 +18,16 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts"))
 from export_nk_genios_knowledge import export  # noqa: E402
 from export_nk_genios_plugin import OPERATIONS, build, references  # noqa: E402
+
+
+def test_web_config_and_generated_contract_use_the_supplied_full_sdk(client):
+    expected = "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js"
+    assert client.get("/api/v1/agent/web-config").json()["data"]["sdk_url"] == expected
+    schema = AgentWebConfig.model_json_schema()["properties"]["sdk_url"]
+    assert schema["const"] == schema["default"] == expected
+    generated = json.loads((ROOT / "contracts/openapi.json").read_text())
+    published = generated["components"]["schemas"]["AgentWebConfig"]["properties"]["sdk_url"]
+    assert published["const"] == published["default"] == expected
 
 
 def test_public_embed_config_never_returns_server_credentials(client):

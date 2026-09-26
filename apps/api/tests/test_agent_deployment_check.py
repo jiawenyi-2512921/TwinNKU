@@ -15,7 +15,7 @@ from test_api import add_point
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts"))
-from check_nk_genios import CheckError, fetch, main, run_checks, site_origin  # noqa: E402
+from check_nk_genios import SDK_URL, CheckError, fetch, main, run_checks, site_origin  # noqa: E402
 
 MAIN_POLICY = "default-src 'self'; script-src 'self'; frame-ancestors 'self'"
 EMBED_POLICY = (
@@ -92,6 +92,24 @@ def deployment(client, db):
 
 def failures(report):
     return {item["check"] for item in report["checks"] if item["status"] == "fail"}
+
+
+def test_deployment_check_requires_full_sdk_without_recording_stale_config(deployment, client):
+    assert SDK_URL == "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js"
+    base, overrides, _, _ = deployment
+    data = client.get("/api/v1/agent/web-config").json()
+    data["data"]["sdk_url"] = (
+        "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedLite.js"
+    )
+    overrides["/api/v1/agent/web-config"] = (
+        200,
+        [("Content-Type", "application/json"), ("Cache-Control", "no-store")],
+        json.dumps(data).encode(),
+    )
+    report = run_checks(base)
+    assert "public_config" in failures(report)
+    encoded = json.dumps(report)
+    assert "embed-identifier" not in encoded and "backend-secret" not in encoded
 
 
 def test_check_reads_six_real_public_routes_without_exposing_identifiers(
