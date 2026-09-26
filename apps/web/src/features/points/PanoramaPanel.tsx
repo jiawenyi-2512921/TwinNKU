@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Panorama } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
+import { watchCatalogChanges } from "../../shared/catalogSync";
 
 export function PanoramaPanel({ pointId }: { pointId: string }) {
   const requested = new URLSearchParams(window.location.search).get("panorama");
@@ -31,7 +32,11 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
       try {
         const { data } = await api.panoramas(pointId, controller.signal);
         if (controller.signal.aborted || disposed) return;
-        setItems(data.filter((item) => item.point_id === pointId));
+        const next = data.filter((item) => item.point_id === pointId);
+        // An unchanged poll must not scroll a shared VR card back into view.
+        setItems((previous) =>
+          JSON.stringify(previous) === JSON.stringify(next) ? previous : next,
+        );
         setStatus("ready");
       } catch {
         if (!controller.signal.aborted && !disposed) {
@@ -40,19 +45,12 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
         }
       }
     }
-    function whenVisible() {
-      if (document.visibilityState === "visible") void refresh();
-    }
     void refresh();
-    const timer = window.setInterval(whenVisible, 30000);
-    window.addEventListener("focus", whenVisible);
-    document.addEventListener("visibilitychange", whenVisible);
+    const stopWatching = watchCatalogChanges(() => void refresh());
     return () => {
       disposed = true;
       pending?.abort();
-      window.clearInterval(timer);
-      window.removeEventListener("focus", whenVisible);
-      document.removeEventListener("visibilitychange", whenVisible);
+      stopWatching();
     };
   }, [pointId, retry]);
   if (status === "loading")
