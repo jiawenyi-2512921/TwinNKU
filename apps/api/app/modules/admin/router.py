@@ -2,7 +2,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, Response
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api import DB, envelope
@@ -55,6 +55,7 @@ from app.modules.admin.security import (
     revoke_sessions,
     session_view,
     throttle_login,
+    utc,
     verify_password,
 )
 from app.modules.maps.router import as_map, public_maps
@@ -339,23 +340,50 @@ def events(
     actor: Actor,
     db: DB,
     point_id: UUID | None = None,
+    category: Literal["point", "resource", "user", "session"] | None = None,
+    q: str = Query("", max_length=120),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
 ):
     actor.require("audit.read")
     if point_id:
         require_point(db, actor.user, point_id)
+    query = service.scoped_audit_query(actor.user, point_id).outerjoin(
+        PointRecord, PointRecord.id == AdminAuditRecord.point_id
+    )
+    if category:
+        query = query.where(AdminAuditRecord.action.startswith(category + "."))
+    if q.strip():
+        term = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.where(
+            or_(
+                AdminAuditRecord.actor_name.ilike(f"%{term}%", escape="\\"),
+                AdminAuditRecord.note.ilike(f"%{term}%", escape="\\"),
+                PointRecord.name.ilike(f"%{term}%", escape="\\"),
+            )
+        )
     rows, total = service.page_rows(
         db,
-        service.scoped_audit_query(actor.user, point_id).order_by(
-            AdminAuditRecord.created_at.desc(), AdminAuditRecord.id
-        ),
+        query.order_by(AdminAuditRecord.created_at.desc(), AdminAuditRecord.id),
         page,
         page_size,
     )
+    names = dict(
+        db.execute(
+            select(PointRecord.id, PointRecord.name).where(
+                PointRecord.id.in_([r.point_id for r in rows if r.point_id])
+            )
+        ).all()
+    )
+    result = [
+        AuditEvent.model_validate(r).model_copy(
+            update={"point_name": names.get(r.point_id), "created_at": utc(r.created_at)}
+        )
+        for r in rows
+    ]
     return envelope(
         request,
-        [AuditEvent.model_validate(r) for r in rows],
+        result,
         Pagination(page=page, page_size=page_size, total=total),
     )
 

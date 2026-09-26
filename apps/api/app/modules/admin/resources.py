@@ -6,6 +6,7 @@ publishes a floor revision through the same importer used for delivery bundles.
 
 import shutil
 import tempfile
+import unicodedata
 from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4, uuid5
@@ -323,6 +324,8 @@ def list_resources(
     db: DB,
     point_id: UUID | None = None,
     state: Literal["draft", "in_review", "rejected"] | None = None,
+    kind: Literal["floor", "panorama"] | None = None,
+    q: str = Query("", max_length=120),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
 ):
@@ -348,6 +351,38 @@ def list_resources(
         keys = [k for k in keys if k in changes and changes[k].state == state]
     else:
         keys = [k for k in keys if k in current or changes[k].state != "discarded"]
+
+    def catalog_info(key):
+        change, record = changes.get(key), current.get(key)
+        resource_kind = (
+            change.kind if change else ("floor" if isinstance(record, FloorRecord) else "panorama")
+        )
+        content = (
+            (change.payload or {}).get("content", {}) if change and change.state in ACTIVE else {}
+        )
+        title = (
+            content.get("title")
+            or content.get("label")
+            or (
+                record.label
+                if isinstance(record, FloorRecord)
+                else record.title
+                if record
+                else "资料"
+            )
+        )
+        point = points[(record or change).point_id]
+        return resource_kind, point.name, title
+
+    term = unicodedata.normalize("NFKC", q.strip()).casefold()
+    info = {key: catalog_info(key) for key in keys}
+    keys = [
+        key
+        for key in keys
+        if (not kind or info[key][0] == kind)
+        and (not term or term in unicodedata.normalize("NFKC", " ".join(info[key][1:])).casefold())
+    ]
+    keys.sort(key=lambda key: (*info[key][1:], key))
     selected = keys[(page - 1) * page_size : page * page_size]
     result = [
         as_resource(
