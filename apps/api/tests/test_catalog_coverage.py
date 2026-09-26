@@ -54,8 +54,10 @@ def test_statue_sits_between_business_buildings_along_the_shared_axis():
         rows[n]["geometry"]["anchor"] for n in ["综合业务西楼", "周恩来雕像", "综合业务东楼"]
     ]
     assert west["x"] < statue["x"] < east["x"]
-    # 雕像实际略偏西于两楼中点：保持位于两楼之间，允许 12px 内偏差
-    assert abs(statue["x"] - (west["x"] + east["x"]) / 2) < 12
+    # 雕像实际偏西于两楼中点：只要求仍位于两楼之间，不要求像素级居中。
+    # 实际偏移随正式点位调整变化（2026-09-25 同步后约 18.5px），故留 40px 余量；
+    # 真正要保护的是 west < statue < east 这个空间关系。
+    assert abs(statue["x"] - (west["x"] + east["x"]) / 2) < 40
     # 雕像位于两楼之间偏南的中央广场，允许南北向 300px 内偏差
     assert abs(statue["y"] - (west["y"] + east["y"]) / 2) < 300
     assert rows["周恩来雕像"]["point"]["category"] == "patriotic"
