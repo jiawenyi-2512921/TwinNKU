@@ -6,6 +6,8 @@ import {
   resolveFloor,
   resolveFloorImage,
   reconcileFloorView,
+  writeLocation,
+  closeFloorLocation,
 } from "../src/shared/navigation.ts";
 
 const start =
@@ -100,6 +102,132 @@ const planRows = [
   { id: "other", point_id: "gym", images: [{ variant: "labeled" }] },
 ];
 const closedView = { floorId: "", section: "main", expanded: false };
+
+function browserHistory(href) {
+  const entries = [{ href, state: { channelState: "keep" } }];
+  let at = 0;
+  let backs = 0;
+  return {
+    location: {
+      get href() {
+        return entries[at].href;
+      },
+    },
+    history: {
+      get state() {
+        return entries[at].state;
+      },
+      pushState(state, _title, next) {
+        entries.splice(++at);
+        entries.push({ href: next, state });
+      },
+      replaceState(state, _title, next) {
+        entries[at] = { href: next, state };
+      },
+      back() {
+        backs++;
+        if (at) at--;
+      },
+      forward() {
+        if (at < entries.length - 1) at++;
+      },
+    },
+    get backCalls() {
+      return backs;
+    },
+    get length() {
+      return entries.length;
+    },
+  };
+}
+
+test("point and floor choices restore through Back/Forward without duplicate history entries", () => {
+  const browser = browserHistory("https://guide.example/?channel=official");
+  writeLocation(
+    pointLocation(browser.location.href, "library"),
+    "push",
+    browser,
+  );
+  const returnTo = browser.location.href;
+  writeLocation(
+    floorLocation(returnTo, "library", "two", "b"),
+    "push",
+    browser,
+    returnTo,
+  );
+  writeLocation(browser.location.href, "push", browser);
+  assert.equal(browser.length, 3);
+  assert.equal(browser.history.state.channelState, "keep");
+  writeLocation(
+    floorLocation(browser.location.href, "library", "one"),
+    "replace",
+    browser,
+  );
+  closeFloorLocation("library", browser);
+  assert.equal(browser.location.href, returnTo);
+  assert.equal(browser.backCalls, 1);
+  browser.history.forward();
+  assert.equal(new URL(browser.location.href).searchParams.get("floor"), "one");
+  browser.history.back();
+  browser.history.back();
+  assert.equal(new URL(browser.location.href).searchParams.has("point"), false);
+});
+
+test("closing a directly shared floor stays on the website and preserves channel/hash", () => {
+  const browser = browserHistory(start);
+  closeFloorLocation("dining", browser);
+  assert.equal(browser.location.href, start);
+  closeFloorLocation("library", browser);
+  assert.equal(browser.backCalls, 0);
+  assert.equal(browser.length, 1);
+  assert.equal(
+    browser.location.href,
+    "https://guide.example/?point=library&channel=official#map",
+  );
+});
+
+test("background correction replaces history while a new point drops old floor return metadata", () => {
+  const browser = browserHistory("https://guide.example/?point=library");
+  const returnTo = browser.location.href;
+  writeLocation(
+    floorLocation(returnTo, "library", "two"),
+    "push",
+    browser,
+    returnTo,
+  );
+  writeLocation(
+    pointLocation(browser.location.href, "dining"),
+    "push",
+    browser,
+  );
+  assert.equal(browser.history.state.twinnkuFloorReturn, undefined);
+  const count = browser.length;
+  writeLocation(pointLocation(browser.location.href, null), "replace", browser);
+  assert.equal(browser.length, count);
+});
+
+test("Back to a point closes an open floor, Forward reopens its section, and polling preserves either", () => {
+  const open = { floorId: "two", section: "b", expanded: true };
+  const back = reconcileFloorView(
+    planRows,
+    "library",
+    open,
+    new URLSearchParams("point=library"),
+  );
+  assert.equal(back.expanded, false);
+  assert.equal(back.syncLocation, false);
+  assert.equal(back.floorId, "two");
+  const polled = reconcileFloorView(planRows, "library", back, null);
+  assert.equal(polled.expanded, false);
+  const forward = reconcileFloorView(
+    planRows,
+    "library",
+    back,
+    new URLSearchParams("point=library&floor=two&floor_section=b"),
+  );
+  assert.equal(forward.expanded, true);
+  assert.equal(forward.section, "b");
+});
 test("resource preloading never opens the viewer or invents a floor URL", () => {
   const result = reconcileFloorView(
     planRows,
