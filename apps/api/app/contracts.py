@@ -723,6 +723,34 @@ class FloorUpload(DTO):
     image: FloorImage
 
 
+class AdminChangeItem(DTO):
+    id: UUID
+    kind: Literal["point", "floor", "panorama"]
+    point_id: UUID
+    campus_id: CampusId
+    point_name: str
+    title: str
+    state: Literal["draft", "in_review", "rejected", "published", "discarded"]
+    operation: Literal["upsert", "retire"]
+    revision: Revision
+    editor_name: str
+    submitted_by_name: str | None
+    submitted_at: datetime | None
+    updated_at: datetime
+    review_note: str
+    is_mine: bool
+    can_review: bool
+
+
+class AdminWorkbench(DTO):
+    point_count: int = Field(ge=0)
+    pending_count: int = Field(ge=0)
+    draft_count: int = Field(ge=0)
+    rejected_count: int = Field(ge=0)
+    my_pending_count: int = Field(ge=0)
+    pending_by_kind: dict[str, int]
+
+
 class Panorama(PanoramaContent):
     id: UUID
     point_id: UUID
@@ -755,6 +783,7 @@ class AuditEvent(DTO):
     action: str
     campus_id: CampusId | None
     point_id: UUID | None
+    point_name: str | None = None
     note: str
     details: dict
     created_at: datetime
