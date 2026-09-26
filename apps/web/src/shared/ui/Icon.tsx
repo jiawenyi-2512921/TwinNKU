@@ -2,6 +2,36 @@ import type { ReactNode } from "react";
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   const paths: Record<string, ReactNode> = {
+    check: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <path d="m7 12 3 3 7-7" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="m12 2 8 3v6c0 5-4 8-8 11-4-3-8-6-8-11V5l8-3Z" />
+        <path d="m8 12 3 3 5-6" />
+      </>
+    ),
+    edit: (
+      <>
+        <path d="m14 4 6 6M4 20l5-1L21 7a2 2 0 0 0-4-4L5 15l-1 5Z" />
+      </>
+    ),
+    panorama: (
+      <>
+        <rect x="2" y="5" width="20" height="14" rx="4" />
+        <path d="m3 16 5-5 4 4 4-7 6 8" />
+        <circle cx="7" cy="9" r="1" />
+      </>
+    ),
+    users: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 15a4 4 0 0 1 3 4v2" />
+      </>
+    ),
     chat: (
       <>
         <path d="M20 11.5a8 8 0 0 1-8 8H5l-3 2v-8a9 9 0 1 1 18-2Z" />
