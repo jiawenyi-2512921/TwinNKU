@@ -163,6 +163,15 @@ def import_bundle(
         db.merge(PointRecord(**values))
         db.flush()
         geometry = item.geometry.model_dump(mode="json")
+        if "label_on_map" not in item.geometry.model_fields_set:
+            existing = db.get(
+                PointGeometryRecord, (str(item.geometry.map_id), str(item.geometry.point_id))
+            )
+            geometry["label_on_map"] = (
+                existing.label_on_map
+                if existing
+                else str(item.geometry.point_id) == "82e888ca-59f8-5c55-b8ab-4b80175c6ceb"
+            )
         db.merge(PointGeometryRecord(**geometry))
     db.add(
         MapImportRecord(

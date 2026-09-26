@@ -21,11 +21,11 @@ services:
     build:
       context: .
       dockerfile: deploy/api.Dockerfile
-    image: twinnku-api:${APP_VERSION:-0.3.0}
+    image: twinnku-api:${APP_VERSION:-0.4.0}
     command: [sh, -c, 'alembic upgrade head && python -m app.seed']
     environment: &api-environment
       APP_ENV: production
-      APP_VERSION: ${APP_VERSION:-0.3.0}
+      APP_VERSION: ${APP_VERSION:-0.4.0}
       DB_HOST: db
       DB_NAME: ${DB_NAME:-twinnku}
       DB_USER: ${DB_USER:-twinnku}
@@ -34,7 +34,16 @@ services:
       MAP_ENABLED: ${MAP_ENABLED:-true}
       MAP_ASSETS_DIR: /data/maps
       FLOORS_ENABLED: ${FLOORS_ENABLED:-true}
+      VR_ENABLED: ${VR_ENABLED:-true}
       FLOOR_ASSETS_DIR: /data/floors
+      ADMIN_ENABLED: ${ADMIN_ENABLED:-false}
+      ADMIN_PUBLIC_ORIGIN: ${ADMIN_PUBLIC_ORIGIN:-}
+      ADMIN_SESSION_HOURS: ${ADMIN_SESSION_HOURS:-8}
+      PUBLIC_SITE_ORIGIN: ${PUBLIC_SITE_ORIGIN:-https://2512921.cn}
+      NK_GENIOS_WEB_ENABLED: ${NK_GENIOS_WEB_ENABLED:-false}
+      NK_GENIOS_WEB_APP_KEY: ${NK_GENIOS_WEB_APP_KEY:-}
+      NK_GENIOS_WEB_CONTEXT_ENABLED: ${NK_GENIOS_WEB_CONTEXT_ENABLED:-false}
+      NK_GENIOS_WEB_HIDE_SIDEBAR: ${NK_GENIOS_WEB_HIDE_SIDEBAR:-true}
     depends_on:
       db: {condition: service_healthy}
     restart: "no"
@@ -42,7 +51,7 @@ services:
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
   api:
-    image: twinnku-api:${APP_VERSION:-0.3.0}
+    image: twinnku-api:${APP_VERSION:-0.4.0}
     build:
       context: .
       dockerfile: deploy/api.Dockerfile
@@ -50,7 +59,7 @@ services:
     environment: *api-environment
     volumes:
       - map_assets:/data/maps:ro
-      - floor_assets:/data/floors:ro
+      - floor_assets:/data/floors
     depends_on:
       db: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
@@ -69,7 +78,7 @@ services:
       options: {max-size: "10m", max-file: "3"}
   map-import:
     profiles: [tools]
-    image: twinnku-api:${APP_VERSION:-0.3.0}
+    image: twinnku-api:${APP_VERSION:-0.4.0}
     entrypoint: [python, -m, app.modules.maps.import_bundle]
     environment: *api-environment
     depends_on:
@@ -84,7 +93,7 @@ services:
     cap_drop: [ALL]
   floor-import:
     profiles: [tools]
-    image: twinnku-api:${APP_VERSION:-0.3.0}
+    image: twinnku-api:${APP_VERSION:-0.4.0}
     entrypoint: [python, -m, app.modules.floors.import_bundle]
     environment: *api-environment
     depends_on:
@@ -98,7 +107,7 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
   web:
-    image: twinnku-web:${APP_VERSION:-0.3.0}
+    image: twinnku-web:${APP_VERSION:-0.4.0}
     build:
       context: .
       dockerfile: deploy/web.Dockerfile

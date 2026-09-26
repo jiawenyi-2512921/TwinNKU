@@ -1,5 +1,7 @@
 # HTTP 接口规范 v1
 
+> 最新逐端点/字段参考见[31](31-api-reference.md)：44已实现、36计划。后台点位/楼层/VR以15/18及机器契约为准；下方contributor/analyst等角色属于旧计划命名，不能作为现有四角色授权实现。智能体实现前按24清理协议缺口。
+
 ## 1. 使用方法与实现状态
 
 基础路径 `/api/v1`，UTF-8 JSON，字段 snake_case。机器契约见 `contracts/openapi.json`；字段类型、必填、枚举、边界和响应模型均可直接用于代码生成。本文补充业务语义、权限、错误和模块依赖。
@@ -38,7 +40,7 @@ v0.2.0 运行 API 包含健康、系统状态、校园、公开点位读取，�
 
 ## 4. 地图、VR、楼层和讲解
 
-前三项地图读取及PNG图块已实现；媒体、楼层与讲解接口仍为计划契约。PNG图块成功响应为二进制，不包裹JSON信封；失败仍使用统一错误体。
+地图读取、PNG图块、公开楼层/标注图、每点VR列表和后台资源编辑已实现；通用媒体授权、讲解和房间接口仍为计划契约。PNG图块成功响应为二进制，不包裹JSON信封；失败仍使用统一错误体。
 
 | 方法/路径（均省略 /api/v1） | 响应模型 | 权限与语义 |
 | --- | --- | --- |
@@ -108,7 +110,7 @@ RouteResult 提供 route_id、graph_revision、segments、distance_m、walking_d
 
 ChatTurnRequest.message长度1—2000，client_message_id唯一UUID，context显式包含campus_id/revision/当前点位/楼层/模式等；服务端必须验证上下文引用，不能相信用户提交的角色、权限或源码URL。
 
-身份cookie：HttpOnly+Secure+SameSite=Lax；跨站写入检查Origin与CSRF。建立访客会话也做同源与限流校验。后台SSO的真实回调协议需学校提供，不凭空假定；在可信员工登录完成前管理接口不得开放。
+身份cookie：HttpOnly+Secure+SameSite=Lax；跨站写入检查Origin与CSRF。建立访客会话也做同源与限流校验。后台现有独立员工会话已实现，SSO真实回调协议仍需学校提供；不凭空假定SSO已完成。
 
 SSE状态机、动作和平台适配详见05。
 

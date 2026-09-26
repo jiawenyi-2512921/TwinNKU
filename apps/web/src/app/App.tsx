@@ -1,26 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../shared/api/client";
 import {
-  api,
-  type Campus,
-  type MapFeatures,
-  type MapInfo,
-  type Point,
-} from "../shared/api/client";
+  availableSelection,
+  loadCatalog,
+  reconcileCatalog,
+  type Catalog,
+} from "../features/map/catalog";
+import {
+  createCatalogRefresh,
+  watchCatalogChanges,
+} from "../shared/catalogSync";
 import { Icon } from "../shared/ui/Icon";
-import { pointLocation } from "../shared/navigation";
+import { pointLocation, writeLocation } from "../shared/navigation";
+import { usePlaceMemory } from "../features/places/usePlaceMemory";
+import { findPlaces, type PlaceScope } from "../features/places/search";
+import { PlaceDirectory } from "../features/places/PlaceDirectory";
 import { MapCanvas } from "../features/map/MapCanvas";
+import { AgentDock, type AgentRequest } from "../features/agent/AgentDock";
+import { useAgentConfig } from "../features/agent/useAgentConfig";
 import {
-  PointDetails,
-  categoryLabels,
-  pointIcon,
-} from "../features/points/PointDetails";
+  EMPTY_CONTEXT,
+  safeContext,
+  type AgentContext,
+} from "../features/agent/protocol";
+import { PointDetails } from "../features/points/PointDetails";
 
-type Catalog = {
-  campus: Campus;
-  map: MapInfo | null;
-  features: MapFeatures | null;
-  points: Point[];
-};
 const categories = [
   "all",
   "academic",
@@ -34,101 +38,121 @@ const categories = [
 ] as const;
 
 export function App() {
+  const agentConfig = useAgentConfig();
+  const [agentRequest, setAgentRequest] = useState<AgentRequest | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">(
     "loading",
   );
-  const [retry, setRetry] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const refresh = useRef<() => void>(() => {});
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [scope, setScope] = useState<PlaceScope>("all");
+  const [placeMessage, setPlaceMessage] = useState("");
+  const memory = usePlaceMemory(catalog?.campus.id ?? "nku-jinnan");
+  const catalogRef = useRef(catalog);
+  catalogRef.current = catalog;
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get("point"),
+  );
+  const selectedRef = useRef(selectedId);
   const [showList, setShowList] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const search = useRef<HTMLInputElement>(null);
+  const browseButton = useRef<HTMLButtonElement>(null);
+  const helpButton = useRef<HTMLButtonElement>(null);
   const selectPoint = useCallback((id: string | null) => {
+    selectedRef.current = id;
     setSelectedId(id);
     setShowList(false);
-    window.history.replaceState(
-      window.history.state,
-      "",
-      pointLocation(window.location.href, id),
-    );
+    setShowHelp(false);
+    writeLocation(pointLocation(window.location.href, id));
+  }, []);
+  const closeDetails = useCallback(() => {
+    selectPoint(null);
+    browseButton.current?.focus();
+  }, [selectPoint]);
+  function closeList() {
+    setShowList(false);
+    browseButton.current?.focus();
+  }
+
+  useEffect(() => {
+    const sync = createCatalogRefresh({
+      load: (signal) => loadCatalog(api, signal),
+      apply: (next) => {
+        setCatalog((previous) => reconcileCatalog(previous, next));
+        const retained = availableSelection(next, selectedRef.current);
+        if (retained !== selectedRef.current) {
+          selectedRef.current = retained;
+          setSelectedId(retained);
+          writeLocation(
+            pointLocation(window.location.href, retained),
+            "replace",
+          );
+        }
+        setStatus(next?.map ? "ready" : "empty");
+        setLastChecked(new Date());
+      },
+      failed: () => setStatus("error"),
+      busy: setRefreshing,
+    });
+    refresh.current = () => {
+      void sync.refresh(true);
+    };
+    const unwatch = watchCatalogChanges(sync.refresh);
+    void sync.refresh();
+    return () => {
+      unwatch();
+      sync.dispose();
+    };
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
-    setStatus("loading");
-    async function load() {
-      const [system, campuses] = await Promise.all([
-        api.status(controller.signal),
-        api.campuses(controller.signal),
-      ]);
-      const campus =
-        campuses.data.find((c) => c.id === "nku-jinnan") ?? campuses.data[0];
-      if (!campus) {
-        if (!controller.signal.aborted) {
-          setCatalog(null);
-          setStatus("empty");
-        }
-        return;
-      }
-      const maps = system.data.capabilities.map
-        ? await api.maps(campus.id, controller.signal)
-        : { data: [] };
-      const map = maps.data.find((m) => m.kind === "campus" && m.tiles) ?? null;
-      const [features, first] = await Promise.all([
-        map
-          ? api.mapFeatures(map.id, controller.signal)
-          : Promise.resolve({ data: null }),
-        api.points(campus.id, "", controller.signal),
-      ]);
-      if (
-        map &&
-        features.data &&
-        (features.data.map_id !== map.id ||
-          features.data.map_revision !== map.revision)
-      )
-        throw new Error("Map revision mismatch");
-      const all = [...first.data];
-      const total = first.meta.pagination?.total ?? first.data.length;
-      for (let page = 2; all.length < total; page++) {
-        const next = await api.points(campus.id, "", controller.signal, page);
-        if (!next.data.length) break;
-        all.push(...next.data);
-      }
-      if (controller.signal.aborted) return;
-      const mapped = new Set(
-        features.data?.points.map((p) => p.point_id) ?? [],
-      );
-      const points = all
-        .filter((p) => !map || mapped.has(p.id))
-        .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
-      setCatalog({ campus, map, features: features.data, points });
+    function restoreLocation() {
       const requested = new URLSearchParams(window.location.search).get(
         "point",
       );
-      setSelectedId(points.some((p) => p.id === requested) ? requested : null);
-      setStatus(map ? "ready" : "empty");
+      const current = catalogRef.current;
+      const id = current ? availableSelection(current, requested) : requested;
+      selectedRef.current = id;
+      setSelectedId(id);
+      setShowList(false);
+      setShowHelp(false);
+      if (current && requested !== id) {
+        writeLocation(pointLocation(window.location.href, id), "replace");
+      }
     }
-    load().catch(() => {
-      if (!controller.signal.aborted) setStatus("error");
-    });
-    return () => controller.abort();
-  }, [retry]);
+    window.addEventListener("popstate", restoreLocation);
+    return () => window.removeEventListener("popstate", restoreLocation);
+  }, []);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (event.defaultPrevented || document.querySelector("dialog[open]"))
+        return;
       if (event.key === "Escape") {
-        selectPoint(null);
-        setShowHelp(false);
-        setShowList(false);
+        if (showHelp) {
+          setShowHelp(false);
+          helpButton.current?.focus();
+        } else if (showList) {
+          setShowList(false);
+          browseButton.current?.focus();
+        } else if (selectedRef.current) closeDetails();
       }
+      const target = event.target;
+      const editing =
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
       if (
         event.key === "/" &&
-        !(event.target instanceof HTMLInputElement) &&
-        !(event.target instanceof HTMLTextAreaElement) &&
+        !editing &&
         !event.ctrlKey &&
-        !event.metaKey
+        !event.metaKey &&
+        !event.altKey
       ) {
         event.preventDefault();
         search.current?.focus();
@@ -136,18 +160,47 @@ export function App() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectPoint]);
+  }, [showHelp, showList, closeDetails]);
 
   const points = catalog?.points ?? [];
-  const filtered = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase();
-    return points.filter(
-      (p) =>
-        (category === "all" || p.category === category) &&
-        [p.name, ...p.aliases].some((s) => s.toLocaleLowerCase().includes(q)),
-    );
-  }, [points, query, category]);
+  const filtered = useMemo(
+    () =>
+      findPlaces(
+        points,
+        query,
+        category,
+        scope === "all" ? undefined : memory.places[scope],
+      ),
+    [points, query, category, scope, memory.places],
+  );
   const selected = points.find((p) => p.id === selectedId);
+  const recordPlace = memory.dispatch;
+  useEffect(() => {
+    if (selected?.id) recordPlace({ type: "visit", id: selected.id });
+  }, [selected?.id, recordPlace]);
+  function toggleFavorite(id: string) {
+    if (!points.some((point) => point.id === id)) return;
+    const result = memory.dispatch({ type: "favorite", id });
+    setPlaceMessage(result === "limit" ? "收藏已满，请先取消部分收藏。" : "");
+  }
+  const agentContext = safeContext({
+    ...EMPTY_CONTEXT,
+    campus_id: catalog?.campus.id ?? "",
+    campus_name: catalog?.campus.name ?? "",
+    point_id: selected?.id ?? "",
+    point_name: selected?.name ?? "",
+    point_revision: selected ? String(selected.revision) : "",
+    map_id: catalog?.map?.id ?? "",
+    map_revision: catalog?.map ? String(catalog.map.revision) : "",
+  });
+  function askAgent(
+    floor?: Pick<AgentContext, "floor_id" | "floor_label" | "floor_section">,
+  ) {
+    setAgentRequest((before) => ({
+      sequence: (before?.sequence ?? 0) + 1,
+      context: safeContext({ ...agentContext, ...floor }),
+    }));
+  }
   const groups = categories.filter(
     (c) => c === "all" || points.some((p) => p.category === c),
   );
@@ -166,47 +219,17 @@ export function App() {
             Twin NKU<small>校园文化导览</small>
           </span>
         </a>
-        <div className="header-campus">
-          <span className="campus-indicator" /> 南开大学 <span>/</span> 津南校区
-        </div>
-        <button
-          className={`help-button${showHelp ? " active" : ""}`}
-          aria-expanded={showHelp}
-          onClick={() => setShowHelp((v) => !v)}
-        >
-          <Icon name="help" size={18} />
-          <span>使用帮助</span>
-        </button>
-        {showHelp && (
-          <div className="help-popover">
-            <strong>从地图开始探索</strong>
-            <p>拖动或双指缩放地图，点击已命名建筑或地点列表查看详情。</p>
-            <p>使用“回到全图”恢复全景，按 Esc 关闭详情，按 / 搜索地点。</p>
-          </div>
-        )}
-      </header>
-      <main className="explorer">
-        <aside
-          className={`sidebar${showList ? " show-list" : ""}`}
-          aria-label="地点搜索与列表"
-        >
-          <div className="sidebar-intro">
-            <span className="eyebrow">EXPLORE JINNAN</span>
-            <h1>
-              从一个地方，
-              <br />
-              <em>走近南开。</em>
-            </h1>
-            <p>找地点、看建筑，逐步走近校园的故事。</p>
-          </div>
+        <span className="header-campus">南开大学 · 津南校区</span>
+        <div className="explore-tools">
           <form
             className="place-search"
+            role="search"
             onSubmit={(e) => {
               e.preventDefault();
               if (filtered[0]) selectPoint(filtered[0].id);
             }}
           >
-            <Icon name="search" size={19} />
+            <Icon name="search" size={20} />
             <label htmlFor="place-search" className="sr-only">
               搜索校园地点
             </label>
@@ -216,9 +239,26 @@ export function App() {
               value={query}
               maxLength={120}
               placeholder="搜索地点，如图书馆"
+              autoComplete="off"
+              aria-controls="place-directory"
+              aria-expanded={showList}
+              onFocus={() => {
+                setShowList(true);
+                setShowHelp(false);
+              }}
               onChange={(e) => {
                 setQuery(e.target.value);
                 setShowList(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown" && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  document
+                    .querySelector<HTMLButtonElement>("[data-place-result]")
+                    ?.focus();
+                }
+                if (e.key === "Enter" && e.nativeEvent.isComposing)
+                  e.preventDefault();
               }}
             />
             {query ? (
@@ -230,91 +270,65 @@ export function App() {
                   search.current?.focus();
                 }}
               >
-                <Icon name="close" size={15} />
+                <Icon name="close" size={18} />
               </button>
             ) : (
-              <span className="search-shortcut">/</span>
+              <kbd className="search-shortcut">/</kbd>
             )}
           </form>
-          <div className="category-filters" aria-label="按地点类型筛选">
-            {groups.map((c) => (
-              <button
-                key={c}
-                aria-pressed={category === c}
-                className={category === c ? "selected" : ""}
-                onClick={() => {
-                  setCategory(c);
-                  setShowList(true);
-                }}
-              >
-                {c === "all" ? "全部" : categoryLabels[c]}
-              </button>
-            ))}
-          </div>
-          <div className="list-heading">
-            <span>
-              探索地点 <b>{filtered.length.toString().padStart(2, "0")}</b>
-            </span>
+          <button
+            ref={browseButton}
+            className="browse-button"
+            aria-expanded={showList}
+            aria-controls="place-directory"
+            onClick={() => {
+              setShowList((v) => !v);
+              setShowHelp(false);
+            }}
+          >
+            <Icon name="list" size={19} />
+            <span>地点目录</span>
+          </button>
+        </div>
+        <button
+          ref={helpButton}
+          className="icon-button help-button"
+          aria-label="使用帮助与刷新"
+          aria-expanded={showHelp}
+          aria-controls="map-help"
+          onClick={() => {
+            setShowHelp((v) => !v);
+            setShowList(false);
+          }}
+        >
+          <Icon name="help" />
+        </button>
+        {showHelp && (
+          <section className="help-popover" id="map-help" aria-label="使用帮助">
+            <strong>从地图开始探索</strong>
+            <p>
+              拖动或双指缩放，点击图上已命名的地点。也可以搜索名称或展开目录。
+            </p>
+            <p>按 / 搜索，按 Esc 返回。楼层图可放大到原尺寸查看。</p>
+            <p>
+              在地点目录切换“我的收藏”或“最近浏览”，快速回到看过的地点。浏览器后退可恢复上一个地点或楼层。
+            </p>
             <button
-              className="mobile-list-toggle"
-              aria-expanded={showList}
-              onClick={() => setShowList((v) => !v)}
+              className="refresh-button"
+              onClick={() => refresh.current()}
+              disabled={refreshing}
             >
-              <Icon name="list" size={16} />
-              {showList ? "收起列表" : "展开列表"}
+              <Icon name="refresh" size={17} />
+              {refreshing ? "正在刷新…" : "刷新已发布资料"}
             </button>
-            <span className="list-heading-hint">点击定位 ↗</span>
-          </div>
-          <div className="point-list-scroll">
-            <ul className="point-list">
-              {filtered.map((p) => (
-                <li key={p.id}>
-                  <button
-                    className={`point-row${selectedId === p.id ? " active" : ""}`}
-                    aria-pressed={selectedId === p.id}
-                    onClick={() => selectPoint(p.id)}
-                  >
-                    <span className={`point-symbol tone-${p.category}`}>
-                      <Icon name={pointIcon(p)} size={22} />
-                    </span>
-                    <span className="point-row-text">
-                      <strong>{p.name}</strong>
-                      <small>{categoryLabels[p.category]}</small>
-                    </span>
-                    <Icon name="arrow" size={15} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {status === "ready" && !filtered.length && (
-              <div className="no-results">
-                <Icon name="search" size={25} />
-                <strong>没有找到这个地点</strong>
-                <p>试试其他名称，或查看全部地点。</p>
-                <button
-                  onClick={() => {
-                    setQuery("");
-                    setCategory("all");
-                  }}
-                >
-                  查看全部地点
-                </button>
-              </div>
+            {lastChecked && (
+              <small>上次同步 {lastChecked.toLocaleTimeString("zh-CN")}</small>
             )}
-            {status === "loading" && (
-              <div className="list-loading">
-                <span className="spinner" /> 正在读取地点…
-              </div>
-            )}
-          </div>
-          <div className="sidebar-footer">
-            <span className="footer-monogram">NK</span>
-            <div>
-              一所大学，许多值得听的故事。
-              <small>让每次探索，都成为与校园的相遇。</small>
-            </div>
-          </div>
-        </aside>
+          </section>
+        )}
+      </header>
+      <main className="explorer">
+        <h1 className="sr-only">南开大学津南校区文化导览</h1>
         <section
           className="map-stage"
           id="map-main"
@@ -322,21 +336,16 @@ export function App() {
           aria-label="校园地图"
         >
           {catalog?.map && catalog.features ? (
-            <>
-              <MapCanvas
-                info={catalog.map}
-                features={catalog.features}
-                points={points}
-                selectedId={selectedId}
-                onSelect={selectPoint}
-              />
-            </>
+            <MapCanvas
+              info={catalog.map}
+              features={catalog.features}
+              points={points}
+              selectedId={selectedId}
+              onSelect={selectPoint}
+            />
           ) : (
-            <div className="map-empty">
-              <span className="empty-map-icon">
-                <Icon name="pin" size={36} />
-              </span>
-              <span className="eyebrow">TWIN NKU · JINNAN</span>
+            <div className="map-empty" role="status">
+              <Icon name="pin" size={34} />
               <h2>
                 {status === "loading"
                   ? "正在展开校园地图"
@@ -348,36 +357,79 @@ export function App() {
                 {status === "empty"
                   ? "地图资料发布后，你可以在这里探索校园。"
                   : status === "loading"
-                    ? "你的下一站，即将呈现。"
+                    ? "正在读取已发布资料…"
                     : "请检查网络连接后重试。"}
               </p>
               {status !== "loading" && (
                 <button
                   className="primary-button"
-                  onClick={() => setRetry((r) => r + 1)}
+                  onClick={() => refresh.current()}
                 >
                   重新加载
                 </button>
               )}
             </div>
           )}
-          {selected && (
-            <PointDetails point={selected} onClose={() => selectPoint(null)} />
+          {showList && (
+            <PlaceDirectory
+              points={filtered}
+              selectedId={selectedId}
+              favorites={memory.places.favorites}
+              recentCount={memory.places.recent.length}
+              memoryOnly={memory.memoryOnly}
+              query={query}
+              category={category}
+              groups={groups}
+              scope={scope}
+              status={status}
+              onScope={setScope}
+              onCategory={setCategory}
+              onSelect={selectPoint}
+              onFavorite={toggleFavorite}
+              onClearRecent={() => memory.dispatch({ type: "clear-recent" })}
+              onReset={() => {
+                setQuery("");
+                setCategory("all");
+                setScope("all");
+                search.current?.focus();
+              }}
+              onRetry={() => refresh.current()}
+              onClose={closeList}
+            />
+          )}
+          {placeMessage && (
+            <div className="place-message" role="status">
+              {placeMessage}
+            </div>
+          )}
+          {selected && !showList && (
+            <PointDetails
+              key={selected.id}
+              point={selected}
+              onClose={closeDetails}
+              saved={memory.places.favorites.includes(selected.id)}
+              onFavorite={() => toggleFavorite(selected.id)}
+              onAsk={agentConfig?.enabled ? askAgent : undefined}
+            />
           )}
           {status === "error" && catalog && (
             <div className="tile-warning" role="status">
-              连接暂不可用{" "}
-              <button onClick={() => setRetry((r) => r + 1)}>重试</button>
+              更新暂不可用，正在显示上次读取的地图。
+              <button onClick={() => refresh.current()}>重试</button>
             </div>
           )}
-          {!selected && catalog?.map && (
+          {!selected && !showList && catalog?.map && (
             <div className="map-hint">
               <Icon name="pin" size={17} />
-              <span>点建筑看详情 · 放大查看图中文字</span>
-              <span className="hint-key">拖动 · 缩放</span>
+              <span>点击图上地点，探索校园故事</span>
             </div>
           )}
         </section>
+        <AgentDock
+          config={agentConfig}
+          current={agentContext}
+          request={agentRequest}
+        />
       </main>
     </div>
   );

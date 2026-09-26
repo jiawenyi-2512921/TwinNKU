@@ -1,3 +1,5 @@
+> 历史交付记录：本页地图和图书馆一层包只对应当时版本。2026-09-24完整20栋楼层资源与后台编辑以 [17-floor-release.md](17-floor-release.md) 和 [18-resource-editor.md](18-resource-editor.md) 为准；本轮不要重跑本页旧地图导入。
+
 > 本文保留v2资源与图书馆1层的交接记录。地图去序号、分层名称和扩大点击范围的新交付请按[地图v3更新](13-map-interaction-update.md)执行；本轮楼层也更新为仅有标注图的revision 2。
 
 # GitHub 资源交付与服务器导入

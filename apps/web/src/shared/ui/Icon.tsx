@@ -2,13 +2,59 @@ import type { ReactNode } from "react";
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   const paths: Record<string, ReactNode> = {
+    check: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <path d="m7 12 3 3 7-7" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="m12 2 8 3v6c0 5-4 8-8 11-4-3-8-6-8-11V5l8-3Z" />
+        <path d="m8 12 3 3 5-6" />
+      </>
+    ),
+    edit: (
+      <>
+        <path d="m14 4 6 6M4 20l5-1L21 7a2 2 0 0 0-4-4L5 15l-1 5Z" />
+      </>
+    ),
+    panorama: (
+      <>
+        <rect x="2" y="5" width="20" height="14" rx="4" />
+        <path d="m3 16 5-5 4 4 4-7 6 8" />
+        <circle cx="7" cy="9" r="1" />
+      </>
+    ),
+    users: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 15a4 4 0 0 1 3 4v2" />
+      </>
+    ),
+    chat: (
+      <>
+        <path d="M20 11.5a8 8 0 0 1-8 8H5l-3 2v-8a9 9 0 1 1 18-2Z" />
+        <path d="M7 10h8M7 14h5" />
+      </>
+    ),
     search: (
       <>
         <circle cx="10.5" cy="10.5" r="6.5" />
         <path d="m16 16 4.5 4.5" />
       </>
     ),
+    refresh: (
+      <path d="M20 7v5h-5M4 17v-5h5M5.2 7a8 8 0 0 1 13-1L20 9M4 15l1.8 3a8 8 0 0 0 13-1" />
+    ),
     close: <path d="m6 6 12 12M18 6 6 18" />,
+    bookmark: <path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4Z" />,
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
     arrow: <path d="m9 5 7 7-7 7" />,
     pin: (
       <>
