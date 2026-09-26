@@ -13,23 +13,12 @@ type WebClientOptions = {
   hideSidebar: boolean;
   variables: Record<string, string>;
 };
-// WebLiteClient documents only appKey/baseUrl/variables; the full WebClient
-// additionally accepts hideSidebar. Both are assignable to this signature.
-type WebClientConstructor = new (options: {
-  appKey: string;
-  baseUrl: string;
-  variables: Record<string, string>;
-  hideSidebar?: boolean;
-}) => unknown;
-// Lite builds expose only WebLiteClient; keep both so a platform-side switch
-// between the full and lite bundles cannot break this page.
-type WebClientFactory = {
-  WebClient?: WebClientConstructor;
-  WebLiteClient?: WebClientConstructor;
-};
+// Only embedFull.js / WebClient and these four fields were supplied by the
+// platform. A differently named constructor is not a verified fallback.
+type WebClientConstructor = new (options: WebClientOptions) => unknown;
 declare global {
   interface Window {
-    HiagentWebSDK?: WebClientFactory;
+    HiagentWebSDK?: { WebClient?: WebClientConstructor };
   }
 }
 
@@ -95,25 +84,17 @@ async function initialize(context: unknown) {
       };
       document.body.append(script);
     });
-    const lite = window.HiagentWebSDK?.WebLiteClient;
-    const Client = lite ?? window.HiagentWebSDK?.WebClient;
+    const Client = window.HiagentWebSDK?.WebClient;
     if (typeof Client !== "function") throw new Error("SDK_INCOMPATIBLE");
     const appKey = data.app_key;
     const variables =
       data.context_enabled === true ? { ...safeContext(context) } : {};
-    // WebLiteClient takes the three fields the platform documents for it;
-    // the full WebClient also accepts hideSidebar.
-    if (lite) {
-      new Client({ appKey, baseUrl: SDK_ORIGIN, variables });
-    } else {
-      // Only the four constructor fields supplied by the platform are used.
-      new Client({
-        appKey,
-        baseUrl: SDK_ORIGIN,
-        hideSidebar: data.hide_sidebar === true,
-        variables,
-      });
-    }
+    new Client({
+      appKey,
+      baseUrl: SDK_ORIGIN,
+      hideSidebar: data.hide_sidebar === true,
+      variables,
+    });
     if (status) status.hidden = true;
     // Initialization is NOT proof of login, model availability or a successful answer.
     report("initialized");

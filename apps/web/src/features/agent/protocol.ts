@@ -1,7 +1,7 @@
 // This is Twin NKU's parent/frame protocol, NOT a claimed Hiagent SDK API.
 export const FRAME_CHANNEL = "twinnku:agent-frame:v1";
 export const SDK_ORIGIN = "https://coze.nankai.edu.cn";
-export const SDK_URL = `${SDK_ORIGIN}/resources/product/llm/public/sdk/embedLite.js`;
+export const SDK_URL = `${SDK_ORIGIN}/resources/product/llm/public/sdk/embedFull.js`;
 
 export type AgentContext = {
   campus_id: string;
