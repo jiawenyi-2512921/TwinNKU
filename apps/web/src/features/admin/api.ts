@@ -1,5 +1,6 @@
 import type { components } from "../../shared/api/schema";
 import { ApiError } from "../../shared/api/client";
+import { withRequestDeadline } from "../../shared/requestDeadline";
 export type StaffSession = components["schemas"]["StaffSession"];
 export type StaffUser = components["schemas"]["StaffUser"];
 export type AdminPoint = components["schemas"]["AdminPoint"];
@@ -7,6 +8,8 @@ export type AdminMapPoint = components["schemas"]["AdminMapPoint"];
 export type PointInput = components["schemas"]["PointDraftInput"];
 export type GeometryInput = components["schemas"]["PointLocationInput"];
 export type AuditEvent = components["schemas"]["AuditEvent"];
+export type ChangeItem = components["schemas"]["AdminChangeItem"];
+export type Workbench = components["schemas"]["AdminWorkbench"];
 export type Page = { page: number; page_size: number; total: number };
 export type Result<T> = {
   data: T;
@@ -22,11 +25,32 @@ export async function request<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<Result<T>> {
+  if (method === "GET") {
+    try {
+      return await withRequestDeadline(
+        (readSignal) => performRequest<T>(path, method, body, readSignal),
+        signal,
+      );
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "TimeoutError")
+        throw new ApiError(408, "读取后台资料超时，请检查网络后重新加载。");
+      throw error;
+    }
+  }
+  return performRequest<T>(path, method, body, signal);
+}
+async function performRequest<T>(
+  path: string,
+  method: string,
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<Result<T>> {
   const binary = body instanceof Blob;
   const response = await fetch(`/api/v1/admin${path}`, {
     method,
     signal,
     credentials: "same-origin",
+    cache: "no-store",
     headers: {
       Accept: "application/json",
       ...(body === undefined
@@ -37,6 +61,8 @@ export async function request<T>(
     body: body === undefined ? undefined : binary ? body : JSON.stringify(body),
   });
   const result = await response.json().catch(() => null);
+  if (signal?.aborted)
+    throw new DOMException("Request cancelled", "AbortError");
   if (!response.ok) {
     if (response.status === 401 && path !== "/auth/login")
       window.dispatchEvent(new Event("staff-session-expired"));

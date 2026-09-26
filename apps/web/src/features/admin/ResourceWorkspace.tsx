@@ -10,6 +10,9 @@ import {
   type StaffSession,
 } from "./api";
 import { Empty, ErrorBox, Pager, useResource } from "./ui";
+import { ChangeDiff } from "./ChangeDiff";
+import { Icon } from "../../shared/ui/Icon";
+import { notifyCatalogPublished } from "../../shared/catalogSync";
 import "../floors/floors.css";
 
 type Resource = components["schemas"]["AdminResource"];
@@ -29,17 +32,28 @@ const title = (r: Resource) => {
 export function ResourceWorkspace({
   session,
   onDirty,
+  onUpdate,
+  initialId,
+  focused = false,
 }: {
   session: StaffSession;
-  onDirty: (dirty: boolean) => void;
+  onDirty: (dirty: boolean, busy?: boolean) => void;
+  onUpdate?: () => void;
+  initialId?: string;
+  focused?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [pointPage, setPointPage] = useState(1);
   const [pointRevision, setPointRevision] = useState(0);
   const [pointId, setPointId] = useState("");
   const [pointName, setPointName] = useState("");
-  const [reviewOnly, setReviewOnly] = useState(false);
+  const [globalView, setGlobalView] = useState(true);
+  const [resourceState, setResourceState] = useState("");
+  const [resourceSearch, setResourceSearch] = useState("");
+  const [resourceKind, setResourceKind] = useState("");
+  const reviewOnly = resourceState === "in_review";
   const [revision, setRevision] = useState(0);
+  const [detailRevision, setDetailRevision] = useState(0);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Resource | null>(null);
   const [content, setContent] = useState<Content | null>(null);
@@ -52,15 +66,26 @@ export function ResourceWorkspace({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const points = useResource<AdminPoint[]>(
-    `/points?${new URLSearchParams({ q: search, page: String(pointPage), page_size: "20" })}`,
+    focused
+      ? null
+      : `/points?${new URLSearchParams({ q: search, page: String(pointPage), page_size: "20" })}`,
     pointRevision,
   );
   const resources = useResource<Resource[]>(
-    reviewOnly || pointId
-      ? `/resources?${new URLSearchParams({ ...(reviewOnly ? { state: "in_review" } : { point_id: pointId }), page: String(page), page_size: "50" })}`
+    !focused && (globalView || pointId)
+      ? `/resources?${new URLSearchParams({ ...(!globalView && pointId ? { point_id: pointId } : {}), ...(resourceState ? { state: resourceState } : {}), ...(resourceSearch.trim() ? { q: resourceSearch.trim() } : {}), ...(resourceKind ? { kind: resourceKind } : {}), page: String(page), page_size: "20" })}`
       : null,
     revision,
   );
+  useEffect(() => {
+    const pagination = resources.data?.meta.pagination;
+    if (!pagination) return;
+    const lastPage = Math.max(
+      1,
+      Math.ceil(pagination.total / pagination.page_size),
+    );
+    if (page > lastPage) setPage(lastPage);
+  }, [resources.data, page]);
   const canEdit =
     session.permissions.includes("points.edit") &&
     selected?.draft?.state !== "in_review";
@@ -70,7 +95,24 @@ export function ResourceWorkspace({
     (selected.draft.contributor_ids.includes(session.user.id) ||
       selected.draft.submitted_by === session.user.id);
   useEffect(() => {
-    onDirty(dirty || busy);
+    if (!initialId) return;
+    const abort = new AbortController();
+    setBusy(true);
+    setError("");
+    request<Resource>(`/resources/${initialId}`, "GET", undefined, abort.signal)
+      .then((r) => {
+        if (!abort.signal.aborted) load(r.data);
+      })
+      .catch((e) => {
+        if (!abort.signal.aborted) setError(message(e));
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setBusy(false);
+      });
+    return () => abort.abort();
+  }, [initialId, detailRevision]);
+  useEffect(() => {
+    onDirty(dirty || busy, busy);
     return () => onDirty(false);
   }, [dirty, busy, onDirty]);
   useEffect(() => {
@@ -99,7 +141,8 @@ export function ResourceWorkspace({
     clear();
     setPointId(p.point.id);
     setPointName(p.point.name);
-    setReviewOnly(false);
+    setGlobalView(false);
+    setResourceState("");
     setPage(1);
   }
   function load(r: Resource) {
@@ -107,11 +150,13 @@ export function ResourceWorkspace({
     setContent(
       (active(r)
         ? (r.draft?.payload?.content ?? r.current)
-        : r.current) as Content | null,
+        : (r.current ?? r.draft?.payload?.content ?? null)) as Content | null,
     );
     setPointId(r.point_id);
     setPointName(r.point_name);
-    setSourceNote(active(r) ? (r.draft?.payload?.source_note ?? "") : "");
+    setSourceNote(
+      active(r) || !r.current ? (r.draft?.payload?.source_note ?? "") : "",
+    );
     setPreviews(
       Object.fromEntries((r.images ?? []).map((a) => [a.section ?? "main", a])),
     );
@@ -121,6 +166,7 @@ export function ResourceWorkspace({
   }
   async function choose(r: Resource) {
     if (!canLeave()) return;
+    clear();
     setBusy(true);
     setError("");
     setNotice("");
@@ -219,6 +265,7 @@ export function ResourceWorkspace({
       );
       load(result.data);
       setRevision((v) => v + 1);
+      onUpdate?.();
       setNotice("草稿已保存，尚未公开。预览无误后提交审核。");
     } catch (e) {
       setError(message(e));
@@ -229,7 +276,7 @@ export function ResourceWorkspace({
   async function operate(
     action: "submit" | "publish" | "reject" | "discard" | "retire",
   ) {
-    if (!selected || dirty) return;
+    if (!selected || dirty || busy) return;
     if (!reviewNote.trim()) {
       setError("请填写本次操作说明。");
       return;
@@ -253,7 +300,9 @@ export function ResourceWorkspace({
       );
       load(r.data);
       setRevision((v) => v + 1);
+      onUpdate?.();
       if (action === "publish") {
+        notifyCatalogPublished();
         const endpoint = `/points/${r.data.point_id}/${r.data.kind === "floor" ? "floors" : "panoramas"}`;
         try {
           const publicRows =
@@ -293,19 +342,20 @@ export function ResourceWorkspace({
   }
   const shown = previews[previewSection];
   return (
-    <section>
+    <section className={focused ? "ad-focused-resource" : ""}>
       <div className="ad-section-heading">
         <div>
-          <div className="ad-eyebrow">BUILDING CONTENT</div>
-          <h1>楼层与 VR</h1>
-          <p>管理标注原图与全景入口，让资料更新有据可查。</p>
+          <div className="ad-eyebrow">RESOURCE LIBRARY</div>
+          <h1>资料中心</h1>
+          <p>跨地点查找楼层原图与全景，或选择建筑添加资料。</p>
         </div>
         <button
           disabled={busy}
           onClick={() => {
             if (canLeave()) {
               clear();
-              setReviewOnly(true);
+              setGlobalView(true);
+              setResourceState("in_review");
               setPage(1);
             }
           }}
@@ -314,121 +364,192 @@ export function ResourceWorkspace({
         </button>
       </div>
       <div className="ad-resource-layout">
-        <aside className="ad-card ad-resource-buildings">
-          <h2>选择建筑</h2>
-          <label>
-            搜索建筑
-            <input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPointPage(1);
-              }}
-              placeholder="输入名称或别名"
-            />
-          </label>
-          <ErrorBox
-            text={points.error}
-            onRetry={() => setPointRevision((v) => v + 1)}
-          />
-          {points.loading && <p role="status">正在查找建筑…</p>}
-          {points.data?.data.map((p) => (
+        {!focused && (
+          <aside className="ad-card ad-resource-buildings">
             <button
-              key={p.point.id}
-              className={pointId === p.point.id && !reviewOnly ? "active" : ""}
+              className={`ad-all-resources${globalView ? " active" : ""}`}
               disabled={busy}
-              onClick={() => choosePoint(p)}
-            >
-              <strong>{p.point.name}</strong>
-              <small>{stateNames[p.status] ?? p.status}</small>
-            </button>
-          ))}
-          {points.data && points.data.data.length === 0 && (
-            <Empty
-              title="没有匹配建筑"
-              detail="请换一个名称；这里只显示你获授权的点位。"
-            />
-          )}
-          <nav aria-label="建筑列表分页">
-            <Pager
-              page={points.data?.meta.pagination}
-              onChange={setPointPage}
-            />
-          </nav>
-        </aside>
-        <div className="ad-resource-main">
-          <div className="ad-card">
-            <div className="ad-card-heading">
-              <h2>
-                {reviewOnly ? "待审核楼层与 VR" : pointName || "请选择建筑"}
-              </h2>
-              {pointId &&
-                !reviewOnly &&
-                session.permissions.includes("points.edit") && (
-                  <div className="ad-action-wrap">
-                    <button disabled={busy} onClick={() => create("floor")}>
-                      ＋ 新增楼层
-                    </button>
-                    <button disabled={busy} onClick={() => create("panorama")}>
-                      ＋ 添加 VR 链接
-                    </button>
-                  </div>
-                )}
-            </div>
-            <ErrorBox
-              text={resources.error}
-              onRetry={() => setRevision((v) => v + 1)}
-            />
-            {resources.loading && <p role="status">正在读取资料…</p>}
-            <div className="ad-resource-list">
-              {resources.data?.data.map((r) => (
-                <button
-                  disabled={busy}
-                  key={r.id}
-                  onClick={() => choose(r)}
-                  className={selected?.id === r.id ? "active" : ""}
-                >
-                  <span>
-                    <strong>{title(r)}</strong>
-                    <small>
-                      {reviewOnly ? r.point_name + " · " : ""}
-                      {r.kind === "floor" ? "楼层标注图" : "VR 全景链接"}
-                    </small>
-                  </span>
-                  <span
-                    className={`ad-badge ${active(r) ? r.draft!.state : r.status}`}
-                  >
-                    {active(r)
-                      ? r.draft!.operation === "retire"
-                        ? "待审下架"
-                        : stateNames[r.draft!.state]
-                      : stateNames[r.status]}
-                  </span>
-                </button>
-              ))}
-            </div>
-            {resources.data?.data.length === 0 && (
-              <Empty
-                title={
-                  reviewOnly ? "当前没有待审核资料" : "还没有楼层或 VR 资料"
-                }
-                detail={
-                  reviewOnly
-                    ? "编辑人员提交后会出现在这里。"
-                    : "可添加楼层标注图或已有全景链接。"
-                }
-              />
-            )}
-            <Pager
-              page={resources.data?.meta.pagination}
-              onChange={(p) => {
+              onClick={() => {
                 if (canLeave()) {
                   clear();
-                  setPage(p);
+                  setGlobalView(true);
+                  setPointId("");
+                  setPointName("");
+                  setPage(1);
                 }
               }}
+            >
+              <Icon name="layers" />
+              <strong>全部地点资料</strong>
+            </button>
+            <h2>按地点管理</h2>
+            <label>
+              搜索建筑
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPointPage(1);
+                }}
+                placeholder="输入建筑名称"
+              />
+            </label>
+            <ErrorBox
+              text={points.error}
+              onRetry={() => setPointRevision((v) => v + 1)}
             />
-          </div>
+            {points.loading && <p role="status">正在查找建筑…</p>}
+            {points.data?.data.map((p) => (
+              <button
+                key={p.point.id}
+                className={
+                  pointId === p.point.id && !globalView ? "active" : ""
+                }
+                disabled={busy}
+                onClick={() => choosePoint(p)}
+              >
+                <strong>{p.point.name}</strong>
+                <small>{stateNames[p.status] ?? p.status}</small>
+              </button>
+            ))}
+            {points.data && points.data.data.length === 0 && (
+              <Empty
+                title="没有匹配建筑"
+                detail="请换一个名称；这里只显示你获授权的点位。"
+              />
+            )}
+            <nav aria-label="建筑列表分页">
+              <Pager
+                page={points.data?.meta.pagination}
+                onChange={setPointPage}
+              />
+            </nav>
+          </aside>
+        )}
+        <div className="ad-resource-main">
+          {!focused && (
+            <div className="ad-card">
+              <div className="ad-card-heading">
+                <h2>
+                  {globalView ? "全部地点资料" : pointName || "请选择建筑"}
+                </h2>
+                {pointId &&
+                  !globalView &&
+                  session.permissions.includes("points.edit") && (
+                    <div className="ad-action-wrap">
+                      <button disabled={busy} onClick={() => create("floor")}>
+                        ＋ 新增楼层
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => create("panorama")}
+                      >
+                        ＋ 添加 VR 链接
+                      </button>
+                    </div>
+                  )}
+              </div>
+              <div className="ad-resource-filters">
+                <input
+                  aria-label="搜索资料名称或所属地点"
+                  maxLength={120}
+                  placeholder="搜索资料名称或所属地点"
+                  value={resourceSearch}
+                  onChange={(e) => {
+                    setResourceSearch(e.target.value);
+                    setPage(1);
+                  }}
+                />
+                <select
+                  aria-label="筛选资源类型"
+                  value={resourceKind}
+                  onChange={(e) => {
+                    setResourceKind(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">全部类型</option>
+                  <option value="floor">楼层原图</option>
+                  <option value="panorama">VR 全景</option>
+                </select>
+                <select
+                  aria-label="筛选资源草稿状态"
+                  value={resourceState}
+                  onChange={(e) => {
+                    setResourceState(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">全部状态</option>
+                  <option value="in_review">待审核</option>
+                  <option value="draft">草稿</option>
+                  <option value="rejected">已退回</option>
+                </select>
+              </div>
+              <ErrorBox
+                text={resources.error}
+                onRetry={() => setRevision((v) => v + 1)}
+              />
+              {resources.loading && <p role="status">正在读取资料…</p>}
+              <div className="ad-resource-list">
+                {resources.data?.data.map((r) => (
+                  <button
+                    disabled={busy}
+                    key={r.id}
+                    onClick={() => choose(r)}
+                    className={selected?.id === r.id ? "active" : ""}
+                  >
+                    <span>
+                      <strong>{title(r)}</strong>
+                      <small>
+                        {globalView ? r.point_name + " · " : ""}
+                        {r.kind === "floor" ? "楼层标注图" : "VR 全景链接"}
+                      </small>
+                    </span>
+                    <span
+                      className={`ad-badge ${active(r) ? r.draft!.state : r.status}`}
+                    >
+                      {active(r)
+                        ? r.draft!.operation === "retire"
+                          ? "待审下架"
+                          : stateNames[r.draft!.state]
+                        : stateNames[r.status]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {resources.data?.data.length === 0 && (
+                <Empty
+                  title={
+                    reviewOnly ? "当前没有待审核资料" : "还没有楼层或 VR 资料"
+                  }
+                  detail={
+                    reviewOnly
+                      ? "编辑人员提交后会出现在这里。"
+                      : "可添加楼层标注图或已有全景链接。"
+                  }
+                />
+              )}
+              <Pager
+                page={resources.data?.meta.pagination}
+                onChange={(p) => {
+                  if (canLeave()) {
+                    clear();
+                    setPage(p);
+                  }
+                }}
+              />
+            </div>
+          )}
+          {!content && busy && <p role="status">正在读取资料详情…</p>}
+          {!content && (
+            <ErrorBox
+              text={error}
+              onRetry={
+                initialId ? () => setDetailRevision((v) => v + 1) : undefined
+              }
+            />
+          )}
           {content && (
             <div className="ad-card ad-resource-editor" aria-busy={busy}>
               <div className="ad-card-heading">
@@ -444,6 +565,19 @@ export function ResourceWorkspace({
                   </p>
                 </div>
                 {dirty && <span className="ad-badge draft">未保存</span>}
+                {!dirty && selected && (
+                  <span
+                    className={`ad-badge ${active(selected) || !selected.current ? selected.draft?.state : selected.status}`}
+                  >
+                    {
+                      stateNames[
+                        active(selected) || !selected.current
+                          ? (selected.draft?.state ?? selected.status)
+                          : selected.status
+                      ]
+                    }
+                  </span>
+                )}
               </div>
               <ErrorBox text={error} />
               {notice && (
@@ -455,6 +589,75 @@ export function ResourceWorkspace({
                 <p className="ad-resource-review-note">
                   最近审核说明：{selected.draft.review_note}
                 </p>
+              )}
+              {selected?.draft?.payload && active(selected) && (
+                <ChangeDiff
+                  rows={
+                    content.kind === "panorama"
+                      ? [
+                          {
+                            label: "全景名称",
+                            before:
+                              selected.current?.kind === "panorama"
+                                ? selected.current.title
+                                : "",
+                            after: content.title,
+                          },
+                          {
+                            label: "全景地址",
+                            before:
+                              selected.current?.kind === "panorama"
+                                ? selected.current.url
+                                : "",
+                            after: content.url,
+                          },
+                          {
+                            label: "场景说明",
+                            before:
+                              selected.current?.kind === "panorama"
+                                ? (selected.current.description ?? "")
+                                : "",
+                            after: content.description ?? "",
+                          },
+                        ]
+                      : [
+                          {
+                            label: "楼层名称",
+                            before:
+                              selected.current?.kind === "floor"
+                                ? selected.current.label
+                                : "",
+                            after: content.label,
+                          },
+                          {
+                            label: "资料来源",
+                            before:
+                              selected.current?.kind === "floor"
+                                ? selected.current.attribution
+                                : "",
+                            after: content.attribution,
+                          },
+                          {
+                            label: "楼层分区",
+                            before:
+                              selected.current?.kind === "floor"
+                                ? selected.current.images
+                                    .map(
+                                      (i) =>
+                                        i.section_label || i.section || "main",
+                                    )
+                                    .join("、")
+                                : "",
+                            after: content.images
+                              .map(
+                                (i) =>
+                                  `${i.section_label || i.section || "main"}${i.upload_id ? "（新上传原图）" : ""}`,
+                              )
+                              .join("、"),
+                          },
+                        ]
+                  }
+                />
               )}
               <form
                 onSubmit={(e) => {

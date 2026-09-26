@@ -15,12 +15,22 @@ const names: Record<string, string> = {
   "user.bootstrap": "初始化管理员",
   "session.login": "登录后台",
   "session.logout": "退出登录",
+  "resource.image_uploaded": "上传楼层原图",
+  "resource.draft_saved": "保存资料草稿",
+  "resource.submit": "提交资料审核",
+  "resource.reject": "退回资料修改",
+  "resource.discard": "撤回资料草稿",
+  "resource.published": "发布楼层或 VR",
+  "resource.retire_requested": "申请下架资料",
+  "resource.retired": "下架楼层或 VR",
 };
 export function Audit() {
   const [page, setPage] = useState(1),
-    [revision, setRevision] = useState(0);
+    [revision, setRevision] = useState(0),
+    [query, setQuery] = useState(""),
+    [category, setCategory] = useState("");
   const rows = useResource<AuditEvent[]>(
-    `/audit?page=${page}&page_size=25`,
+    `/audit?${new URLSearchParams({ page: String(page), page_size: "25", ...(query ? { q: query } : {}), ...(category ? { category } : {}) })}`,
     revision,
   );
   return (
@@ -35,6 +45,32 @@ export function Audit() {
       </div>
       <ErrorBox text={rows.error} onRetry={() => setRevision((v) => v + 1)} />
       <div className="ad-card ad-audit">
+        <div className="ad-audit-filters">
+          <input
+            aria-label="搜索操作记录"
+            maxLength={120}
+            placeholder="搜索操作人、地点或操作说明"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
+          />
+          <select
+            aria-label="操作记录类型"
+            value={category}
+            onChange={(e) => {
+              setCategory(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">全部操作</option>
+            <option value="point">地图点位</option>
+            <option value="resource">楼层与 VR</option>
+            <option value="user">账号权限</option>
+            <option value="session">登录与退出</option>
+          </select>
+        </div>
         {rows.loading && <p role="status">正在读取操作记录…</p>}
         {rows.data?.data.map((row) => (
           <article className="ad-audit-row" key={row.id}>
@@ -52,7 +88,7 @@ export function Audit() {
                 {row.actor_name}
                 {row.note ? ` · ${row.note}` : ""}
               </p>
-              {row.point_id && <small>点位 {row.point_id}</small>}
+              {row.point_id && <small>{row.point_name || "关联点位"}</small>}
               {Object.keys(row.details).length > 0 && (
                 <details>
                   <summary>查看变更记录</summary>

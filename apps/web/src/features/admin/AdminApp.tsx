@@ -5,16 +5,19 @@ import { Accounts } from "./Accounts";
 import { Audit } from "./Audit";
 import { PointWorkspace } from "./PointWorkspace";
 import { ResourceWorkspace } from "./ResourceWorkspace";
+import { Overview } from "./Overview";
+import { ReviewCenter, type ReviewStart } from "./ReviewCenter";
 import {
   message,
   rememberSession,
   request,
   roleNames,
-  type AdminPoint,
+  type Workbench,
   type StaffSession,
 } from "./api";
-import { Empty, ErrorBox, timestamp, useResource } from "./ui";
+import { ErrorBox, useResource } from "./ui";
 import "./admin.css";
+import "./workbench.css";
 type Tab =
   | "overview"
   | "points"
@@ -226,134 +229,6 @@ function PasswordForm({
     </div>
   );
 }
-function Overview({
-  session,
-  onNavigate,
-  revision,
-}: {
-  session: StaffSession;
-  onNavigate: (t: Tab) => void;
-  revision: number;
-}) {
-  const all = useResource<AdminPoint[]>("/points?page_size=1", revision),
-    pending = useResource<AdminPoint[]>(
-      "/points?draft_state=in_review&page_size=5",
-      revision,
-    ),
-    drafts = useResource<AdminPoint[]>(
-      "/points?draft_state=draft&page_size=1",
-      revision,
-    ),
-    retired = useResource<AdminPoint[]>(
-      "/points?status=retired&page_size=1",
-      revision,
-    );
-  return (
-    <section>
-      <div className="ad-section-heading">
-        <div>
-          <div className="ad-eyebrow">WORKSPACE OVERVIEW</div>
-          <h1>{session.user.display_name}，欢迎回来</h1>
-          <p>从一张准确的地图，开始今天的校园内容维护。</p>
-        </div>
-        <span className="ad-badge published">
-          {roleNames[session.user.role]} · 已登录
-        </span>
-      </div>
-      <ErrorBox
-        text={all.error || pending.error || drafts.error || retired.error}
-      />
-      <div className="ad-stats">
-        {[
-          { title: "授权范围内的点位", r: all, icon: "pin" },
-          { title: "等待审核", r: pending, icon: "list" },
-          { title: "编辑中的草稿", r: drafts, icon: "layers" },
-          { title: "已下架点位", r: retired, icon: "building" },
-        ].map((item) => (
-          <div key={item.title} className="ad-stat">
-            <span>
-              {item.title}
-              <Icon name={item.icon} />
-            </span>
-            <strong>{item.r.data?.meta.pagination?.total ?? "—"}</strong>
-            <small>仅统计当前账号可查看的范围</small>
-          </div>
-        ))}
-      </div>
-      <div className="ad-overview-grid">
-        <div className="ad-card ad-welcome">
-          <div className="ad-eyebrow">MAP MAINTENANCE</div>
-          <h2>把地点放在正确的位置</h2>
-          <p>
-            在地图上选点、校准建筑范围、填写介绍。保存草稿后，由另一位审核人员核对发布。
-          </p>
-          <button className="ad-primary" onClick={() => onNavigate("points")}>
-            打开地图工作台 <span>→</span>
-          </button>
-          <div className="ad-workflow">
-            <span>
-              01
-              <br />
-              <strong>编辑资料</strong>
-            </span>
-            <i>→</i>
-            <span>
-              02
-              <br />
-              <strong>独立审核</strong>
-            </span>
-            <i>→</i>
-            <span>
-              03
-              <br />
-              <strong>公开展示</strong>
-            </span>
-          </div>
-        </div>
-        <div className="ad-card ad-review-summary">
-          <div className="ad-card-heading">
-            <h2>待审核事项</h2>
-            {session.permissions.includes("points.review") && (
-              <button onClick={() => onNavigate("review")}>查看全部 →</button>
-            )}
-          </div>
-          {pending.data?.data.map((p) => (
-            <div className="ad-review-item" key={p.point.id}>
-              <span className="ad-dot" />
-              <div>
-                <strong>{p.draft?.payload?.name ?? p.point.name}</strong>
-                <small>
-                  {p.draft?.operation === "retire"
-                    ? "下架申请"
-                    : "资料与位置更新"}{" "}
-                  · {timestamp(p.draft!.updated_at)}
-                </small>
-              </div>
-            </div>
-          ))}
-          {pending.data && !pending.data.data.length && (
-            <Empty
-              title="当前没有待审内容"
-              detail="提交后的草稿会出现在这里。"
-            />
-          )}
-        </div>
-      </div>
-      <div className="ad-card ad-scope-summary">
-        <Icon name="layers" />
-        <div>
-          <strong>你的管理范围</strong>
-          <p>
-            {session.user.role === "admin"
-              ? "全部校区、所有点位及成员账号"
-              : `${session.user.campus_ids.length} 个校区 · ${session.user.point_ids.length ? `指定的 ${session.user.point_ids.length} 个点位` : "校区内全部点位"}`}
-          </p>
-        </div>
-        <span>修改先存草稿 · 发布可追溯</span>
-      </div>
-    </section>
-  );
-}
 export default function AdminApp() {
   const [session, setSession] = useState<StaffSession | null>(null),
     [checking, setChecking] = useState(true),
@@ -363,9 +238,13 @@ export default function AdminApp() {
     [revision, setRevision] = useState(0),
     [navError, setNavError] = useState(""),
     [catalogRevision, setCatalogRevision] = useState(0),
-    [locked, setLocked] = useState(false);
+    [locked, setLocked] = useState(false),
+    [reviewStart, setReviewStart] = useState<ReviewStart>({}),
+    [reviewKey, setReviewKey] = useState(0);
   const dirty = useRef(false);
-  const onDirty = useCallback((value: boolean) => {
+  const processing = useRef(false);
+  const onDirty = useCallback((value: boolean, busy = false) => {
+    processing.current = busy;
     dirty.current = value;
   }, []);
   const applySession = useCallback((value: StaffSession | null) => {
@@ -374,11 +253,14 @@ export default function AdminApp() {
     setSession(value);
     setTab("overview");
     dirty.current = false;
+    processing.current = false;
   }, []);
   useEffect(() => {
     const abort = new AbortController();
     request<StaffSession>("/session", "GET", undefined, abort.signal)
-      .then((r) => applySession(r.data))
+      .then((r) => {
+        if (!abort.signal.aborted) applySession(r.data);
+      })
       .catch((e) => {
         if (!abort.signal.aborted && e.status !== 401) setAuthError(message(e));
       })
@@ -407,17 +289,50 @@ export default function AdminApp() {
       session && !session.user.must_change_password ? "/campuses" : null,
       catalogRevision,
     );
+  const workbench = useResource<Workbench>(
+    session && !locked && !session.user.must_change_password
+      ? "/workbench"
+      : null,
+    revision,
+  );
+  useEffect(() => {
+    if (!session || locked || session.user.must_change_password) return;
+    const refresh = () => {
+      if (document.visibilityState === "visible") setRevision((v) => v + 1);
+    };
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [session, locked]);
   const navigate = (next: Tab) => {
+    if (processing.current) {
+      setNavError("正在处理当前操作，请完成后再切换页面。");
+      return false;
+    }
     if (
       dirty.current &&
       !window.confirm("当前修改尚未保存，确定放弃并切换页面吗？")
     )
-      return;
+      return false;
     dirty.current = false;
     setTab(next);
     setNavError("");
+    return true;
+  };
+  const openReview = (start: ReviewStart = {}) => {
+    if (navigate("review")) {
+      setReviewStart(start);
+      setReviewKey((v) => v + 1);
+    }
   };
   async function logout() {
+    if (processing.current) {
+      setNavError("当前操作尚未完成，请稍后退出。");
+      return;
+    }
     if (dirty.current && !window.confirm("当前修改尚未保存，确定退出吗？"))
       return;
     try {
@@ -495,23 +410,22 @@ export default function AdminApp() {
     [
       { id: "overview", title: "工作台", icon: "focus" },
       { id: "points", title: "地图点位", icon: "pin" },
-      { id: "resources", title: "楼层与 VR", icon: "layers" },
+      { id: "resources", title: "资料中心", icon: "layers" },
       {
         id: "review",
-        title: "审核发布",
-        icon: "list",
-        permission: "points.review",
+        title: "审核中心",
+        icon: "check",
       },
       {
         id: "audit",
         title: "操作记录",
-        icon: "layers",
+        icon: "clock",
         permission: "audit.read",
       },
       {
         id: "accounts",
         title: "账号权限",
-        icon: "building",
+        icon: "users",
         permission: "users.manage",
       },
     ];
@@ -532,8 +446,9 @@ export default function AdminApp() {
           href="/"
           onClick={(e) => {
             if (
-              dirty.current &&
-              !window.confirm("修改尚未保存，确定返回导览吗？")
+              processing.current ||
+              (dirty.current &&
+                !window.confirm("修改尚未保存，确定返回导览吗？"))
             )
               e.preventDefault();
           }}
@@ -555,11 +470,21 @@ export default function AdminApp() {
                 key={n.id}
                 aria-current={tab === n.id ? "page" : undefined}
                 className={tab === n.id ? "active" : ""}
-                onClick={() => navigate(n.id)}
+                onClick={() =>
+                  n.id === "review" ? openReview() : navigate(n.id)
+                }
               >
                 <Icon name={n.icon} />
                 {n.title}
-                <span>›</span>
+                <span>
+                  {n.id === "review" && workbench.data?.data.pending_count ? (
+                    <b className="ad-nav-count">
+                      {workbench.data.data.pending_count}
+                    </b>
+                  ) : (
+                    "›"
+                  )}
+                </span>
               </button>
             ))}
         </nav>
@@ -578,8 +503,9 @@ export default function AdminApp() {
             <button
               onClick={() => {
                 if (
-                  !dirty.current ||
-                  window.confirm("修改尚未保存，确定放弃并修改密码吗？")
+                  !processing.current &&
+                  (!dirty.current ||
+                    window.confirm("修改尚未保存，确定放弃并修改密码吗？"))
                 ) {
                   dirty.current = false;
                   setPasswordOpen(true);
@@ -612,10 +538,15 @@ export default function AdminApp() {
             <Overview
               session={session}
               revision={revision}
+              stats={workbench.data}
+              error={workbench.error}
+              loading={workbench.loading}
+              onRefresh={() => setRevision((v) => v + 1)}
               onNavigate={navigate}
+              onReview={openReview}
             />
           )}
-          {(tab === "points" || tab === "review") && (
+          {tab === "points" && (
             <>
               <ErrorBox
                 text={maps.error}
@@ -629,7 +560,6 @@ export default function AdminApp() {
                     key={tab}
                     session={session}
                     maps={maps.data.data}
-                    review={tab === "review"}
                     onDirty={onDirty}
                     onUpdate={() => setRevision((v) => v + 1)}
                   />
@@ -637,8 +567,25 @@ export default function AdminApp() {
               )}
             </>
           )}
+          {tab === "review" && (
+            <ReviewCenter
+              key={reviewKey}
+              session={session}
+              maps={maps.data?.data ?? []}
+              mapsError={maps.error}
+              onRetryMaps={() => setCatalogRevision((v) => v + 1)}
+              onDirty={onDirty}
+              onUpdate={() => setRevision((v) => v + 1)}
+              initial={reviewStart}
+              revision={revision}
+            />
+          )}
           {tab === "resources" && (
-            <ResourceWorkspace session={session} onDirty={onDirty} />
+            <ResourceWorkspace
+              session={session}
+              onDirty={onDirty}
+              onUpdate={() => setRevision((v) => v + 1)}
+            />
           )}
           {tab === "audit" && <Audit />}
           {tab === "accounts" && (

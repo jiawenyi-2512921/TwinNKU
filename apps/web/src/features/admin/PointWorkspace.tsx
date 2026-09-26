@@ -17,17 +17,20 @@ import { MapEditor } from "./MapEditor";
 import { notifyCatalogPublished } from "../../shared/catalogSync";
 import { verifyPublication, type PublicationCheck } from "./publication";
 import { moveGeometry, rectangle, validPolygon } from "./geometry";
+import { ChangeDiff } from "./ChangeDiff";
 type Props = {
   session: StaffSession;
   maps: MapInfo[];
   review?: boolean;
-  onDirty: (dirty: boolean) => void;
+  initialId?: string;
+  onDirty: (dirty: boolean, busy?: boolean) => void;
   onUpdate: () => void;
 };
 export function PointWorkspace({
   session,
   maps,
   review = false,
+  initialId,
   onDirty,
   onUpdate,
 }: Props) {
@@ -88,9 +91,9 @@ export function PointWorkspace({
     return () => clearTimeout(timer);
   }, [query]);
   useEffect(() => {
-    onDirty(dirty);
+    onDirty(dirty || busy, busy);
     const before = (event: BeforeUnloadEvent) => {
-      if (dirty) {
+      if (dirty || busy) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -100,7 +103,10 @@ export function PointWorkspace({
       window.removeEventListener("beforeunload", before);
       onDirty(false);
     };
-  }, [dirty, onDirty]);
+  }, [dirty, busy, onDirty]);
+  useEffect(() => {
+    if (initialId) void open(initialId, true);
+  }, [initialId]);
   useEffect(
     () => () => {
       loadId.current++;
@@ -116,7 +122,10 @@ export function PointWorkspace({
     setDirty(false);
     setHistory([]);
     setReason("");
-    const pending = activeDraft(point) ? point.draft?.payload : null;
+    const pending =
+      activeDraft(point) || !point.geometries.length
+        ? point.draft?.payload
+        : null;
     const g =
       point.geometries.find((g) => g.map_id === map?.id) ??
       point.geometries.find((g) => maps.some((m) => m.id === g.map_id));
@@ -346,6 +355,9 @@ export function PointWorkspace({
     (selected.draft.contributor_ids.includes(session.user.id) ||
       selected.draft.submitted_by === session.user.id);
   const pending = !!selected && activeDraft(selected);
+  const publishedGeometry = selected?.geometries.find(
+    (g) => g.map_id === input?.geometry.map_id,
+  );
   if (!map)
     return (
       <Empty
@@ -354,7 +366,7 @@ export function PointWorkspace({
       />
     );
   return (
-    <div className="ad-workspace">
+    <div className={`ad-workspace${initialId ? " ad-focused-point" : ""}`}>
       <div className="ad-section-heading">
         <div>
           <div className="ad-eyebrow">
@@ -481,7 +493,7 @@ export function PointWorkspace({
             value={input?.geometry ?? null}
             name={input?.name ?? ""}
             editable={writable}
-            onSelect={open}
+            onSelect={initialId ? () => {} : open}
             onChange={geometry}
             canUndo={!!history.length}
             onUndo={() => {
@@ -512,9 +524,9 @@ export function PointWorkspace({
           <ErrorBox
             text={error}
             onRetry={
-              selected
+              selected || initialId
                 ? () => {
-                    if (guard()) open(selected.point.id, true);
+                    if (guard()) open(selected?.point.id ?? initialId!, true);
                   }
                 : undefined
             }
@@ -785,30 +797,49 @@ export function PointWorkspace({
                 <div className="ad-review-box">
                   <h3>审核与变更</h3>
                   {pending && selected.draft?.payload && (
-                    <details>
-                      <summary>对照当前正式版本</summary>
-                      <dl>
-                        <dt>名称</dt>
-                        <dd>
-                          {selected.point.name} → {input.name}
-                        </dd>
-                        <dt>介绍</dt>
-                        <dd>{selected.point.summary || "暂无介绍"}</dd>
-                        <dt>定位</dt>
-                        <dd>
-                          {selected.geometries[0]
-                            ? `${selected.geometries[0].anchor.x}, ${selected.geometries[0].anchor.y}`
-                            : "尚未发布"}{" "}
-                          → {input.geometry.anchor.x}, {input.geometry.anchor.y}
-                        </dd>
-                        <dt>点击范围</dt>
-                        <dd>
-                          正式 {selected.geometries[0]?.polygon.length ?? 0}{" "}
-                          个顶点 → 草稿 {input.geometry.polygon.length}{" "}
-                          个顶点；请结合地图核对边界。
-                        </dd>
-                      </dl>
-                    </details>
+                    <ChangeDiff
+                      rows={[
+                        {
+                          label: "地点名称",
+                          before: selected.point.name,
+                          after: input.name,
+                        },
+                        {
+                          label: "地点介绍",
+                          before: selected.point.summary,
+                          after: input.summary,
+                        },
+                        {
+                          label: "别名",
+                          before: selected.point.aliases.join("、"),
+                          after: (input.aliases ?? []).join("、"),
+                        },
+                        {
+                          label: "类别",
+                          before: categories[selected.point.category],
+                          after: categories[input.category],
+                        },
+                        {
+                          label: "可见范围",
+                          before: selected.visibility,
+                          after: input.visibility,
+                        },
+                        {
+                          label: "定位坐标",
+                          before: publishedGeometry
+                            ? `${publishedGeometry.anchor.x}, ${publishedGeometry.anchor.y}`
+                            : "",
+                          after: `${input.geometry.anchor.x}, ${input.geometry.anchor.y}`,
+                        },
+                        {
+                          label: "点击边界",
+                          before: JSON.stringify(
+                            publishedGeometry?.polygon ?? [],
+                          ),
+                          after: JSON.stringify(input.geometry.polygon),
+                        },
+                      ]}
+                    />
                   )}
                   {(allowedEdit || allowedReview) && (
                     <>
