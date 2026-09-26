@@ -29,9 +29,13 @@ export function PointDetails({
   point,
   onClose,
   onAsk,
+  saved,
+  onFavorite,
 }: {
   point: Point;
   onClose: () => void;
+  saved: boolean;
+  onFavorite: () => void;
   onAsk?: (
     floor?: Pick<AgentContext, "floor_id" | "floor_label" | "floor_section">,
   ) => void;
@@ -96,10 +100,20 @@ export function PointDetails({
             问小开，了解这里
           </button>
         )}
-        <button className="share-point" onClick={copyLink}>
-          <Icon name="link" size={16} />
-          复制地点链接
-        </button>
+        <div className="detail-local-actions">
+          <button
+            className="share-point save-place"
+            aria-pressed={saved}
+            onClick={onFavorite}
+          >
+            <Icon name="bookmark" size={16} />
+            {saved ? "已收藏" : "收藏地点"}
+          </button>
+          <button className="share-point" onClick={copyLink}>
+            <Icon name="link" size={16} />
+            复制地点链接
+          </button>
+        </div>
         <span className="copy-message" role="status">
           {copyMessage}
         </span>
