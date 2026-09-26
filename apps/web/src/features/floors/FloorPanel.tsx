@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type Floor } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
+import { watchCatalogChanges } from "../../shared/catalogSync";
 import {
   floorLocation,
   closeFloorLocation,
@@ -97,9 +98,6 @@ export function FloorPanel({
         }
       }
     }
-    function whenVisible() {
-      if (document.visibilityState === "visible") void refresh();
-    }
     function restoreLocation() {
       const link = new URLSearchParams(window.location.search);
       if (link.get("point") !== pointId) {
@@ -123,17 +121,15 @@ export function FloorPanel({
     }
     void refresh();
     window.addEventListener("popstate", restoreLocation);
-    const timer = window.setInterval(whenVisible, 30000);
-    window.addEventListener("focus", whenVisible);
-    document.addEventListener("visibilitychange", whenVisible);
+    // A publication refresh preserves the current view; only browser history
+    // restoration should interpret the URL as a new floor selection.
+    const stopWatching = watchCatalogChanges(() => void refresh());
     return () => {
       disposed = true;
       pending?.abort();
-      window.clearInterval(timer);
+      stopWatching();
       window.clearTimeout(copyTimer.current);
       window.removeEventListener("popstate", restoreLocation);
-      window.removeEventListener("focus", whenVisible);
-      document.removeEventListener("visibilitychange", whenVisible);
     };
   }, [pointId, retry]);
 
