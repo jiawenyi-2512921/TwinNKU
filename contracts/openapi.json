@@ -44,6 +44,131 @@
         "title": "ActionResult",
         "type": "object"
       },
+      "AdminChangeItem": {
+        "additionalProperties": false,
+        "properties": {
+          "campus_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+            "title": "Campus Id",
+            "type": "string"
+          },
+          "can_review": {
+            "title": "Can Review",
+            "type": "boolean"
+          },
+          "editor_name": {
+            "title": "Editor Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_mine": {
+            "title": "Is Mine",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "point",
+              "floor",
+              "panorama"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "upsert",
+              "retire"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "point_name": {
+            "title": "Point Name",
+            "type": "string"
+          },
+          "review_note": {
+            "title": "Review Note",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "in_review",
+              "rejected",
+              "published",
+              "discarded"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "submitted_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted By Name"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "point_id",
+          "campus_id",
+          "point_name",
+          "title",
+          "state",
+          "operation",
+          "revision",
+          "editor_name",
+          "submitted_by_name",
+          "submitted_at",
+          "updated_at",
+          "review_note",
+          "is_mine",
+          "can_review"
+        ],
+        "title": "AdminChangeItem",
+        "type": "object"
+      },
       "AdminInquiry": {
         "additionalProperties": false,
         "properties": {
@@ -403,6 +528,53 @@
         "title": "AdminSource",
         "type": "object"
       },
+      "AdminWorkbench": {
+        "additionalProperties": false,
+        "properties": {
+          "draft_count": {
+            "minimum": 0.0,
+            "title": "Draft Count",
+            "type": "integer"
+          },
+          "my_pending_count": {
+            "minimum": 0.0,
+            "title": "My Pending Count",
+            "type": "integer"
+          },
+          "pending_by_kind": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Pending By Kind",
+            "type": "object"
+          },
+          "pending_count": {
+            "minimum": 0.0,
+            "title": "Pending Count",
+            "type": "integer"
+          },
+          "point_count": {
+            "minimum": 0.0,
+            "title": "Point Count",
+            "type": "integer"
+          },
+          "rejected_count": {
+            "minimum": 0.0,
+            "title": "Rejected Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "point_count",
+          "pending_count",
+          "draft_count",
+          "rejected_count",
+          "my_pending_count",
+          "pending_by_kind"
+        ],
+        "title": "AdminWorkbench",
+        "type": "object"
+      },
       "AgentAction": {
         "additionalProperties": false,
         "properties": {
@@ -576,6 +748,17 @@
               }
             ],
             "title": "Point Id"
+          },
+          "point_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Name"
           }
         },
         "required": [
@@ -981,6 +1164,23 @@
         "title": "Envelope[AdminSource]",
         "type": "object"
       },
+      "Envelope_AdminWorkbench_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AdminWorkbench"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[AdminWorkbench]",
+        "type": "object"
+      },
       "Envelope_AgentWebConfig_": {
         "additionalProperties": false,
         "properties": {
@@ -1370,6 +1570,27 @@
           "meta"
         ],
         "title": "Envelope[UploadedFile]",
+        "type": "object"
+      },
+      "Envelope_list_AdminChangeItem__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/AdminChangeItem"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[AdminChangeItem]]",
         "type": "object"
       },
       "Envelope_list_AdminInquiry__": {
@@ -5048,6 +5269,39 @@
           },
           {
             "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "point",
+                    "resource",
+                    "user",
+                    "session"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 120,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "page",
             "required": false,
             "schema": {
@@ -5615,6 +5869,180 @@
           }
         ],
         "summary": "Campuses",
+        "tags": [
+          "admin"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/changes": {
+      "get": {
+        "operationId": "listAdminChanges",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "in_review",
+                    "rejected",
+                    "published",
+                    "discarded"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "in_review",
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "point",
+                    "floor",
+                    "panorama"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 120,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Mine",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "oldest",
+              "enum": [
+                "oldest",
+                "newest"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_AdminChangeItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Changes",
         "tags": [
           "admin"
         ],
@@ -8779,6 +9207,37 @@
           },
           {
             "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "floor",
+                    "panorama"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 120,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "page",
             "required": false,
             "schema": {
@@ -10954,6 +11413,75 @@
           }
         ],
         "summary": "Update User",
+        "tags": [
+          "admin"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/workbench": {
+      "get": {
+        "operationId": "getAdminWorkbench",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminWorkbench_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Workbench",
         "tags": [
           "admin"
         ],
