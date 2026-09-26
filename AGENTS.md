@@ -1,5 +1,12 @@
 # Twin NKU 开发约定
 
+## 2026-09-26 Full SDK修复与API说明失效
+
+- 用户再次提供 `embedFull.js` / `HiagentWebSDK.WebClient` 四字段代码，以此为当前接入证据；不得自行改为Lite或猜测后端调用协议。
+- 保留远程已校正的83点目录、锚点/轮廓和嵌入页worker CSP。此次仅修复SDK一致性、回归测试与接入文档，不重导地图/楼层或修改生产数据。
+- 用户报告平台“接口说明”失效。替代材料与服务端接入门槛见docs/35；API密钥、APPID和base URL不是完整请求协议，不能拿账号Cookie/JWT或账号级AccessKey替代应用授权。
+- 后端chat仍未实现，密钥不进仓库/浏览器/日志；用户已给出的密钥不再次索要或回显。服务器仍由用户/DeepSeek部署。
+
 ## 2026-09-25 当前增量：小开WebSDK
 
 - 用户明确提供 `embedFull.js` / `HiagentWebSDK.WebClient` 代码并要求最大程度完成网站嵌入及平台配置说明。本轮范围见docs/32、33；旧“仅楼层”限制不是本轮范围。
