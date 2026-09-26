@@ -3,6 +3,8 @@ import { api, type Floor } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import {
   floorLocation,
+  closeFloorLocation,
+  writeLocation,
   reconcileFloorView,
   resolveFloorImage,
 } from "../../shared/navigation";
@@ -29,6 +31,9 @@ export function FloorPanel({
   );
   const [retry, setRetry] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
+  const copyTimer = useRef<number | undefined>(undefined);
+  const floorsRef = useRef<Floor[]>([]);
   const expandedRef = useRef(false);
   const selection = useRef({ floorId: "", section: "main" });
   const dialog = useRef<HTMLDialogElement>(null);
@@ -38,11 +43,13 @@ export function FloorPanel({
     let pending: AbortController | null = null;
     let disposed = false;
     setFloors([]);
+    floorsRef.current = [];
     setSelectedId("");
     setSelectedSection("main");
     setStatus("loading");
-    let initial = true;
-    async function refresh() {
+    let needsLocation = true;
+    async function refresh(fromLocation = false) {
+      needsLocation ||= fromLocation;
       pending?.abort();
       const controller = new AbortController();
       pending = controller;
@@ -53,8 +60,9 @@ export function FloorPanel({
           data,
           pointId,
           { ...selection.current, expanded: expandedRef.current },
-          initial ? new URLSearchParams(window.location.search) : null,
+          needsLocation ? new URLSearchParams(window.location.search) : null,
         );
+        floorsRef.current = next.floors;
         // Unchanged polling data keeps image identity and the current zoom.
         setFloors((previous) =>
           JSON.stringify(previous) === JSON.stringify(next.floors)
@@ -67,28 +75,24 @@ export function FloorPanel({
         expandedRef.current = next.expanded;
         setExpanded(next.expanded);
         if (next.syncLocation) {
-          window.history.replaceState(
-            window.history.state,
-            "",
+          writeLocation(
             floorLocation(
               window.location.href,
               pointId,
-              next.floorId || null,
+              next.expanded ? next.floorId : null,
               next.section,
             ),
+            "replace",
           );
         }
-        initial = false;
+        needsLocation = false;
         setStatus("ready");
       } catch {
         if (!controller.signal.aborted && !disposed) {
+          // Retain the requested link so a successful retry restores its layer.
+          needsLocation = true;
           expandedRef.current = false;
           setExpanded(false);
-          window.history.replaceState(
-            window.history.state,
-            "",
-            floorLocation(window.location.href, pointId, null),
-          );
           setStatus("error");
         }
       }
@@ -96,7 +100,29 @@ export function FloorPanel({
     function whenVisible() {
       if (document.visibilityState === "visible") void refresh();
     }
+    function restoreLocation() {
+      const link = new URLSearchParams(window.location.search);
+      if (link.get("point") !== pointId) {
+        pending?.abort();
+        expandedRef.current = false;
+        setExpanded(false);
+        return;
+      }
+      const next = reconcileFloorView(
+        floorsRef.current,
+        pointId,
+        { ...selection.current, expanded: expandedRef.current },
+        link,
+      );
+      selection.current = { floorId: next.floorId, section: next.section };
+      setSelectedId(next.floorId);
+      setSelectedSection(next.section);
+      expandedRef.current = next.expanded;
+      setExpanded(next.expanded);
+      void refresh(true);
+    }
     void refresh();
+    window.addEventListener("popstate", restoreLocation);
     const timer = window.setInterval(whenVisible, 30000);
     window.addEventListener("focus", whenVisible);
     document.addEventListener("visibilitychange", whenVisible);
@@ -104,6 +130,8 @@ export function FloorPanel({
       disposed = true;
       pending?.abort();
       window.clearInterval(timer);
+      window.clearTimeout(copyTimer.current);
+      window.removeEventListener("popstate", restoreLocation);
       window.removeEventListener("focus", whenVisible);
       document.removeEventListener("visibilitychange", whenVisible);
     };
@@ -128,32 +156,46 @@ export function FloorPanel({
       )?.section ?? "main";
     setSelectedSection(section);
     selection.current = { floorId: id, section };
-    window.history.replaceState(
-      window.history.state,
-      "",
+    writeLocation(
       floorLocation(window.location.href, pointId, id, section),
+      "replace",
     );
+    setCopyMessage("");
   }
   function selectSection(section: string) {
     if (!labeled.some((image) => (image.section ?? "main") === section)) return;
     setSelectedSection(section);
     selection.current = { floorId: selectedId, section };
-    window.history.replaceState(
-      window.history.state,
-      "",
+    writeLocation(
       floorLocation(window.location.href, pointId, selectedId, section),
+      "replace",
     );
+    setCopyMessage("");
   }
   function close() {
     expandedRef.current = false;
     setExpanded(false);
     dialog.current?.close();
-    window.history.replaceState(
-      window.history.state,
-      "",
-      floorLocation(window.location.href, pointId, null),
-    );
+    closeFloorLocation(pointId);
     openButton.current?.focus();
+  }
+  async function copyFloorLink() {
+    if (!floor || !asset) return;
+    window.clearTimeout(copyTimer.current);
+    try {
+      await navigator.clipboard.writeText(
+        floorLocation(
+          window.location.href,
+          pointId,
+          floor.id,
+          asset.section ?? "main",
+        ),
+      );
+      setCopyMessage("本层链接已复制");
+    } catch {
+      setCopyMessage("可复制浏览器地址分享本层");
+    }
+    copyTimer.current = window.setTimeout(() => setCopyMessage(""), 2800);
   }
   function selectors(prefix: string) {
     return (
@@ -218,7 +260,22 @@ export function FloorPanel({
             className="floor-entry"
             ref={openButton}
             onClick={() => {
-              selectFloor(selectedId);
+              const returnTo = floorLocation(
+                window.location.href,
+                pointId,
+                null,
+              );
+              writeLocation(
+                floorLocation(
+                  window.location.href,
+                  pointId,
+                  selectedId,
+                  selectedSection,
+                ),
+                "push",
+                window,
+                returnTo,
+              );
               expandedRef.current = true;
               setExpanded(true);
             }}
@@ -248,6 +305,10 @@ export function FloorPanel({
                 <span>楼层平面图</span>
                 <h2 id="floor-dialog-title">{pointName}</h2>
               </div>
+              <button className="floor-back" onClick={copyFloorLink}>
+                <Icon name="link" />
+                <span>复制本层链接</span>
+              </button>
               {onAsk && (
                 <button
                   className="floor-back"
@@ -284,6 +345,7 @@ export function FloorPanel({
                   />
                 )}
                 <footer>
+                  <span role="status">{copyMessage}</span>
                   <span>
                     {floor.label}
                     {asset?.section_label ? ` · ${asset.section_label}` : ""} ·

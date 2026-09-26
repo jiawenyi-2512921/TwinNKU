@@ -129,9 +129,18 @@
 }
 .floor-dialog-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+}
+.floor-dialog-header > div:first-child {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.floor-dialog footer [role="status"]:empty {
+  display: none;
 }
 .floor-dialog-header span {
   font-size: 10px;
