@@ -20,6 +20,10 @@ const code = ts.transpileModule(
   },
 ).outputText;
 const flush = () => new Promise((resolve) => setImmediate(resolve));
+// Independent platform evidence: do not derive the expected bundle from the
+// implementation constant, or changing both sides would hide a regression.
+const suppliedSdkUrl =
+  "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js";
 
 function harness(overrides = {}) {
   const posts = [],
@@ -103,6 +107,7 @@ function harness(overrides = {}) {
 }
 
 test("the real bootstrap initializes exactly once and uses only the supplied SDK contract", async () => {
+  assert.equal(protocol.SDK_URL, suppliedSdkUrl);
   const h = harness();
   h.send({ source: {} });
   h.send({ origin: "https://untrusted.test" });
@@ -113,7 +118,7 @@ test("the real bootstrap initializes exactly once and uses only the supplied SDK
   await flush();
   assert.equal(h.requests.length, 1);
   assert.equal(h.requests[0].init.credentials, "omit");
-  assert.equal(h.scripts[0].src, protocol.SDK_URL);
+  assert.equal(h.scripts[0].src, suppliedSdkUrl);
   assert.equal(h.posts.at(-1).message.type, "loading");
   h.scripts[0].onload();
   await flush();
@@ -129,6 +134,63 @@ test("the real bootstrap initializes exactly once and uses only the supplied SDK
   h.send();
   await flush();
   assert.equal(h.options.length, 1);
+});
+
+test("Full WebClient is used even when a Lite export exists, preserving all four options", async () => {
+  const h = harness({ hide_sidebar: false, context_enabled: false });
+  let liteCalls = 0;
+  h.window.HiagentWebSDK.WebLiteClient = class {
+    constructor() {
+      liteCalls += 1;
+    }
+  };
+  h.send();
+  await flush();
+  h.scripts[0].onload();
+  await flush();
+  assert.equal(liteCalls, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.options)), [
+    {
+      appKey: "public-test-key",
+      baseUrl: "https://coze.nankai.edu.cn",
+      hideSidebar: false,
+      variables: {},
+    },
+  ]);
+  assert.equal(h.posts.at(-1).message.type, "initialized");
+});
+
+test("a Lite-only bundle is incompatible, not an implicit replacement for Full", async () => {
+  const h = harness();
+  let liteCalls = 0;
+  h.window.HiagentWebSDK = {
+    WebLiteClient: class {
+      constructor() {
+        liteCalls += 1;
+      }
+    },
+  };
+  h.send();
+  await flush();
+  h.scripts[0].onload();
+  await flush();
+  assert.equal(liteCalls, 0);
+  assert.equal(h.options.length, 0);
+  assert.equal(h.posts.at(-1).message.type, "error");
+  assert.equal(h.posts.at(-1).message.code, "SDK_INCOMPATIBLE");
+  assert.equal(h.status.hidden, false);
+});
+
+test("a stale Lite API config fails before loading any external script", async () => {
+  const h = harness({
+    sdk_url:
+      "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedLite.js",
+  });
+  h.send();
+  await flush();
+  assert.equal(h.scripts.length, 0);
+  assert.equal(h.options.length, 0);
+  assert.equal(h.posts.at(-1).message.code, "INVALID_CONFIG");
 });
 
 test("context disabled sends the platform's original empty variables object", async () => {
