@@ -39,12 +39,13 @@ def test_postgres_migration_and_seed():
 @pytest.mark.skipif(
     not os.environ.get("TEST_POSTGRES_URL"), reason="requires disposable PostgreSQL"
 )
-@pytest.mark.parametrize("workflow", ["point", "floor"])
+@pytest.mark.parametrize("workflow", ["point", "floor", "workbench"])
 def test_postgres_review_retirement_and_restore(workflow, tmp_path):
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import Session
     from test_admin import exercise_review_workflow, seed_staff
     from test_resources import exercise_floor_workflow, make_resource_point
+    from test_workbench import exercise_workbench
 
     from app.core.config import Settings
     from app.database import get_db
@@ -74,10 +75,13 @@ def test_postgres_review_retirement_and_restore(workflow, tmp_path):
 
                 app.dependency_overrides[get_db] = override_db
                 with TestClient(app) as client:
-                    staff = seed_staff(client, db)
-                    if workflow == "point":
+                    if workflow == "workbench":
+                        exercise_workbench(client, db, tmp_path)
+                    elif workflow == "point":
+                        staff = seed_staff(client, db)
                         exercise_review_workflow(client, staff)
                     else:
+                        staff = seed_staff(client, db)
                         exercise_floor_workflow(client, db, (staff[0], make_resource_point(db)))
             outer.rollback()
     finally:
