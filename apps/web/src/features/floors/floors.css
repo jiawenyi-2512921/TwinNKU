@@ -89,6 +89,8 @@
   background: #f7f6f8ee;
   font-size: 13px;
   color: #6a5973;
+  padding: 20px;
+  text-align: center;
 }
 .floor-image-status button {
   border: 1px solid #cbb5d0;
@@ -96,6 +98,7 @@
   padding: 7px 12px;
   border-radius: 7px;
   cursor: pointer;
+  min-height: 44px;
 }
 .floor-empty {
   text-align: center;
