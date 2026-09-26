@@ -18,6 +18,13 @@ export function Icon({ name, size = 20 }: { name: string; size?: number }) {
       <path d="M20 7v5h-5M4 17v-5h5M5.2 7a8 8 0 0 1 13-1L20 9M4 15l1.8 3a8 8 0 0 0 13-1" />
     ),
     close: <path d="m6 6 12 12M18 6 6 18" />,
+    bookmark: <path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4Z" />,
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
     arrow: <path d="m9 5 7 7-7 7" />,
     pin: (
       <>
