@@ -73,6 +73,29 @@ python3 scripts/verify_floor_release.py https://2512921.cn \
 
 严格验收应输出 `PASS {"buildings": 20, "floors": 96, "images": 100}`。它逐项核对ID/所属建筑/层号/revision/分区/尺寸/格式/字节数/SHA256；少一层、旧版本或图片变动均失败。普通smoke只能证明“现有公开资料可读”，不能独立证明这批96层齐全。
 
+2026-09-26新增完整报告：个别楼层失败后继续检查其他楼层，不必逐个修复后反复重跑才能看全问题。原有双位置参数仍可用；可在已有项目根目录保存一次检查结果：
+
+```bash
+mkdir -p var/checks
+python3 scripts/verify_floor_release.py https://2512921.cn \
+  data/floors/jinnan-v1/labeled-manifest-20260924.json \
+  --json-out var/checks/floors-report.json \
+  --timeout 30 --max-seconds 600
+```
+
+脚本仅GET公开接口和原图，不登录、不导入或发布。JSON即使验收失败也保存，含检查时间、站点、输入清单SHA256、预期/通过数量、每栋/层/分区的`pass/fail/skipped`与原因；退出码0为全部通过、1为检查不通过、2为输入/报告路径错误。报告不能覆盖源清单。报告中的`verified.floors`仅累计元数据和所有分区均通过的楼层，`verified.buildings`仅累计清单所列楼层全部通过的建筑。仍须看顶层`passed`，能力开关失败时不得仅看计数认定通过。
+
+| 报告字段或情况 | 含义与处理 |
+| --- | --- |
+| `http_readable` | `true`为已读完HTTP 200图片响应；`false`为读取未成功；`null`为因元数据/URL问题跳过，不能写成图片已验证 |
+| `metadata_matches` / `bytes_match` | 分别表示尺寸等字段一致、实际MIME/字节数/SHA256一致；字段一致不能替代原图字节校验 |
+| `expected_revision` / `observed_revision` | 区分清单版本与公开版本；版本或绑定不同则跳过该层图片，继续检查其他层 |
+| `additional_floors` | 该建筑中清单之外的公开楼层数量；不作为本批96层的一部分，也不把新加楼层当作错误 |
+| HTTP 3xx、403、404或HTML响应 | 不跟随登录/其他重定向；检查站点、反向代理、公开状态和资源路径 |
+| 后台已审核发布更高revision | 旧清单会不通过，这是版本不匹配，先取得对应的最新审核清单；不要降级或重导旧包覆盖新版 |
+
+标准库脚本支持Python 3.8+语法，当前实际测试环境为3.12。JSON/清单读取上限2 MiB、单图32 MiB，校验不解码重存图片。`--timeout`是网络无响应超时；`--max-seconds`在请求和分块读取之间检查总预算，阻塞读取可能再等待至一次网络超时，它不是操作系统级精确终止时刻。耗尽预算后不再发起新的网络请求，未完成项保留失败/跳过原因。此次代码测试使用本地HTTP服务和API夹具，不表示已经在2512921.cn运行验收。
+
 随后人工核对：公共教学楼A—D分区、体育馆同层A/B/C切换、图书馆实际层号、第20栋C区、手机缩放与大图关闭、楼层分享。图像文字供查阅，不代表已有可点击房间或导航路径。
 
 ## 5. 启用后台维护
