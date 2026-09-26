@@ -5,8 +5,8 @@
 业务约束见21—29；接口上线前必须先处理24中的协议缺口和旧角色命名，不能猜学校平台API。
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
-接口操作数：82；状态统计：{"implemented": 46, "planned": 36}。
-契约SHA256：`a3c923e1243976a0081a7f62cef655fad68c9512b6686f6fa23fc80ef64b3ea2`。
+接口操作数：84；状态统计：{"implemented": 48, "planned": 36}。
+契约SHA256：`5fd326285a2c16746d1473c195ac7433e69b0a9094cd65c36969a5c600a5eee4`。
 
 ## 1. 全部端点
 
@@ -17,6 +17,7 @@
 | POST | `/api/v1/admin/auth/logout` | staffLogout | implemented | staff | — | 200: application/json Envelope_ActionResult_ |
 | POST | `/api/v1/admin/auth/password` | changeStaffPassword | implemented | staff | application/json: StaffPasswordChange | 200: application/json Envelope_ActionResult_ |
 | GET | `/api/v1/admin/campuses` | listStaffCampuses | implemented | staff | — | 200: application/json Envelope_list_Campus__ |
+| GET | `/api/v1/admin/changes` | listAdminChanges | implemented | staff | — | 200: application/json Envelope_list_AdminChangeItem__ |
 | GET | `/api/v1/admin/floor-images/{upload_id}` | previewUploadedFloor | implemented | staff | — | 见契约响应 |
 | GET | `/api/v1/admin/inquiries` | listAdminInquiries | planned | analyst | — | 200: application/json Envelope_list_AdminInquiry__ |
 | GET | `/api/v1/admin/inquiries/stats` | getInquiryStats | planned | analyst | — | 200: application/json Envelope_InquiryStats_ |
@@ -56,6 +57,7 @@
 | GET | `/api/v1/admin/users` | listStaffUsers | implemented | staff | — | 200: application/json Envelope_list_StaffUser__ |
 | POST | `/api/v1/admin/users` | createStaffUser | implemented | staff | application/json: StaffUserCreate | 201: application/json Envelope_StaffUser_ |
 | PUT | `/api/v1/admin/users/{user_id}` | updateStaffUser | implemented | staff | application/json: StaffUserUpdate | 200: application/json Envelope_StaffUser_ |
+| GET | `/api/v1/admin/workbench` | getAdminWorkbench | implemented | staff | — | 200: application/json Envelope_AdminWorkbench_ |
 | GET | `/api/v1/agent/web-config` | getAgentWebConfig | implemented | public | — | 200: application/json Envelope_AgentWebConfig_ |
 | POST | `/api/v1/auth/guest-session` | createGuestSession | planned | public | — | 201: application/json Envelope_GuestSession_ |
 | GET | `/api/v1/auth/me` | getIdentity | planned | guest_session | — | 200: application/json Envelope_Identity_ |
@@ -104,6 +106,8 @@
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
 | point_id | query | 否 | string (uuid) / null | —; — |
+| category | query | 否 | point / resource / user / session / null | —; — |
+| q | query | 否 | string | 最长: 120; 默认: "" |
 | page | query | 否 | integer | 最小: 1; 默认: 1 |
 | page_size | query | 否 | integer | 最小: 1; 最大: 100; 默认: 25 |
 
@@ -126,6 +130,18 @@
 | --- | --- | --- | --- | --- |
 | Origin | header | 是 | string | — |
 | X-CSRF-Token | header | 是 | string | — |
+
+### GET /api/v1/admin/changes
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| state | query | 否 | draft / in_review / rejected / published / discarded / null | 默认: "in_review"; —; — |
+| kind | query | 否 | point / floor / panorama / null | —; — |
+| q | query | 否 | string | 最长: 120; 默认: "" |
+| mine | query | 否 | boolean | 默认: false |
+| order | query | 否 | oldest / newest | 默认: "oldest" |
+| page | query | 否 | integer | 最小: 1; 默认: 1 |
+| page_size | query | 否 | integer | 最小: 1; 最大: 100; 默认: 20 |
 
 ### GET /api/v1/admin/floor-images/{upload_id}
 
@@ -280,6 +296,8 @@
 | --- | --- | --- | --- | --- |
 | point_id | query | 否 | string (uuid) / null | —; — |
 | state | query | 否 | draft / in_review / rejected / null | —; — |
+| kind | query | 否 | floor / panorama / null | —; — |
+| q | query | 否 | string | 最长: 120; 默认: "" |
 | page | query | 否 | integer | 最小: 1; 默认: 1 |
 | page_size | query | 否 | integer | 最小: 1; 最大: 100; 默认: 50 |
 
@@ -612,6 +630,29 @@
 | --- | --- | --- | --- |
 | ok | 否 | boolean | 默认: true |
 
+### AdminChangeItem
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| campus_id | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
+| can_review | 是 | boolean | — |
+| editor_name | 是 | string | — |
+| id | 是 | string (uuid) | — |
+| is_mine | 是 | boolean | — |
+| kind | 是 | point / floor / panorama | — |
+| operation | 是 | upsert / retire | — |
+| point_id | 是 | string (uuid) | — |
+| point_name | 是 | string | — |
+| review_note | 是 | string | — |
+| revision | 是 | integer | 最小: 1.0 |
+| state | 是 | draft / in_review / rejected / published / discarded | — |
+| submitted_at | 是 | string (date-time) / null | —; — |
+| submitted_by_name | 是 | string / null | —; — |
+| title | 是 | string | — |
+| updated_at | 是 | string (date-time) | — |
+
 ### AdminInquiry
 
 未知字段：拒绝。
@@ -693,6 +734,19 @@
 | title | 是 | string | 最短: 1; 最长: 200 |
 | visibility | 是 | Visibility | — |
 
+### AdminWorkbench
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| draft_count | 是 | integer | 最小: 0.0 |
+| my_pending_count | 是 | integer | 最小: 0.0 |
+| pending_by_kind | 是 | object | — |
+| pending_count | 是 | integer | 最小: 0.0 |
+| point_count | 是 | integer | 最小: 0.0 |
+| rejected_count | 是 | integer | 最小: 0.0 |
+
 ### AgentAction
 
 未知字段：拒绝。
@@ -737,6 +791,7 @@
 | id | 是 | string (uuid) | — |
 | note | 是 | string | — |
 | point_id | 是 | string (uuid) / null | —; — |
+| point_name | 否 | string / null | —; — |
 
 ### Body_uploadFile
 
@@ -887,6 +942,15 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | data | 是 | AdminSource | — |
+| meta | 是 | Meta | — |
+
+### Envelope_AdminWorkbench_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | AdminWorkbench | — |
 | meta | 是 | Meta | — |
 
 ### Envelope_AgentWebConfig_
@@ -1094,6 +1158,15 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | data | 是 | UploadedFile | — |
+| meta | 是 | Meta | — |
+
+### Envelope_list_AdminChangeItem__
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | array<AdminChangeItem> | — |
 | meta | 是 | Meta | — |
 
 ### Envelope_list_AdminInquiry__
