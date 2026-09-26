@@ -1,5 +1,7 @@
 # Twin NKU
 
+**2026-09-26 持续开发：**按用户要求暂停智能体接入，新增地点收藏、最近浏览、名称/别名优先搜索、浏览器返回恢复地点与楼层、楼层/分区链接复制。此增量只需更新前端；开发记录、部署与验收见[36持续开发](docs/36-continuous-development.md)。收藏记录仅存当前浏览器，不能作为真实试用成效统计。
+
 **2026-09-25 小开接入：**已实现 NK-GeniOS WebSDK 独立聊天面板、点位/楼层提问入口、公开上下文开关、只读校园插件、导览链接与知识导出脚本。部署需同时更新 API 和 web，见 [32接入部署](docs/32-nk-genios-web-release.md)；你在平台需要配置的知识库、提示词、六个工具、十个变量与评测见 [33完整操作清单](docs/33-nk-genios-platform-setup.md)。真实学校平台联调、访客访问和手机视觉待部署验收；后端聊天API/自动动作仍未实现。
 
 **2026-09-26 修复：**按平台重新提供的代码统一恢复 Full SDK，补充防止误切Lite的测试，保留最近地图坐标校正。平台“接口说明”失效时的接入办法、凭据区别及校方确认清单见 [35 API与访问排查](docs/35-nk-genios-api-access.md)。代码修复不等于校外访问权限或服务器部署已经完成。
@@ -37,6 +39,7 @@
 | [33 NK-GeniOS配置](docs/33-nk-genios-platform-setup.md) | 提示词、知识库、插件、变量、发布与100题评测 |
 | [34 离线提交包备用](docs/34-offline-delivery.md) | 离线bundle导入与CI验证；已从远程取得代码时无需导入 |
 | [35 API与访问排查](docs/35-nk-genios-api-access.md) | 文档失效替代材料、凭据边界、学校访问策略与后端接入门槛 |
+| [36 持续开发记录](docs/36-continuous-development.md) | 非智能体迭代、收藏/最近浏览、导航恢复、验收与下一任务 |
 
 部署后可运行 `python3 scripts/check_nk_genios.py --base-url https://2512921.cn --expect-enabled`，只读检查嵌入配置、页面与CSP、校园插件接口；不输出凭据。完整参数及平台真实问答验收见32。
 
