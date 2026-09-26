@@ -1,4 +1,40 @@
 // Sharing uses the visible, validated selection. Unrelated URL parameters survive.
+type NavigationPort = Pick<Window, "history" | "location">;
+
+// User choices enter history; background reconciliation only replaces it.
+export function writeLocation(
+  href: string,
+  mode: "push" | "replace" = "push",
+  target: NavigationPort = window,
+  floorReturnTo?: string,
+): void {
+  if (href === target.location.href) return;
+  const before: unknown = target.history.state;
+  const state: Record<string, unknown> =
+    before && typeof before === "object" && !Array.isArray(before)
+      ? { ...before }
+      : {};
+  if (mode === "push") {
+    delete state.twinnkuFloorReturn;
+    if (floorReturnTo) state.twinnkuFloorReturn = floorReturnTo;
+    target.history.pushState(state, "", href);
+  } else target.history.replaceState(state, "", href);
+}
+
+export function closeFloorLocation(
+  pointId: string,
+  target: NavigationPort = window,
+): void {
+  const current = target.location.href;
+  const destination = floorLocation(current, pointId, null);
+  if (destination === current) return;
+  // Only go back for an entry opened by this viewer. A direct shared link must
+  // never send the visitor back to an unrelated website.
+  if (target.history.state?.twinnkuFloorReturn === destination)
+    target.history.back();
+  else writeLocation(destination, "replace", target);
+}
+
 export function pointLocation(href: string, pointId: string | null): string {
   const url = new URL(href);
   if (!pointId || url.searchParams.get("point") !== pointId) {
@@ -55,7 +91,8 @@ export function resolveFloor(
   );
 }
 
-// Preloading does not open the viewer; only the initial matching link may open it.
+// A location snapshot is authoritative on initial load and browser Back/Forward.
+// Polling passes null and preserves the current viewer state.
 export function reconcileFloorView<
   T extends {
     id: string;
@@ -89,7 +126,13 @@ export function reconcileFloorView<
     floors,
     floorId,
     section: image?.section ?? "main",
-    expanded: Boolean(floorId && (previous.expanded || fromLink)),
-    syncLocation: Boolean(fromLink || previous.expanded || !floorId),
+    expanded: Boolean(floorId && (initialLink ? fromLink : previous.expanded)),
+    syncLocation: Boolean(
+      initialLink
+        ? fromLink ||
+            (initialLink.get("point") === pointId &&
+              initialLink.has("floor_section"))
+        : previous.expanded || !floorId,
+    ),
   };
 }
