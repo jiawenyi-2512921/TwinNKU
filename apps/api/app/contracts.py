@@ -85,8 +85,8 @@ class AgentWebConfig(DTO):
     # Deliberately public, unlike nk_genios_api_key, which is never serialized.
     app_key: str | None = None
     base_url: Literal["https://coze.nankai.edu.cn"] = "https://coze.nankai.edu.cn"
-    sdk_url: Literal["https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js"] = (
-        "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js"
+    sdk_url: Literal["https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedLite.js"] = (
+        "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedLite.js"
     )
     hide_sidebar: bool = True
     context_enabled: bool = False
