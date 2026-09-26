@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Changes */
+        get: operations["listAdminChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/floor-images/{upload_id}": {
         parameters: {
             query?: never;
@@ -678,6 +695,23 @@ export interface paths {
         get?: never;
         /** Update User */
         put: operations["updateStaffUser"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/workbench": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Workbench */
+        get: operations["getAdminWorkbench"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1390,6 +1424,59 @@ export interface components {
              */
             ok: boolean;
         };
+        /** AdminChangeItem */
+        AdminChangeItem: {
+            /** Campus Id */
+            campus_id: string;
+            /** Can Review */
+            can_review: boolean;
+            /** Editor Name */
+            editor_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Mine */
+            is_mine: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "point" | "floor" | "panorama";
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "upsert" | "retire";
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Point Name */
+            point_name: string;
+            /** Review Note */
+            review_note: string;
+            /** Revision */
+            revision: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "draft" | "in_review" | "rejected" | "published" | "discarded";
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Submitted By Name */
+            submitted_by_name: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** AdminInquiry */
         AdminInquiry: {
             /**
@@ -1504,6 +1591,23 @@ export interface components {
             title: string;
             visibility: components["schemas"]["Visibility"];
         };
+        /** AdminWorkbench */
+        AdminWorkbench: {
+            /** Draft Count */
+            draft_count: number;
+            /** My Pending Count */
+            my_pending_count: number;
+            /** Pending By Kind */
+            pending_by_kind: {
+                [key: string]: number;
+            };
+            /** Pending Count */
+            pending_count: number;
+            /** Point Count */
+            point_count: number;
+            /** Rejected Count */
+            rejected_count: number;
+        };
         /** AgentAction */
         AgentAction: {
             /**
@@ -1602,6 +1706,8 @@ export interface components {
             note: string;
             /** Point Id */
             point_id: string | null;
+            /** Point Name */
+            point_name?: string | null;
         };
         /** Body_uploadFile */
         Body_uploadFile: {
@@ -1769,6 +1875,11 @@ export interface components {
             data: components["schemas"]["AdminSource"];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[AdminWorkbench] */
+        Envelope_AdminWorkbench_: {
+            data: components["schemas"]["AdminWorkbench"];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[AgentWebConfig] */
         Envelope_AgentWebConfig_: {
             data: components["schemas"]["AgentWebConfig"];
@@ -1882,6 +1993,12 @@ export interface components {
         /** Envelope[UploadedFile] */
         Envelope_UploadedFile_: {
             data: components["schemas"]["UploadedFile"];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[list[AdminChangeItem]] */
+        Envelope_list_AdminChangeItem__: {
+            /** Data */
+            data: components["schemas"]["AdminChangeItem"][];
             meta: components["schemas"]["Meta"];
         };
         /** Envelope[list[AdminInquiry]] */
@@ -3198,6 +3315,8 @@ export interface operations {
         parameters: {
             query?: {
                 point_id?: string | null;
+                category?: ("point" | "resource" | "user" | "session") | null;
+                q?: string;
                 page?: number;
                 page_size?: number;
             };
@@ -3611,6 +3730,70 @@ export interface operations {
             };
             /** @description Too Many Requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listAdminChanges: {
+        parameters: {
+            query?: {
+                state?: ("draft" | "in_review" | "rejected" | "published" | "discarded") | null;
+                kind?: ("point" | "floor" | "panorama") | null;
+                q?: string;
+                mine?: boolean;
+                order?: "oldest" | "newest";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_AdminChangeItem__"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5859,6 +6042,8 @@ export interface operations {
             query?: {
                 point_id?: string | null;
                 state?: ("draft" | "in_review" | "rejected") | null;
+                kind?: ("floor" | "panorama") | null;
+                q?: string;
                 page?: number;
                 page_size?: number;
             };
@@ -7398,6 +7583,62 @@ export interface operations {
             };
             /** @description Too Many Requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getAdminWorkbench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminWorkbench_"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
