@@ -11,7 +11,10 @@ import {
   watchCatalogChanges,
 } from "../shared/catalogSync";
 import { Icon } from "../shared/ui/Icon";
-import { pointLocation } from "../shared/navigation";
+import { pointLocation, writeLocation } from "../shared/navigation";
+import { usePlaceMemory } from "../features/places/usePlaceMemory";
+import { findPlaces, type PlaceScope } from "../features/places/search";
+import { PlaceDirectory } from "../features/places/PlaceDirectory";
 import { MapCanvas } from "../features/map/MapCanvas";
 import { AgentDock, type AgentRequest } from "../features/agent/AgentDock";
 import { useAgentConfig } from "../features/agent/useAgentConfig";
@@ -20,11 +23,7 @@ import {
   safeContext,
   type AgentContext,
 } from "../features/agent/protocol";
-import {
-  PointDetails,
-  categoryLabels,
-  pointIcon,
-} from "../features/points/PointDetails";
+import { PointDetails } from "../features/points/PointDetails";
 
 const categories = [
   "all",
@@ -50,6 +49,11 @@ export function App() {
   const refresh = useRef<() => void>(() => {});
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("all");
+  const [scope, setScope] = useState<PlaceScope>("all");
+  const [placeMessage, setPlaceMessage] = useState("");
+  const memory = usePlaceMemory(catalog?.campus.id ?? "nku-jinnan");
+  const catalogRef = useRef(catalog);
+  catalogRef.current = catalog;
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get("point"),
   );
@@ -64,11 +68,7 @@ export function App() {
     setSelectedId(id);
     setShowList(false);
     setShowHelp(false);
-    window.history.replaceState(
-      window.history.state,
-      "",
-      pointLocation(window.location.href, id),
-    );
+    writeLocation(pointLocation(window.location.href, id));
   }, []);
   const closeDetails = useCallback(() => {
     selectPoint(null);
@@ -85,7 +85,14 @@ export function App() {
       apply: (next) => {
         setCatalog((previous) => reconcileCatalog(previous, next));
         const retained = availableSelection(next, selectedRef.current);
-        if (retained !== selectedRef.current) selectPoint(retained);
+        if (retained !== selectedRef.current) {
+          selectedRef.current = retained;
+          setSelectedId(retained);
+          writeLocation(
+            pointLocation(window.location.href, retained),
+            "replace",
+          );
+        }
         setStatus(next?.map ? "ready" : "empty");
         setLastChecked(new Date());
       },
@@ -101,7 +108,26 @@ export function App() {
       unwatch();
       sync.dispose();
     };
-  }, [selectPoint]);
+  }, []);
+
+  useEffect(() => {
+    function restoreLocation() {
+      const requested = new URLSearchParams(window.location.search).get(
+        "point",
+      );
+      const current = catalogRef.current;
+      const id = current ? availableSelection(current, requested) : requested;
+      selectedRef.current = id;
+      setSelectedId(id);
+      setShowList(false);
+      setShowHelp(false);
+      if (current && requested !== id) {
+        writeLocation(pointLocation(window.location.href, id), "replace");
+      }
+    }
+    window.addEventListener("popstate", restoreLocation);
+    return () => window.removeEventListener("popstate", restoreLocation);
+  }, []);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -137,15 +163,26 @@ export function App() {
   }, [showHelp, showList, closeDetails]);
 
   const points = catalog?.points ?? [];
-  const filtered = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase();
-    return points.filter(
-      (p) =>
-        (category === "all" || p.category === category) &&
-        [p.name, ...p.aliases].some((s) => s.toLocaleLowerCase().includes(q)),
-    );
-  }, [points, query, category]);
+  const filtered = useMemo(
+    () =>
+      findPlaces(
+        points,
+        query,
+        category,
+        scope === "all" ? undefined : memory.places[scope],
+      ),
+    [points, query, category, scope, memory.places],
+  );
   const selected = points.find((p) => p.id === selectedId);
+  const recordPlace = memory.dispatch;
+  useEffect(() => {
+    if (selected?.id) recordPlace({ type: "visit", id: selected.id });
+  }, [selected?.id, recordPlace]);
+  function toggleFavorite(id: string) {
+    if (!points.some((point) => point.id === id)) return;
+    const result = memory.dispatch({ type: "favorite", id });
+    setPlaceMessage(result === "limit" ? "收藏已满，请先取消部分收藏。" : "");
+  }
   const agentContext = safeContext({
     ...EMPTY_CONTEXT,
     campus_id: catalog?.campus.id ?? "",
@@ -203,6 +240,8 @@ export function App() {
               maxLength={120}
               placeholder="搜索地点，如图书馆"
               autoComplete="off"
+              aria-controls="place-directory"
+              aria-expanded={showList}
               onFocus={() => {
                 setShowList(true);
                 setShowHelp(false);
@@ -212,6 +251,12 @@ export function App() {
                 setShowList(true);
               }}
               onKeyDown={(e) => {
+                if (e.key === "ArrowDown" && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  document
+                    .querySelector<HTMLButtonElement>("[data-place-result]")
+                    ?.focus();
+                }
                 if (e.key === "Enter" && e.nativeEvent.isComposing)
                   e.preventDefault();
               }}
@@ -265,6 +310,9 @@ export function App() {
               拖动或双指缩放，点击图上已命名的地点。也可以搜索名称或展开目录。
             </p>
             <p>按 / 搜索，按 Esc 返回。楼层图可放大到原尺寸查看。</p>
+            <p>
+              在地点目录切换“我的收藏”或“最近浏览”，快速回到看过的地点。浏览器后退可恢复上一个地点或楼层。
+            </p>
             <button
               className="refresh-button"
               onClick={() => refresh.current()}
@@ -323,85 +371,44 @@ export function App() {
             </div>
           )}
           {showList && (
-            <aside
-              id="place-directory"
-              className="place-directory"
-              aria-label="地点目录"
-            >
-              <header className="directory-heading">
-                <div>
-                  <h2>{query.trim() ? "搜索结果" : "探索地点"}</h2>
-                  <span role="status">{filtered.length} 个地点</span>
-                </div>
-                <button
-                  className="icon-button"
-                  aria-label="收起地点目录"
-                  onClick={closeList}
-                >
-                  <Icon name="close" />
-                </button>
-              </header>
-              <div className="category-filters" aria-label="按地点类型筛选">
-                {groups.map((c) => (
-                  <button
-                    key={c}
-                    aria-pressed={category === c}
-                    onClick={() => setCategory(c)}
-                  >
-                    {c === "all" ? "全部" : categoryLabels[c]}
-                  </button>
-                ))}
-              </div>
-              <div className="point-list-scroll">
-                <ul className="point-list">
-                  {filtered.map((p) => (
-                    <li key={p.id}>
-                      <button
-                        className={`point-row${selectedId === p.id ? " active" : ""}`}
-                        aria-pressed={selectedId === p.id}
-                        onClick={() => selectPoint(p.id)}
-                      >
-                        <span className="point-symbol">
-                          <Icon name={pointIcon(p)} size={21} />
-                        </span>
-                        <span className="point-row-text">
-                          <strong>{p.name}</strong>
-                          <small>{categoryLabels[p.category]}</small>
-                        </span>
-                        <Icon name="arrow" size={16} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {status === "ready" && !filtered.length && (
-                  <div className="no-results">
-                    <strong>没有找到这个地点</strong>
-                    <p>试试其他名称，或清除分类筛选。</p>
-                    <button
-                      className="text-button"
-                      onClick={() => {
-                        setQuery("");
-                        setCategory("all");
-                        search.current?.focus();
-                      }}
-                    >
-                      查看全部地点
-                    </button>
-                  </div>
-                )}
-                {status === "loading" && (
-                  <p className="list-loading" role="status">
-                    <span className="spinner" /> 正在读取地点…
-                  </p>
-                )}
-              </div>
-            </aside>
+            <PlaceDirectory
+              points={filtered}
+              selectedId={selectedId}
+              favorites={memory.places.favorites}
+              recentCount={memory.places.recent.length}
+              memoryOnly={memory.memoryOnly}
+              query={query}
+              category={category}
+              groups={groups}
+              scope={scope}
+              status={status}
+              onScope={setScope}
+              onCategory={setCategory}
+              onSelect={selectPoint}
+              onFavorite={toggleFavorite}
+              onClearRecent={() => memory.dispatch({ type: "clear-recent" })}
+              onReset={() => {
+                setQuery("");
+                setCategory("all");
+                setScope("all");
+                search.current?.focus();
+              }}
+              onRetry={() => refresh.current()}
+              onClose={closeList}
+            />
+          )}
+          {placeMessage && (
+            <div className="place-message" role="status">
+              {placeMessage}
+            </div>
           )}
           {selected && !showList && (
             <PointDetails
               key={selected.id}
               point={selected}
               onClose={closeDetails}
+              saved={memory.places.favorites.includes(selected.id)}
+              onFavorite={() => toggleFavorite(selected.id)}
               onAsk={agentConfig?.enabled ? askAgent : undefined}
             />
           )}
