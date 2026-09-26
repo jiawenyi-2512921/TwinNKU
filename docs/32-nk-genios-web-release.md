@@ -2,6 +2,8 @@
 
 日期：2026-09-25。对应用户提供的 `embedFull.js` 与 `HiagentWebSDK.WebClient` 代码。业务分支 `feat/admin-console`；本次不连接服务器、不导入地图、不修改生产资料。平台配置步骤见 [33](33-nk-genios-platform-setup.md)。
 
+2026-09-26修订：按用户再次提供的Full SDK代码纠正远程 `0b25f5e` 的Lite切换；前端、后端公开配置和部署自检统一为Full，并增加协议回归测试。保留已校正点位和嵌入页worker策略。平台“接口说明”已失效时，按[35](35-nk-genios-api-access.md)取得替代证据；不尝试猜测后端鉴权或端点。
+
 交付渠道：本轮通过用户已登录的GitHub网页提交至 `feat/admin-console`。检查最新完整提交的 `contracts-and-tests` 与 `compose-smoke` 均通过后，按下面步骤拉取该分支并更新服务器。[34](34-offline-delivery.md)保留离线包导入方法；已拉取本轮远程代码时不要重复导入。服务器尚未由Codex部署，真实学校SDK和访客访问仍需验收。
 
 ## 1. 本轮交付
@@ -93,6 +95,8 @@ curl -fsSI https://2512921.cn/agent/embed.html
 
 返回配置应有 `enabled: true`；校园接口中选实际校区 ID 再查询地点。域名白名单、智能体发布和 NK-GeniOS 配置按 [33](33-nk-genios-platform-setup.md) 完成。
 
+本次修复后 `sdk_url` 必须是上文的 `embedFull.js`。若仍是 `embedLite.js`，先核对是否真的重建并重新创建了API容器；只刷新浏览器或只更新web不能修复旧API配置。前后端不一致时会显示 `INVALID_CONFIG`，不会静默尝试另一套SDK。`NK_GENIOS_WEB_HIDE_SIDEBAR=false` 可保留平台侧边栏；true是本网站嵌入布局的默认选择，不改变鉴权方式。
+
 也可用本轮新增的只读自检汇总上述检查，并检查嵌入HTML/脚本、实际响应中的多条CSP、六个公开插件接口和导览链接目标：
 
 ```bash
@@ -108,11 +112,13 @@ python3 scripts/check_nk_genios.py \
 
 `PASS`表示该项检查通过，`FAIL`使退出码为1，`WARN`需要阅读原因，`SKIP`表示未执行。没有公开点位时会明确跳过四个点位工具，不能作为六工具全通过证明。平台真实聊天始终列为手工验收；即使退出码为0，也不是全部发布验收完成。
 
-先检测容器内部入口时，用 `--base-url http://127.0.0.1:8080`；再检查外部HTTPS域名，才能发现外层代理额外添加的CSP。未开聊天开关时可省略 `--expect-enabled`，报告会提示关闭状态。CI的compose-smoke已加入本脚本，但该提交的远程CI尚未运行。
+先检测容器内部入口时，用 `--base-url http://127.0.0.1:8080`；再检查外部HTTPS域名，才能发现外层代理额外添加的CSP。未开聊天开关时可省略 `--expect-enabled`，报告会提示关闭状态。CI的compose-smoke已加入本脚本；2026-09-25完整交付 `32ec45a` 的两项CI曾通过，后续 `0b25f5e` 因OpenAPI漂移失败。部署必须检查本次修复的最新完整提交，历史绿勾不能替代当前结果。
 
 ## 5. CSP 与 iframe
 
 主地图和管理后台继续使用原有 CSP。仅 `/agent/embed.html` 允许学校域名脚本、连接、iframe；不允许任意域名脚本、内联脚本或 unsafe-eval。内嵌容器允许该 SDK 所需的内联样式，例外只作用于此文档。
+
+保留嵌入页已有的 `worker-src 'self' blob: https://coze.nankai.edu.cn`，不扩大到主地图或管理后台。CSP放行不等于学校登录、配额、网络和会话权限已通过。
 
 若服务器外层 HTTPS Nginx/CDN 又添加了一条更严格 CSP，浏览器会同时执行多条策略，仅更新 Docker 内的配置可能仍被阻断。按浏览器控制台的具体违规项，对同一 `/agent/embed.html` 路径应用配套策略；不要删除整个网站 CSP 或添加通配符。额外资源域名只有取得平台实际请求证据后才加入。
 
