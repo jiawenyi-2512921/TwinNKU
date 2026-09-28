@@ -134,8 +134,9 @@ export function FloorPanel({
   }, [pointId, retry]);
 
   useEffect(() => {
-    if (expanded) dialog.current?.showModal();
-    else if (dialog.current?.open) dialog.current.close();
+    // Keep the persistent voice guide available while a floor is displayed.
+    if (expanded && !dialog.current?.open) dialog.current?.show();
+    else if (!expanded && dialog.current?.open) dialog.current.close();
   }, [expanded, status]);
 
   const floor = floors.find((f) => f.id === selectedId);
@@ -294,7 +295,13 @@ export function FloorPanel({
               expandedRef.current = false;
               setExpanded(false);
             }}
-            onKeyDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Escape") {
+                e.preventDefault();
+                close();
+              }
+            }}
           >
             <header className="floor-dialog-header">
               <div>
@@ -309,7 +316,6 @@ export function FloorPanel({
                 <button
                   className="floor-back"
                   onClick={() => {
-                    close();
                     onAsk({
                       floor_id: floor.id,
                       floor_label: floor.label,
