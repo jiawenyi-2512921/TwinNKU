@@ -28,6 +28,7 @@ def build():
     schemas["ChatEvent"] = event_schema
     spec["components"].setdefault("securitySchemes", {}).update(
         {
+            "AgentCookie": {"type": "apiKey", "in": "cookie", "name": "twinnku_agent"},
             "SessionCookie": {
                 "type": "apiKey",
                 "in": "cookie",
@@ -41,7 +42,7 @@ def build():
             auth = operation.get("x-auth", "public")
             if auth not in {"public", "resource_policy"}:
                 operation["security"] = [
-                    {"StaffCookie" if auth == "staff" else "SessionCookie": []}
+                    {"StaffCookie" if auth == "staff" else "AgentCookie" if auth == "agent" else "SessionCookie": []}
                 ]
             if (
                 method in {"post", "put", "patch", "delete"}
