@@ -20,7 +20,7 @@ def db():
         connection.execute(
             text("CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY)")
         )
-        connection.execute(text("INSERT INTO alembic_version VALUES ('0006_navigation')"))
+        connection.execute(text("INSERT INTO alembic_version VALUES ('0007_experiences')"))
     with Session(engine) as session:
         session.add(
             CampusRecord(id="nku-jinnan", name="南开大学津南校区", description="校园文化导览")
