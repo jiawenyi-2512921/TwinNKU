@@ -7,8 +7,9 @@ import type {
   Point,
   RouteSegment,
 } from "../../shared/api/client";
-import { Icon } from "../../shared/ui/Icon";
+import type { RoutePickMode } from "./NavigationPanel";
 import { imageBounds, toMapPoint } from "./coordinates";
+import { appendMapLabelCorrections } from "./labelCorrections";
 
 type Props = {
   info: MapInfo;
@@ -17,6 +18,12 @@ type Props = {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   routeSegments?: RouteSegment[];
+  routePickMode?: RoutePickMode;
+  routeStartId?: string | null;
+  routeEndId?: string | null;
+  routeAvailablePointIds?: string[];
+  onRoutePick?: (id: string) => void;
+  onRoutePickCancel?: () => void;
 };
 
 export function MapCanvas({
@@ -26,6 +33,12 @@ export function MapCanvas({
   selectedId,
   onSelect,
   routeSegments = [],
+  routePickMode = null,
+  routeStartId = null,
+  routeEndId = null,
+  routeAvailablePointIds = [],
+  onRoutePick,
+  onRoutePickCancel,
 }: Props) {
   const element = useRef<HTMLDivElement>(null);
   const instance = useRef<L.Map | null>(null);
@@ -33,7 +46,12 @@ export function MapCanvas({
   const select = useRef(onSelect);
   select.current = onSelect;
   const [tileError, setTileError] = useState(false);
-  const [zoom, setZoom] = useState(0);
+  const routePick = useRef({
+    mode: routePickMode,
+    onRoutePick,
+    onRoutePickCancel,
+  });
+  routePick.current = { mode: routePickMode, onRoutePick, onRoutePickCancel };
 
   useEffect(() => {
     if (!element.current || !info.tiles) return;
@@ -63,7 +81,6 @@ export function MapCanvas({
     }).addTo(map);
     tileLayer.current = layer;
     layer.on("tileerror", () => setTileError(true));
-    map.on("zoomend", () => setZoom(map.getZoom()));
     const resize = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     resize.observe(element.current);
     map.fitBounds(imageBounds(info), { padding: [18, 18], animate: false });
@@ -105,40 +122,60 @@ export function MapCanvas({
     )) {
       const point = byId.get(feature.point_id)!;
       const selected = selectedId === point.id;
+      const eligible = routeAvailablePointIds.includes(point.id);
+      const endpoint = routeStartId === point.id || routeEndId === point.id;
+      const showCandidate = Boolean(routePickMode && eligible);
+      const color = routeStartId === point.id ? "#18785f" : "#713573";
       const base = {
-        color: "#713573",
-        weight: selected ? 2.5 : 1.5,
-        opacity: selected ? 1 : 0,
-        fillColor: "#9251a1",
-        fillOpacity: selected ? 0.2 : 0,
+        color,
+        weight: selected || endpoint ? 2.5 : 1.5,
+        opacity: selected || endpoint || showCandidate ? 1 : 0,
+        fillColor: color,
+        fillOpacity: selected || endpoint ? 0.2 : showCandidate ? 0.12 : 0,
       };
       const polygon = L.polygon(
         feature.polygon.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
         { ...base, bubblingMouseEvents: false },
       ).addTo(outlines);
       const tooltip = document.createElement("span");
-      tooltip.textContent = point.name;
+      tooltip.textContent = routePickMode
+        ? `${point.name}${eligible ? ` · 设为${routePickMode === "start" ? "起点" : "终点"}` : " · 暂无可用入口"}`
+        : point.name;
       polygon.bindTooltip(tooltip, {
         direction: "top",
         className: "point-tooltip",
         sticky: true,
       });
-      polygon.on("click", () => select.current(point.id));
+      const activate = () => {
+        if (routePick.current.mode) {
+          // Never open details while choosing an endpoint. The panel validates
+          // availability again before accepting the clicked public point.
+          routePick.current.onRoutePick?.(point.id);
+        } else select.current(point.id);
+      };
+      polygon.on("click", activate);
       polygon.on("mouseover", () =>
         polygon.setStyle({ fillOpacity: 0.24, opacity: 1 }),
       );
       polygon.on("mouseout", () => polygon.setStyle(base));
       const path = polygon.getElement();
       if (path) {
-        path.setAttribute("tabindex", "0");
+        path.setAttribute("tabindex", routePickMode && !eligible ? "-1" : "0");
         path.setAttribute("role", "button");
-        path.setAttribute("aria-label", `查看${point.name}`);
-        path.setAttribute("aria-pressed", String(selected));
+        path.setAttribute(
+          "aria-label",
+          routePickMode
+            ? `${point.name}，${eligible ? `设为${routePickMode === "start" ? "起点" : "终点"}` : "暂无可用入口"}`
+            : `查看${point.name}`,
+        );
+        if (routePickMode && !eligible)
+          path.setAttribute("aria-disabled", "true");
+        path.setAttribute("aria-pressed", String(selected || endpoint));
         path.addEventListener("keydown", (event) => {
           const key = (event as KeyboardEvent).key;
           if (key === "Enter" || key === " ") {
             event.preventDefault();
-            select.current(point.id);
+            activate();
           }
         });
         path.addEventListener("focus", () => {
@@ -154,7 +191,64 @@ export function MapCanvas({
     return () => {
       outlines.remove();
     };
-  }, [info, features, points, selectedId]);
+  }, [
+    info,
+    features,
+    points,
+    selectedId,
+    routePickMode,
+    routeStartId,
+    routeEndId,
+    routeAvailablePointIds,
+  ]);
+
+  useEffect(() => {
+    const map = instance.current;
+    if (
+      !map ||
+      !info.tiles ||
+      features.map_id !== info.id ||
+      features.map_revision !== info.revision
+    )
+      return;
+    const markers = L.layerGroup().addTo(map);
+    for (const [id, label, kind] of [
+      [routeStartId, "起点", "start"],
+      [routeEndId, "终点", "end"],
+    ]) {
+      const feature = features.points.find(
+        (item) =>
+          item.point_id === id &&
+          item.map_id === info.id &&
+          item.map_revision === info.revision,
+      );
+      const point = points.find((item) => item.id === id);
+      if (!feature || !point) continue;
+      const badge = document.createElement("span");
+      badge.className = `map-route-badge ${kind}`;
+      badge.textContent = label!;
+      const marker = L.marker(
+        toMapPoint(feature.anchor, info.tiles.max_native_zoom),
+        {
+          icon: L.divIcon({
+            html: badge,
+            className: "map-route-marker",
+            iconSize: [36, 28],
+            iconAnchor: [18, 28],
+          }),
+          interactive: false,
+          keyboard: false,
+          zIndexOffset: 500,
+        },
+      ).addTo(markers);
+      const text = document.createElement("span");
+      text.textContent = `${label}：${point.name}`;
+      marker.bindTooltip(text);
+    }
+    return () => {
+      markers.remove();
+    };
+  }, [info, features, points, routeStartId, routeEndId]);
 
   useEffect(() => {
     const map = instance.current;
@@ -173,13 +267,19 @@ export function MapCanvas({
         feature.map_revision === info.revision &&
         byId.has(feature.point_id),
     );
-    if (!labels.length) return;
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", `0 0 ${info.width_px} ${info.height_px}`);
     svg.setAttribute("preserveAspectRatio", "none");
     svg.setAttribute("aria-hidden", "true");
     svg.classList.add("map-image-annotation");
+    const correctionCount = appendMapLabelCorrections(
+      svg,
+      info,
+      features,
+      points,
+    );
+    if (!labels.length && !correctionCount) return;
     for (const feature of labels) {
       const text = document.createElementNS(ns, "text");
       const referenceScale = info.width_px / 1536;
@@ -214,7 +314,7 @@ export function MapCanvas({
       feature.map_revision !== info.revision
     )
       return;
-    if (routeSegments.length) return;
+    if (routeSegments.length || routePickMode) return;
     const bounds = L.latLngBounds(
       feature.polygon.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
     );
@@ -231,7 +331,7 @@ export function MapCanvas({
       });
     const timer = window.setTimeout(fit, 30);
     return () => window.clearTimeout(timer);
-  }, [selectedId, info, selectedRegion, routeSegments]);
+  }, [selectedId, info, selectedRegion, routeSegments, routePickMode]);
 
   useEffect(() => {
     const map = instance.current;
@@ -291,46 +391,23 @@ export function MapCanvas({
   return (
     <>
       <div
-        className="map-canvas"
+        className={`map-canvas${routePickMode ? " is-route-picking" : ""}`}
         ref={element}
         role="region"
-        aria-label="津南校区交互地图，可拖动和缩放"
+        aria-label={
+          routePickMode
+            ? `津南校区地图，选择${routePickMode === "start" ? "起点" : "终点"}。可拖动，滚轮或双指缩放；Tab 切换地点，回车确认，Esc 取消。`
+            : "津南校区交互地图，可拖动，滚轮或双指缩放；方向键移动，加减键缩放。"
+        }
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && routePick.current.mode) {
+            event.preventDefault();
+            event.stopPropagation();
+            routePick.current.onRoutePickCancel?.();
+          }
+        }}
         tabIndex={0}
       />
-      <div
-        className={`map-controls${selectedId ? " has-selection" : ""}`}
-        aria-label="地图工具"
-      >
-        <button
-          title="放大地图"
-          aria-label="放大地图"
-          disabled={zoom >= (info.tiles?.max_native_zoom ?? 0) + 1}
-          onClick={() => instance.current?.zoomIn()}
-        >
-          <Icon name="plus" />
-        </button>
-        <button
-          title="缩小地图"
-          aria-label="缩小地图"
-          disabled={zoom <= (info.tiles?.min_zoom ?? 0)}
-          onClick={() => instance.current?.zoomOut()}
-        >
-          <Icon name="minus" />
-        </button>
-        <span className="control-separator" />
-        <button
-          title="回到全图"
-          aria-label="回到全图"
-          onClick={() => {
-            select.current(null);
-            instance.current?.fitBounds(imageBounds(info), {
-              padding: [18, 18],
-            });
-          }}
-        >
-          <Icon name="focus" />
-        </button>
-      </div>
       {tileError && (
         <div className="tile-warning" role="status">
           部分地图未加载{" "}

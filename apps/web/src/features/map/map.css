@@ -7,41 +7,6 @@
 .map-canvas:focus {
   outline: none;
 }
-.map-controls {
-  position: absolute;
-  z-index: 850;
-  right: 20px;
-  bottom: 30px;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  border: 1px solid #e9e4ed;
-  border-radius: 13px;
-  padding: 4px;
-  box-shadow: 0 4px 18px #43384b17;
-}
-.map-controls.has-selection {
-  right: 400px;
-}
-.map-controls button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  background: white;
-  border: 0;
-  border-radius: 8px;
-  color: #62456e;
-}
-.map-controls button:hover {
-  color: #64316f;
-  background: #f5f0f7;
-}
-.control-separator {
-  height: 1px;
-  background: #eee7f1;
-  margin: 4px;
-}
 .map-attribution {
   position: absolute;
   z-index: 600;
@@ -141,12 +106,6 @@
   max-height: none !important;
 }
 @media (max-width: 760px) {
-  .map-controls,
-  .map-controls.has-selection {
-    top: 12px;
-    right: 12px;
-    bottom: auto;
-  }
   .map-hint {
     font-size: 12px;
     padding: 11px 16px;
@@ -158,4 +117,31 @@
     right: 68px;
     font-size: 12px;
   }
+}
+
+.map-canvas.is-route-picking,
+.map-canvas.is-route-picking .leaflet-interactive {
+  cursor: crosshair;
+}
+.map-route-marker {
+  background: none;
+  border: 0;
+  pointer-events: none;
+}
+.map-route-badge {
+  display: block;
+  text-align: center;
+  border-radius: 8px 8px 8px 0;
+  padding: 5px 4px;
+  background: #713573;
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 9px #24132e44;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.map-route-badge.start {
+  background: #18785f;
 }
