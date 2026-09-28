@@ -20,17 +20,21 @@ IMPLEMENTED = {"x-implementation-status": "implemented", "x-module": "M04", "x-a
     tags=["agent"],
     openapi_extra=IMPLEMENTED,
 )
-def web_config(request: Request):
+def web_config(request: Request, db: DB):
+    from app.modules.guide_settings import policy_for
+    policy = policy_for(db)
     settings = request.app.state.settings
     return envelope(
         request,
         AgentWebConfig(
-            enabled=settings.web_agent_configured,
+            enabled=(settings.web_agent_configured or settings.api_agent_configured) and policy.chat_enabled,
+            auto_actions=policy.auto_actions,
+            provider="nk-genios-api" if settings.api_agent_configured else "nk-genios-websdk",
             app_key=settings.nk_genios_web_app_key.get_secret_value()
-            if settings.web_agent_configured
+            if settings.web_agent_configured and not settings.api_agent_configured
             else None,
             hide_sidebar=settings.nk_genios_web_hide_sidebar,
-            context_enabled=settings.nk_genios_web_context_enabled,
+            context_enabled=settings.api_agent_configured or settings.nk_genios_web_context_enabled,
             public_site_origin=settings.public_site_origin,
         ),
     )
