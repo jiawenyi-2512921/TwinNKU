@@ -1,0 +1,201 @@
+.navigation-panel {
+  position: absolute;
+  z-index: 1020;
+  left: 20px;
+  bottom: 20px;
+  width: min(360px, calc(100% - 40px));
+  max-height: calc(100% - 40px);
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #e8dfec;
+  border-radius: 20px;
+  box-shadow: 0 12px 45px #43245024;
+  padding: 20px;
+  box-sizing: border-box;
+}
+.navigation-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.navigation-panel header small {
+  font-size: 11px;
+  color: #855d91;
+}
+.navigation-panel h2 {
+  font-size: 18px;
+  margin: 5px 0;
+}
+.navigation-panel header button {
+  font-size: 25px;
+  background: transparent;
+  border: 0;
+  padding: 8px;
+}
+.navigation-hint {
+  font-size: 12px;
+  color: #7b7180;
+  line-height: 1.65;
+}
+.navigation-panel form {
+  display: grid;
+  gap: 13px;
+}
+.navigation-panel label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #63556a;
+}
+.navigation-panel select {
+  font: inherit;
+  width: 100%;
+  padding: 11px 9px;
+  border: 1px solid #ded3e2;
+  border-radius: 10px;
+  background: #fff;
+}
+.navigation-panel .navigation-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.navigation-check input {
+  accent-color: #74427e;
+}
+.navigation-note {
+  font-size: 13px;
+  line-height: 1.65;
+  background: #f8f1e7;
+  padding: 10px;
+  border-radius: 10px;
+  color: #79562d;
+}
+.navigation-result {
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 16px;
+  border-top: 1px solid #eee;
+  padding-top: 15px;
+}
+.navigation-result strong {
+  color: #62336d;
+}
+.navigation-result p {
+  color: #786a7d;
+}
+.navigation-entry {
+  border: 1px solid #ddd1e2;
+  border-radius: 12px;
+  background: #fbf8fc;
+  padding: 9px 14px;
+  color: #643a70;
+  font: inherit;
+  white-space: nowrap;
+}
+.road-map {
+  height: 480px;
+  min-height: 300px;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.road-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 18px;
+}
+.road-controls {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.road-controls label {
+  display: grid;
+  gap: 6px;
+}
+.road-toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 14px 0;
+}
+.road-toolbar button,
+.road-controls button {
+  padding: 9px 13px;
+  border: 1px solid #dacddd;
+  border-radius: 8px;
+  background: #fff;
+}
+.road-toolbar button[aria-pressed="true"] {
+  background: #704078;
+  color: #fff;
+}
+.road-controls input,
+.road-controls select,
+.road-controls textarea {
+  max-width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  font: inherit;
+}
+.road-node-label {
+  white-space: nowrap;
+  font-weight: bold;
+  background: #fff;
+  padding: 3px 6px;
+  border: 1px solid #936a9d;
+  border-radius: 6px;
+}
+.road-list {
+  max-height: 180px;
+  overflow: auto;
+  display: grid;
+  gap: 5px;
+}
+.road-list button {
+  text-align: left;
+}
+.road-check {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+.road-info {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #766b7c;
+}
+.road-summary {
+  padding: 14px;
+  background: #f5f0f7;
+  border-radius: 12px;
+  margin-top: 15px;
+  white-space: pre-wrap;
+}
+@media (max-width: 900px) {
+  .road-layout {
+    grid-template-columns: 1fr;
+  }
+  .road-map {
+    height: 55vh;
+  }
+}
+@media (max-width: 760px) {
+  .navigation-panel {
+    left: 12px;
+    bottom: 12px;
+    width: calc(100% - 24px);
+    max-height: 62%;
+    padding: 16px;
+  }
+  .navigation-entry {
+    font-size: 12px;
+    padding: 8px;
+  }
+  .navigation-panel h2 {
+    font-size: 16px;
+  }
+}

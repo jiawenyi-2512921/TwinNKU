@@ -214,6 +214,7 @@ export function MapCanvas({
       feature.map_revision !== info.revision
     )
       return;
+    if (routeSegments.length) return;
     const bounds = L.latLngBounds(
       feature.polygon.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
     );
@@ -230,23 +231,58 @@ export function MapCanvas({
       });
     const timer = window.setTimeout(fit, 30);
     return () => window.clearTimeout(timer);
-  }, [selectedId, info, selectedRegion]);
+  }, [selectedId, info, selectedRegion, routeSegments]);
 
   useEffect(() => {
     const map = instance.current;
     if (!map || !info.tiles) return;
     const layer = L.layerGroup().addTo(map);
+    const routeBounds = L.latLngBounds([]);
     for (const segment of routeSegments) {
       if (
         segment.map_id === info.id &&
         segment.map_revision === info.revision
       ) {
+        const coordinates = segment.path.map((p) =>
+          toMapPoint(p, info.tiles!.max_native_zoom),
+        );
+        coordinates.forEach((p) => routeBounds.extend(p));
+        L.polyline(coordinates, {
+          color: "#fff",
+          weight: 10,
+          opacity: 0.95,
+        }).addTo(layer);
+        for (const [index, p] of [
+          coordinates[0],
+          coordinates[coordinates.length - 1],
+        ].entries()) {
+          const label = document.createElement("span");
+          label.textContent = index === 0 ? "起点入口" : "终点入口";
+          L.circleMarker(p, {
+            radius: 7,
+            color: "#fff",
+            weight: 3,
+            fillColor: index === 0 ? "#267c6b" : "#74417f",
+            fillOpacity: 1,
+          })
+            .bindTooltip(label)
+            .addTo(layer);
+        }
         L.polyline(
           segment.path.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
           { color: "#713573", weight: 5, opacity: 0.9 },
         ).addTo(layer);
       }
     }
+    if (routeBounds.isValid())
+      map.fitBounds(routeBounds, {
+        paddingTopLeft: [35, 50],
+        paddingBottomRight: window.matchMedia("(max-width: 760px)").matches
+          ? [35, Math.min(380, map.getSize().y * 0.62)]
+          : [410, 70],
+        maxZoom: info.tiles.max_native_zoom,
+        animate: false,
+      });
     return () => {
       layer.remove();
     };
