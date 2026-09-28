@@ -371,6 +371,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/navigation/{map_id}/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Quality */
+        post: operations["checkRoadQuality"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/navigation/{map_id}/review": {
         parameters: {
             query?: never;
@@ -382,6 +399,23 @@ export interface paths {
         put?: never;
         /** Review */
         post: operations["reviewRoadDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/navigation/{map_id}/starter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Starter */
+        get: operations["getRoadStarter"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2202,6 +2236,16 @@ export interface components {
             data: components["schemas"]["Point"];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[RoadQuality] */
+        Envelope_RoadQuality_: {
+            data: components["schemas"]["RoadQuality"];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[RoadStarter] */
+        Envelope_RoadStarter_: {
+            data: components["schemas"]["RoadStarter"];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[RoadWorkspace] */
         Envelope_RoadWorkspace_: {
             data: components["schemas"]["RoadWorkspace"];
@@ -3339,6 +3383,7 @@ export interface components {
              * @default false
              */
             closed: boolean;
+            curve_control?: components["schemas"]["XY"] | null;
             /** Distance M */
             distance_m?: number | null;
             /** End */
@@ -3381,8 +3426,32 @@ export interface components {
              */
             note: string;
         };
+        /** RoadIssue */
+        RoadIssue: {
+            /** Code */
+            code: string;
+            /** Edge Ids */
+            edge_ids?: string[];
+            /** Message */
+            message: string;
+            /** Node Ids */
+            node_ids?: string[];
+            position?: components["schemas"]["XY"] | null;
+            /** Severity */
+            severity: string;
+        };
         /** RoadNode */
         RoadNode: {
+            /**
+             * Candidate
+             * @default false
+             */
+            candidate: boolean;
+            /**
+             * Evidence
+             * @default
+             */
+            evidence: string;
             /** Id */
             id: string;
             /**
@@ -3400,6 +3469,30 @@ export interface components {
             point_id?: string | null;
             position: components["schemas"]["XY"];
         };
+        /** RoadQuality */
+        RoadQuality: {
+            /** Candidate Entrances */
+            candidate_entrances: number;
+            /** Component Count */
+            component_count: number;
+            /** Covered Points */
+            covered_points: number;
+            /** Edge Count */
+            edge_count: number;
+            /** Issues */
+            issues: components["schemas"]["RoadIssue"][];
+            /** Missing Point Ids */
+            missing_point_ids: string[];
+            /** Node Count */
+            node_count: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /** Unverified Edges */
+            unverified_edges: number;
+        };
         /** RoadReview */
         RoadReview: {
             /**
@@ -3411,6 +3504,22 @@ export interface components {
             expected_revision: number;
             /** Note */
             note: string;
+        };
+        /** RoadStarter */
+        RoadStarter: {
+            /** Available */
+            available: boolean;
+            graph?: components["schemas"]["RoadGraph"] | null;
+            /** Message */
+            message: string;
+            /** Omitted Point Ids */
+            omitted_point_ids?: string[];
+            /** Source */
+            source: string;
+            /** Source Sha256 */
+            source_sha256: string;
+            /** Title */
+            title: string;
         };
         /** RoadSummary */
         RoadSummary: {
@@ -5924,6 +6033,43 @@ export interface operations {
             };
         };
     };
+    checkRoadQuality: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadGraph"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RoadQuality_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reviewRoadDraft: {
         parameters: {
             query?: never;
@@ -5948,6 +6094,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_RoadWorkspace_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getRoadStarter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RoadStarter_"];
                 };
             };
             /** @description Validation Error */
