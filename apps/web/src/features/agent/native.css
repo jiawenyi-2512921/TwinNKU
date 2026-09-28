@@ -1,0 +1,113 @@
+.native-agent[open] {
+  display: flex;
+  flex-direction: column;
+}
+.native-messages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 20px;
+}
+.native-login {
+  padding: 28px 22px;
+  display: grid;
+  gap: 16px;
+}
+.native-login p,
+.native-welcome p {
+  color: #716778;
+  line-height: 1.7;
+}
+.native-login label {
+  display: grid;
+  gap: 8px;
+}
+.native-login input,
+.native-composer textarea {
+  border: 1px solid #ded5e2;
+  border-radius: 12px;
+  padding: 12px;
+  font: inherit;
+  max-width: 100%;
+}
+.native-turn {
+  margin: 0 0 28px;
+}
+.native-question {
+  margin-left: 24px;
+  background: #f1e9f4;
+  border-radius: 16px 16px 4px 16px;
+  padding: 12px 15px;
+  white-space: pre-wrap;
+}
+.native-answer {
+  line-height: 1.85;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.native-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.native-actions button,
+.native-welcome button {
+  border: 1px solid #d5bfdc;
+  background: #faf6fc;
+  border-radius: 12px;
+  padding: 10px;
+  color: #63376e;
+  text-align: left;
+}
+.native-welcome button {
+  display: block;
+  margin-top: 10px;
+}
+.native-turn details {
+  font-size: 12px;
+  margin-top: 12px;
+  color: #6c6172;
+}
+.native-turn details a {
+  display: block;
+  margin: 8px 0;
+}
+.native-notice {
+  font-size: 13px;
+  line-height: 1.6;
+  background: #f7f2e9;
+  color: #79582c;
+  padding: 10px 14px;
+  overflow-wrap: anywhere;
+}
+.native-composer {
+  padding: 14px 18px;
+  border-top: 1px solid #ebe4ee;
+  display: grid;
+  gap: 10px;
+}
+.native-composer textarea {
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+.native-composer > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.native-composer > div .primary-button {
+  margin-left: auto;
+}
+.native-composer > div > button:not(.primary-button) {
+  border: 0;
+  background: transparent;
+  color: #68576f;
+  font-size: 12px;
+}
+.native-login > button:not(.primary-button) {
+  padding: 12px;
+  border: 0;
+  background: #f6f1f8;
+  border-radius: 10px;
+}
