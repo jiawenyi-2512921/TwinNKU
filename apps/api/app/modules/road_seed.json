@@ -1,0 +1,5999 @@
+{
+  "schema_version": 1,
+  "title": "津南校区主干路与重点入口初稿 · 2026-09-28",
+  "source": "依据 https://2512921.cn/api/v1/maps/eee88cf5-87a0-592e-b1cc-a70674941bbf 的第3版公开图块描摹。来源坐标为原图像素；未使用建筑中心冒充入口；不代表现场测绘。",
+  "map": {
+    "id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+    "revision": 3,
+    "width_px": 8279,
+    "height_px": 5604,
+    "source_sha256": "aa5f84fc993dca7371e1d1bf6a5e190925ec2ce5f0d2d4dc968093346028218f"
+  },
+  "graph": {
+    "map_revision": 3,
+    "note": "Codex根据2026-09-28公开第3版规划图预先整理主干道路、步行广场与重点入口候选。所有路线为草稿：需要精修入口位置并核对通行、单向、封闭与台阶；没有实测长度。未包含未命名建筑内部、穿楼路线和全校室内导航。",
+    "nodes": [
+      {
+        "id": "jn3-n000",
+        "position": {
+          "x": 845.15,
+          "y": 4130.88
+        },
+        "label": "规划图路口 000",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n001",
+        "position": {
+          "x": 1000.38,
+          "y": 2470.76
+        },
+        "label": "西门·入口候选",
+        "kind": "entrance",
+        "point_id": "49716065-7f23-57bd-86fa-1fb69f25b8a6",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n002",
+        "position": {
+          "x": 1021.94,
+          "y": 4316.29
+        },
+        "label": "规划图路口 002",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n003",
+        "position": {
+          "x": 1172.86,
+          "y": 4048.95
+        },
+        "label": "规划图路口 003",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n004",
+        "position": {
+          "x": 1358.27,
+          "y": 3320.22
+        },
+        "label": "规划图路口 004",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n005",
+        "position": {
+          "x": 1431.58,
+          "y": 2996.83
+        },
+        "label": "规划图路口 005",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n006",
+        "position": {
+          "x": 1453.14,
+          "y": 1927.45
+        },
+        "label": "规划图路口 006",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n007",
+        "position": {
+          "x": 1509.19,
+          "y": 2630.31
+        },
+        "label": "规划图路口 007",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n008",
+        "position": {
+          "x": 1608.37,
+          "y": 4040.32
+        },
+        "label": "医学院·入口候选",
+        "kind": "entrance",
+        "point_id": "910898c7-7347-524f-ad05-95f387cf48e3",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n009",
+        "position": {
+          "x": 1651.49,
+          "y": 1172.86
+        },
+        "label": "规划图路口 009",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n010",
+        "position": {
+          "x": 1665.42,
+          "y": 4107.94
+        },
+        "label": "规划图路口 010",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n011",
+        "position": {
+          "x": 1729.1,
+          "y": 2656.18
+        },
+        "label": "规划图路口 011",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n012",
+        "position": {
+          "x": 1762.56,
+          "y": 2484.1
+        },
+        "label": "规划图路口 012",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n013",
+        "position": {
+          "x": 1804.36,
+          "y": 3087.75
+        },
+        "label": "规划图路口 013",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n014",
+        "position": {
+          "x": 1811.03,
+          "y": 3057.19
+        },
+        "label": "环境科学与工程学院·入口候选",
+        "kind": "entrance",
+        "point_id": "88e8704d-0322-5580-8d55-fa7b4130238f",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n015",
+        "position": {
+          "x": 1819.66,
+          "y": 4458.59
+        },
+        "label": "实验动物中心·入口候选",
+        "kind": "entrance",
+        "point_id": "0e387c9e-cdcd-5426-9bc4-f3b818a035ea",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n016",
+        "position": {
+          "x": 1845.53,
+          "y": 4687.12
+        },
+        "label": "规划图路口 016",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n017",
+        "position": {
+          "x": 1845.53,
+          "y": 4820.79
+        },
+        "label": "规划图路口 017",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n018",
+        "position": {
+          "x": 1845.53,
+          "y": 5096.76
+        },
+        "label": "规划图路口 018",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n019",
+        "position": {
+          "x": 1861.41,
+          "y": 4462.32
+        },
+        "label": "规划图路口 019",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n020",
+        "position": {
+          "x": 1871.4,
+          "y": 2505.26
+        },
+        "label": "旅游与服务学院·入口候选",
+        "kind": "entrance",
+        "point_id": "8dca8fa1-dac8-561d-b140-9bbe2d5094ad",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n021",
+        "position": {
+          "x": 1879.98,
+          "y": 2013.27
+        },
+        "label": "规划图路口 021",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n022",
+        "position": {
+          "x": 1897.27,
+          "y": 3600.5
+        },
+        "label": "药学院·入口候选",
+        "kind": "entrance",
+        "point_id": "0c3346e1-c824-5501-828d-ef68b83489be",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n023",
+        "position": {
+          "x": 1933.16,
+          "y": 3608.0
+        },
+        "label": "规划图路口 023",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n024",
+        "position": {
+          "x": 1953.33,
+          "y": 3945.46
+        },
+        "label": "规划图路口 024",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n025",
+        "position": {
+          "x": 1966.26,
+          "y": 3449.58
+        },
+        "label": "规划图路口 025",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n026",
+        "position": {
+          "x": 2039.57,
+          "y": 1250.47
+        },
+        "label": "规划图路口 026",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n027",
+        "position": {
+          "x": 2039.57,
+          "y": 3139.12
+        },
+        "label": "规划图路口 027",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n028",
+        "position": {
+          "x": 2121.49,
+          "y": 2746.73
+        },
+        "label": "规划图路口 028",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n029",
+        "position": {
+          "x": 2332.78,
+          "y": 4924.28
+        },
+        "label": "规划图路口 029",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n030",
+        "position": {
+          "x": 2332.94,
+          "y": 4923.87
+        },
+        "label": "规划图路口 030",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n031",
+        "position": {
+          "x": 2341.4,
+          "y": 2802.79
+        },
+        "label": "木斋图书馆·入口候选",
+        "kind": "entrance",
+        "point_id": "d7ae1380-229d-57f7-9a75-f6e9ddc0f04c",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n032",
+        "position": {
+          "x": 2375.9,
+          "y": 4812.17
+        },
+        "label": "规划图路口 032",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n033",
+        "position": {
+          "x": 2471.99,
+          "y": 3233.88
+        },
+        "label": "规划图路口 033",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n034",
+        "position": {
+          "x": 2488.01,
+          "y": 4242.99
+        },
+        "label": "规划图路口 034",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n035",
+        "position": {
+          "x": 2500.95,
+          "y": 3087.38
+        },
+        "label": "秀山堂·入口候选",
+        "kind": "entrance",
+        "point_id": "f1fd78ac-098f-5e71-b8ad-cae8e73b67a6",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n036",
+        "position": {
+          "x": 2519.68,
+          "y": 2856.21
+        },
+        "label": "规划图路口 036",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n037",
+        "position": {
+          "x": 2526.82,
+          "y": 3962.71
+        },
+        "label": "规划图路口 037",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n038",
+        "position": {
+          "x": 2526.82,
+          "y": 4963.09
+        },
+        "label": "规划图路口 038",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n039",
+        "position": {
+          "x": 2548.38,
+          "y": 2707.92
+        },
+        "label": "思源堂·入口候选",
+        "kind": "entrance",
+        "point_id": "4bee984a-e00e-5df0-8f24-a0d9bc4a34be",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n040",
+        "position": {
+          "x": 2630.31,
+          "y": 866.71
+        },
+        "label": "规划图路口 040",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n041",
+        "position": {
+          "x": 2634.62,
+          "y": 616.61
+        },
+        "label": "西北门·入口候选",
+        "kind": "entrance",
+        "point_id": "d4ddb35d-cc51-5563-beb1-c62b2101fc90",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n042",
+        "position": {
+          "x": 2634.62,
+          "y": 866.71
+        },
+        "label": "规划图路口 042",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n043",
+        "position": {
+          "x": 2639.73,
+          "y": 1158.89
+        },
+        "label": "规划图路口 043",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n044",
+        "position": {
+          "x": 2651.87,
+          "y": 1405.71
+        },
+        "label": "规划图路口 044",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n045",
+        "position": {
+          "x": 2690.67,
+          "y": 2910.59
+        },
+        "label": "规划图路口 045",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n046",
+        "position": {
+          "x": 2690.67,
+          "y": 3277.1
+        },
+        "label": "规划图路口 046",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n047",
+        "position": {
+          "x": 2707.92,
+          "y": 2621.68
+        },
+        "label": "规划图路口 047",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n048",
+        "position": {
+          "x": 2715.38,
+          "y": 4875.91
+        },
+        "label": "规划图路口 048",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n049",
+        "position": {
+          "x": 2716.55,
+          "y": 1509.19
+        },
+        "label": "规划图路口 049",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n050",
+        "position": {
+          "x": 2738.11,
+          "y": 4751.8
+        },
+        "label": "学5-D·入口候选",
+        "kind": "entrance",
+        "point_id": "51142932-c38c-540a-9d99-a199e1e9bbd1",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n051",
+        "position": {
+          "x": 2763.98,
+          "y": 4467.21
+        },
+        "label": "学5-C·入口候选",
+        "kind": "entrance",
+        "point_id": "5d543565-b92f-571d-b53a-1de0860fc43f",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n052",
+        "position": {
+          "x": 2773.15,
+          "y": 4886.48
+        },
+        "label": "规划图路口 052",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n053",
+        "position": {
+          "x": 2781.23,
+          "y": 4842.35
+        },
+        "label": "学6·入口候选",
+        "kind": "entrance",
+        "point_id": "3abe38c8-3efd-5179-8263-dfbadc301d84",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n054",
+        "position": {
+          "x": 2794.16,
+          "y": 1151.3
+        },
+        "label": "校医院·入口候选",
+        "kind": "entrance",
+        "point_id": "6c5890fe-d7c4-55ae-9071-6da8d5613cfa",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n055",
+        "position": {
+          "x": 2796.17,
+          "y": 4019.32
+        },
+        "label": "规划图路口 055",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n056",
+        "position": {
+          "x": 2798.47,
+          "y": 4005.83
+        },
+        "label": "电子信息与光学工程学院·入口候选",
+        "kind": "entrance",
+        "point_id": "6bc16059-d0fb-5a08-b802-2369764ca036",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n057",
+        "position": {
+          "x": 2811.41,
+          "y": 1867.09
+        },
+        "label": "规划图路口 057",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n058",
+        "position": {
+          "x": 2824.35,
+          "y": 4372.35
+        },
+        "label": "理科食堂·入口候选",
+        "kind": "entrance",
+        "point_id": "a0bf5008-a90d-594d-a63c-82dbde4d7f17",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n059",
+        "position": {
+          "x": 2832.72,
+          "y": 4329.92
+        },
+        "label": "规划图路口 059",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n060",
+        "position": {
+          "x": 2992.51,
+          "y": 3363.34
+        },
+        "label": "软件学院·入口候选",
+        "kind": "entrance",
+        "point_id": "2b934df1-59d1-5d48-9d77-6208e564ae87",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n061",
+        "position": {
+          "x": 2996.51,
+          "y": 3345.47
+        },
+        "label": "规划图路口 061",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n062",
+        "position": {
+          "x": 2996.83,
+          "y": 4928.59
+        },
+        "label": "规划图路口 062",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n063",
+        "position": {
+          "x": 2997.03,
+          "y": 4927.64
+        },
+        "label": "规划图路口 063",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n064",
+        "position": {
+          "x": 3022.62,
+          "y": 4807.56
+        },
+        "label": "规划图路口 064",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n065",
+        "position": {
+          "x": 3039.95,
+          "y": 4061.88
+        },
+        "label": "规划图路口 065",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n066",
+        "position": {
+          "x": 3040.17,
+          "y": 4060.97
+        },
+        "label": "规划图路口 066",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n067",
+        "position": {
+          "x": 3044.26,
+          "y": 4812.17
+        },
+        "label": "学5-A·入口候选",
+        "kind": "entrance",
+        "point_id": "519f46df-db7b-5913-8008-44dc8d49e386",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n068",
+        "position": {
+          "x": 3057.19,
+          "y": 4600.88
+        },
+        "label": "学5-B·入口候选",
+        "kind": "entrance",
+        "point_id": "8fa3e83f-535a-5d1c-a078-1f1f10c3c7ff",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n069",
+        "position": {
+          "x": 3057.79,
+          "y": 1905.68
+        },
+        "label": "规划图路口 069",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n070",
+        "position": {
+          "x": 3065.82,
+          "y": 1836.9
+        },
+        "label": "文科食堂·入口候选",
+        "kind": "entrance",
+        "point_id": "6487a019-1ec2-5cb1-a17c-ba508418ba3e",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n071",
+        "position": {
+          "x": 3066.39,
+          "y": 4602.86
+        },
+        "label": "规划图路口 071",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n072",
+        "position": {
+          "x": 3074.4,
+          "y": 4942.56
+        },
+        "label": "规划图路口 072",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n073",
+        "position": {
+          "x": 3078.75,
+          "y": 4919.97
+        },
+        "label": "教3·入口候选",
+        "kind": "entrance",
+        "point_id": "6d4d4a83-2dc5-5262-b7af-cffd4a9b3f02",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n074",
+        "position": {
+          "x": 3083.07,
+          "y": 2634.62
+        },
+        "label": "法学院·入口候选",
+        "kind": "entrance",
+        "point_id": "130b3b3c-adcc-5b3a-b00c-b52a049b1eb3",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n075",
+        "position": {
+          "x": 3096.0,
+          "y": 1996.45
+        },
+        "label": "周恩来政府管理学院·入口候选",
+        "kind": "entrance",
+        "point_id": "720cadd2-fd14-5274-839c-1e0e5b750822",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n076",
+        "position": {
+          "x": 3105.94,
+          "y": 1911.29
+        },
+        "label": "规划图路口 076",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n077",
+        "position": {
+          "x": 3113.25,
+          "y": 4385.28
+        },
+        "label": "规划图路口 077",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n078",
+        "position": {
+          "x": 3139.12,
+          "y": 2725.17
+        },
+        "label": "规划图路口 078",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n079",
+        "position": {
+          "x": 3140.1,
+          "y": 2719.09
+        },
+        "label": "规划图路口 079",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n080",
+        "position": {
+          "x": 3151.97,
+          "y": 2645.77
+        },
+        "label": "规划图路口 080",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n081",
+        "position": {
+          "x": 3182.24,
+          "y": 4406.84
+        },
+        "label": "学7-B·入口候选",
+        "kind": "entrance",
+        "point_id": "50ffd9d2-2f3f-52bc-8ace-1ec086e89c8e",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n082",
+        "position": {
+          "x": 3183.73,
+          "y": 4399.38
+        },
+        "label": "规划图路口 082",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n083",
+        "position": {
+          "x": 3185.37,
+          "y": 3386.5
+        },
+        "label": "规划图路口 083",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n084",
+        "position": {
+          "x": 3186.55,
+          "y": 3380.59
+        },
+        "label": "规划图路口 084",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n085",
+        "position": {
+          "x": 3272.79,
+          "y": 5053.64
+        },
+        "label": "规划图路口 085",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n086",
+        "position": {
+          "x": 3281.42,
+          "y": 1931.77
+        },
+        "label": "规划图路口 086",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n087",
+        "position": {
+          "x": 3284.83,
+          "y": 4983.13
+        },
+        "label": "规划图路口 087",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n088",
+        "position": {
+          "x": 3311.13,
+          "y": 4107.18
+        },
+        "label": "规划图路口 088",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n089",
+        "position": {
+          "x": 3315.91,
+          "y": 4079.13
+        },
+        "label": "计算机学院、网络空间安全学院、人工智能学院·入口候选",
+        "kind": "entrance",
+        "point_id": "c0752c0a-51a7-5576-9b09-df21d43570c4",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n090",
+        "position": {
+          "x": 3337.47,
+          "y": 4993.27
+        },
+        "label": "规划图路口 090",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n091",
+        "position": {
+          "x": 3351.52,
+          "y": 4632.42
+        },
+        "label": "规划图路口 091",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n092",
+        "position": {
+          "x": 3356.83,
+          "y": 1633.55
+        },
+        "label": "规划图路口 092",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n093",
+        "position": {
+          "x": 3384.9,
+          "y": 2048.19
+        },
+        "label": "历史学院·入口候选",
+        "kind": "entrance",
+        "point_id": "85ce8a88-725b-5114-80c8-c3ff9278c55f",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n094",
+        "position": {
+          "x": 3400.99,
+          "y": 1951.7
+        },
+        "label": "规划图路口 094",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n095",
+        "position": {
+          "x": 3402.88,
+          "y": 4443.21
+        },
+        "label": "规划图路口 095",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n096",
+        "position": {
+          "x": 3410.78,
+          "y": 4984.65
+        },
+        "label": "学9·入口候选",
+        "kind": "entrance",
+        "point_id": "ae29e7e7-161d-56bd-b371-7b9e8fc58062",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n097",
+        "position": {
+          "x": 3415.09,
+          "y": 4445.65
+        },
+        "label": "规划图路口 097",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n098",
+        "position": {
+          "x": 3419.4,
+          "y": 3492.7
+        },
+        "label": "材料科学与工程学院·入口候选",
+        "kind": "entrance",
+        "point_id": "7b6d0992-b614-5eab-b37c-02e9b7aad0e4",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n099",
+        "position": {
+          "x": 3432.03,
+          "y": 3439.65
+        },
+        "label": "规划图路口 099",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n100",
+        "position": {
+          "x": 3465.71,
+          "y": 2760.93
+        },
+        "label": "规划图路口 100",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n101",
+        "position": {
+          "x": 3466.83,
+          "y": 2677.74
+        },
+        "label": "金融学院·入口候选",
+        "kind": "entrance",
+        "point_id": "c6c9853e-868d-5d4f-80bb-739a4bae1a03",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n102",
+        "position": {
+          "x": 3471.14,
+          "y": 1030.56
+        },
+        "label": "规划图路口 102",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n103",
+        "position": {
+          "x": 3471.14,
+          "y": 4424.09
+        },
+        "label": "学7-A·入口候选",
+        "kind": "entrance",
+        "point_id": "11e83810-0c96-5d6e-b38d-3a0b8f0f9c67",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n104",
+        "position": {
+          "x": 3475.46,
+          "y": 4135.19
+        },
+        "label": "规划图路口 104",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n105",
+        "position": {
+          "x": 3553.07,
+          "y": 4687.12
+        },
+        "label": "学8·入口候选",
+        "kind": "entrance",
+        "point_id": "506991eb-8974-5a86-9e5f-31639a4a0439",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n106",
+        "position": {
+          "x": 3600.5,
+          "y": 3479.77
+        },
+        "label": "规划图路口 106",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n107",
+        "position": {
+          "x": 3652.25,
+          "y": 2065.44
+        },
+        "label": "马克思主义学院·入口候选",
+        "kind": "entrance",
+        "point_id": "f7dc23cb-4184-523d-bd9c-c9f4ca1573f5",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n108",
+        "position": {
+          "x": 3664.2,
+          "y": 1996.36
+        },
+        "label": "规划图路口 108",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n109",
+        "position": {
+          "x": 3755.73,
+          "y": 5053.64
+        },
+        "label": "规划图路口 109",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n110",
+        "position": {
+          "x": 3764.36,
+          "y": 2013.69
+        },
+        "label": "规划图路口 110",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n111",
+        "position": {
+          "x": 3816.1,
+          "y": 1724.79
+        },
+        "label": "规划图路口 111",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n112",
+        "position": {
+          "x": 3910.97,
+          "y": 1116.8
+        },
+        "label": "规划图路口 112",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n113",
+        "position": {
+          "x": 3919.59,
+          "y": 3846.29
+        },
+        "label": "规划图路口 113",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n114",
+        "position": {
+          "x": 3923.9,
+          "y": 4182.62
+        },
+        "label": "规划图路口 114",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n115",
+        "position": {
+          "x": 3933.46,
+          "y": 3447.72
+        },
+        "label": "规划图路口 115",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n116",
+        "position": {
+          "x": 3936.84,
+          "y": 3613.44
+        },
+        "label": "规划图路口 116",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n117",
+        "position": {
+          "x": 3965.89,
+          "y": 2879.98
+        },
+        "label": "规划图路口 117",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n118",
+        "position": {
+          "x": 4005.83,
+          "y": 2707.92
+        },
+        "label": "规划图路口 118",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n119",
+        "position": {
+          "x": 4053.26,
+          "y": 3445.27
+        },
+        "label": "公共教学楼A区·入口候选",
+        "kind": "entrance",
+        "point_id": "5f1f6b6d-36c7-597d-b2d8-071781d7ecde",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n120",
+        "position": {
+          "x": 4079.13,
+          "y": 2906.27
+        },
+        "label": "公共教学楼D区·入口候选",
+        "kind": "entrance",
+        "point_id": "80e56ecd-c3c9-5fee-89a7-75961c0892ac",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n121",
+        "position": {
+          "x": 4113.63,
+          "y": 2095.62
+        },
+        "label": "规划图路口 121",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n122",
+        "position": {
+          "x": 4130.88,
+          "y": 4600.88
+        },
+        "label": "规划图路口 122",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n123",
+        "position": {
+          "x": 4238.68,
+          "y": 1660.11
+        },
+        "label": "文科体育场·入口候选",
+        "kind": "entrance",
+        "point_id": "a8f98b09-0feb-59d6-b19c-d9b2df5d7ea7",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n124",
+        "position": {
+          "x": 4239.15,
+          "y": 1660.22
+        },
+        "label": "规划图路口 124",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n125",
+        "position": {
+          "x": 4350.79,
+          "y": 1250.47
+        },
+        "label": "规划图路口 125",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n126",
+        "position": {
+          "x": 4415.47,
+          "y": 4600.88
+        },
+        "label": "规划图路口 126",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n127",
+        "position": {
+          "x": 4419.78,
+          "y": 4221.43
+        },
+        "label": "综合业务西楼·入口候选",
+        "kind": "entrance",
+        "point_id": "956300f9-e598-56bd-981b-a4f5d42211c5",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n128",
+        "position": {
+          "x": 4462.9,
+          "y": 2945.08
+        },
+        "label": "公共教学楼C区·入口候选",
+        "kind": "entrance",
+        "point_id": "4823a355-e1c2-5c54-983c-a33a5bd2ea27",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n129",
+        "position": {
+          "x": 4462.9,
+          "y": 3363.34
+        },
+        "label": "公共教学楼B区·入口候选",
+        "kind": "entrance",
+        "point_id": "16cb0415-fd90-5206-89e9-205d0f372959",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n130",
+        "position": {
+          "x": 4591.5,
+          "y": 2231.32
+        },
+        "label": "规划图路口 130",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n131",
+        "position": {
+          "x": 4613.82,
+          "y": 914.14
+        },
+        "label": "北门·入口候选",
+        "kind": "entrance",
+        "point_id": "4cd4ef2d-7516-54c8-b5f5-b12dfd23bfd6",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n132",
+        "position": {
+          "x": 4613.82,
+          "y": 1220.29
+        },
+        "label": "规划图路口 132",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n133",
+        "position": {
+          "x": 4613.82,
+          "y": 2013.69
+        },
+        "label": "体育馆·入口候选",
+        "kind": "entrance",
+        "point_id": "caaf4219-3920-529b-9288-f99e535f8ec8",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n134",
+        "position": {
+          "x": 4613.82,
+          "y": 2233.61
+        },
+        "label": "规划图路口 134",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n135",
+        "position": {
+          "x": 4613.82,
+          "y": 2716.55
+        },
+        "label": "规划图路口 135",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n136",
+        "position": {
+          "x": 4613.82,
+          "y": 2945.08
+        },
+        "label": "规划图路口 136",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n137",
+        "position": {
+          "x": 4613.82,
+          "y": 3363.34
+        },
+        "label": "规划图路口 137",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n138",
+        "position": {
+          "x": 4613.82,
+          "y": 3622.06
+        },
+        "label": "规划图路口 138",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n139",
+        "position": {
+          "x": 4613.82,
+          "y": 3807.48
+        },
+        "label": "规划图路口 139",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n140",
+        "position": {
+          "x": 4613.82,
+          "y": 3859.22
+        },
+        "label": "图书馆·入口候选",
+        "kind": "entrance",
+        "point_id": "48da7106-7d24-5493-84d3-48d334d07410",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n141",
+        "position": {
+          "x": 4613.82,
+          "y": 4010.14
+        },
+        "label": "图书馆·入口候选",
+        "kind": "entrance",
+        "point_id": "48da7106-7d24-5493-84d3-48d334d07410",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n142",
+        "position": {
+          "x": 4613.82,
+          "y": 4238.68
+        },
+        "label": "规划图路口 142",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n143",
+        "position": {
+          "x": 4613.82,
+          "y": 4471.52
+        },
+        "label": "周恩来雕像·入口候选",
+        "kind": "entrance",
+        "point_id": "82e888ca-59f8-5c55-b8ab-4b80175c6ceb",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n144",
+        "position": {
+          "x": 4613.82,
+          "y": 4600.88
+        },
+        "label": "规划图路口 144",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n145",
+        "position": {
+          "x": 4613.82,
+          "y": 5290.8
+        },
+        "label": "规划图路口 145",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n146",
+        "position": {
+          "x": 4613.82,
+          "y": 5338.23
+        },
+        "label": "南门·入口候选",
+        "kind": "entrance",
+        "point_id": "e62f4f62-7a79-5ec8-b391-e1e2fe00056b",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n147",
+        "position": {
+          "x": 4777.67,
+          "y": 2945.08
+        },
+        "label": "综合实验楼C区·入口候选",
+        "kind": "entrance",
+        "point_id": "16d2e605-c0eb-53d5-98c5-d374797479dc",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n148",
+        "position": {
+          "x": 4777.67,
+          "y": 3363.34
+        },
+        "label": "综合实验楼B区·入口候选",
+        "kind": "entrance",
+        "point_id": "605c0b38-0420-5faa-b980-d3977b5feafe",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n149",
+        "position": {
+          "x": 4807.86,
+          "y": 4600.88
+        },
+        "label": "规划图路口 149",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n150",
+        "position": {
+          "x": 4812.17,
+          "y": 4221.43
+        },
+        "label": "综合业务东楼·入口候选",
+        "kind": "entrance",
+        "point_id": "c092641b-9c13-526a-af6d-7815505acee8",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n151",
+        "position": {
+          "x": 4868.22,
+          "y": 1328.09
+        },
+        "label": "规划图路口 151",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n152",
+        "position": {
+          "x": 4876.85,
+          "y": 2634.62
+        },
+        "label": "前沿交叉学科中心·入口候选",
+        "kind": "entrance",
+        "point_id": "8d301ca8-eabf-5276-8073-94e63865e286",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n153",
+        "position": {
+          "x": 4876.85,
+          "y": 2716.55
+        },
+        "label": "规划图路口 153",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n154",
+        "position": {
+          "x": 5001.81,
+          "y": 1786.47
+        },
+        "label": "规划图路口 154",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n155",
+        "position": {
+          "x": 5006.21,
+          "y": 4605.19
+        },
+        "label": "规划图路口 155",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n156",
+        "position": {
+          "x": 5023.46,
+          "y": 1780.85
+        },
+        "label": "主体育场·入口候选",
+        "kind": "entrance",
+        "point_id": "f20b1b60-5b8d-5ecb-94cb-a07bcbf61b53",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n157",
+        "position": {
+          "x": 5105.38,
+          "y": 2134.43
+        },
+        "label": "规划图路口 157",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n158",
+        "position": {
+          "x": 5105.38,
+          "y": 2716.55
+        },
+        "label": "规划图路口 158",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n159",
+        "position": {
+          "x": 5105.38,
+          "y": 2763.98
+        },
+        "label": "综合实验楼D区·入口候选",
+        "kind": "entrance",
+        "point_id": "6d346555-295b-51bf-8194-2a706d7e407f",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n160",
+        "position": {
+          "x": 5174.37,
+          "y": 3445.27
+        },
+        "label": "综合实验楼A区·入口候选",
+        "kind": "entrance",
+        "point_id": "8bad2beb-6be1-5236-94d6-8ea59d21859f",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n161",
+        "position": {
+          "x": 5251.99,
+          "y": 3445.27
+        },
+        "label": "规划图路口 161",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n162",
+        "position": {
+          "x": 5251.99,
+          "y": 3561.69
+        },
+        "label": "规划图路口 162",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n163",
+        "position": {
+          "x": 5260.61,
+          "y": 4182.62
+        },
+        "label": "规划图路口 163",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n164",
+        "position": {
+          "x": 5264.93,
+          "y": 3850.6
+        },
+        "label": "规划图路口 164",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n165",
+        "position": {
+          "x": 5303.73,
+          "y": 2716.55
+        },
+        "label": "规划图路口 165",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n166",
+        "position": {
+          "x": 5545.21,
+          "y": 2030.94
+        },
+        "label": "规划图路口 166",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n167",
+        "position": {
+          "x": 5549.52,
+          "y": 5135.57
+        },
+        "label": "规划图路口 167",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n168",
+        "position": {
+          "x": 5605.57,
+          "y": 4195.56
+        },
+        "label": "规划图路口 168",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n169",
+        "position": {
+          "x": 5609.88,
+          "y": 1228.91
+        },
+        "label": "规划图路口 169",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n170",
+        "position": {
+          "x": 6360.17,
+          "y": 2013.69
+        },
+        "label": "规划图路口 170",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n171",
+        "position": {
+          "x": 6377.42,
+          "y": 2725.17
+        },
+        "label": "规划图路口 171",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n172",
+        "position": {
+          "x": 6420.54,
+          "y": 3518.57
+        },
+        "label": "规划图路口 172",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n173",
+        "position": {
+          "x": 6433.47,
+          "y": 4204.18
+        },
+        "label": "规划图路口 173",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n174",
+        "position": {
+          "x": 6847.42,
+          "y": 3096.0
+        },
+        "label": "规划图路口 174",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n175",
+        "position": {
+          "x": 6899.17,
+          "y": 3208.11
+        },
+        "label": "规划图路口 175",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n176",
+        "position": {
+          "x": 7787.43,
+          "y": 5170.06
+        },
+        "label": "规划图路口 176",
+        "kind": "junction",
+        "point_id": null,
+        "candidate": false,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      },
+      {
+        "id": "jn3-n177",
+        "position": {
+          "x": 7908.17,
+          "y": 3208.11
+        },
+        "label": "东门·入口候选",
+        "kind": "entrance",
+        "point_id": "f798dc2d-ad47-56dd-9d3a-df70a9c23b2c",
+        "candidate": true,
+        "evidence": "2026-09-28：公开第3版规划图描摹；门口位置、台阶及通行状态待现场或正式资料确认。"
+      }
+    ],
+    "edges": [
+      {
+        "id": "jn3-e000",
+        "start": "jn3-n000",
+        "end": "jn3-n002",
+        "via": [
+          {
+            "x": 845.15,
+            "y": 4230.05
+          },
+          {
+            "x": 896.89,
+            "y": 4294.73
+          }
+        ],
+        "curve_control": null,
+        "label": "西侧南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e001",
+        "start": "jn3-n001",
+        "end": "jn3-n007",
+        "via": [
+          {
+            "x": 1069.37,
+            "y": 2496.64
+          },
+          {
+            "x": 1116.8,
+            "y": 2600.12
+          },
+          {
+            "x": 1215.98,
+            "y": 2656.18
+          },
+          {
+            "x": 1315.15,
+            "y": 2660.49
+          },
+          {
+            "x": 1422.95,
+            "y": 2630.31
+          }
+        ],
+        "curve_control": null,
+        "label": "西门内连接道",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e002",
+        "start": "jn3-n002",
+        "end": "jn3-n003",
+        "via": [
+          {
+            "x": 1112.49,
+            "y": 4230.05
+          }
+        ],
+        "curve_control": null,
+        "label": "西侧南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e003",
+        "start": "jn3-n002",
+        "end": "jn3-n016",
+        "via": [
+          {
+            "x": 1263.41,
+            "y": 4411.15
+          },
+          {
+            "x": 1513.5,
+            "y": 4527.58
+          },
+          {
+            "x": 1681.67,
+            "y": 4631.07
+          }
+        ],
+        "curve_control": null,
+        "label": "西南片区南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e004",
+        "start": "jn3-n003",
+        "end": "jn3-n004",
+        "via": [
+          {
+            "x": 1259.1,
+            "y": 3695.37
+          }
+        ],
+        "curve_control": null,
+        "label": "西侧南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e005",
+        "start": "jn3-n003",
+        "end": "jn3-n010",
+        "via": [
+          {
+            "x": 1332.4,
+            "y": 4083.44
+          },
+          {
+            "x": 1612.68,
+            "y": 4152.44
+          }
+        ],
+        "curve_control": null,
+        "label": "医学院南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e006",
+        "start": "jn3-n004",
+        "end": "jn3-n005",
+        "via": [],
+        "curve_control": null,
+        "label": "西侧南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e007",
+        "start": "jn3-n004",
+        "end": "jn3-n025",
+        "via": [
+          {
+            "x": 1694.61,
+            "y": 3406.46
+          }
+        ],
+        "curve_control": null,
+        "label": "药学院北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e008",
+        "start": "jn3-n005",
+        "end": "jn3-n007",
+        "via": [],
+        "curve_control": null,
+        "label": "西侧南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e009",
+        "start": "jn3-n005",
+        "end": "jn3-n013",
+        "via": [
+          {
+            "x": 1664.42,
+            "y": 3057.19
+          }
+        ],
+        "curve_control": null,
+        "label": "西部学部东西支路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e010",
+        "start": "jn3-n006",
+        "end": "jn3-n009",
+        "via": [
+          {
+            "x": 1500.57,
+            "y": 1742.04
+          },
+          {
+            "x": 1539.38,
+            "y": 1556.62
+          },
+          {
+            "x": 1595.43,
+            "y": 1384.15
+          }
+        ],
+        "curve_control": null,
+        "label": "西北片区南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e011",
+        "start": "jn3-n006",
+        "end": "jn3-n007",
+        "via": [
+          {
+            "x": 1655.8,
+            "y": 1979.2
+          },
+          {
+            "x": 1608.37,
+            "y": 2190.49
+          },
+          {
+            "x": 1573.87,
+            "y": 2371.59
+          }
+        ],
+        "curve_control": null,
+        "label": "西北片区南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e012",
+        "start": "jn3-n006",
+        "end": "jn3-n021",
+        "via": [
+          {
+            "x": 1862.77,
+            "y": 2009.38
+          }
+        ],
+        "curve_control": null,
+        "label": "留学生公寓南侧路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e013",
+        "start": "jn3-n007",
+        "end": "jn3-n011",
+        "via": [],
+        "curve_control": null,
+        "label": "西门片区东西道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e014",
+        "start": "jn3-n008",
+        "end": "jn3-n010",
+        "via": [],
+        "curve_control": null,
+        "label": "医学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e015",
+        "start": "jn3-n009",
+        "end": "jn3-n040",
+        "via": [
+          {
+            "x": 1711.86,
+            "y": 918.45
+          },
+          {
+            "x": 1767.91,
+            "y": 750.28
+          },
+          {
+            "x": 1823.97,
+            "y": 698.54
+          },
+          {
+            "x": 1953.33,
+            "y": 715.79
+          },
+          {
+            "x": 2285.35,
+            "y": 797.72
+          }
+        ],
+        "curve_control": null,
+        "label": "西北片区北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e016",
+        "start": "jn3-n009",
+        "end": "jn3-n026",
+        "via": [],
+        "curve_control": null,
+        "label": "西北宿舍片区中路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e017",
+        "start": "jn3-n010",
+        "end": "jn3-n024",
+        "via": [
+          {
+            "x": 1750.66,
+            "y": 4036.01
+          }
+        ],
+        "curve_control": null,
+        "label": "医学院南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e018",
+        "start": "jn3-n011",
+        "end": "jn3-n012",
+        "via": [],
+        "curve_control": null,
+        "label": "留学生公寓西侧路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e019",
+        "start": "jn3-n011",
+        "end": "jn3-n028",
+        "via": [
+          {
+            "x": 1957.64,
+            "y": 2712.23
+          }
+        ],
+        "curve_control": null,
+        "label": "西门片区东西道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e020",
+        "start": "jn3-n012",
+        "end": "jn3-n021",
+        "via": [
+          {
+            "x": 1789.47,
+            "y": 2345.72
+          },
+          {
+            "x": 1871.4,
+            "y": 2048.19
+          }
+        ],
+        "curve_control": null,
+        "label": "留学生公寓西侧路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e021",
+        "start": "jn3-n012",
+        "end": "jn3-n020",
+        "via": [],
+        "curve_control": null,
+        "label": "旅游与服务学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e022",
+        "start": "jn3-n013",
+        "end": "jn3-n014",
+        "via": [],
+        "curve_control": null,
+        "label": "环境科学与工程学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e023",
+        "start": "jn3-n013",
+        "end": "jn3-n027",
+        "via": [],
+        "curve_control": null,
+        "label": "西部学部东西支路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e024",
+        "start": "jn3-n015",
+        "end": "jn3-n019",
+        "via": [],
+        "curve_control": null,
+        "label": "实验动物中心入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e025",
+        "start": "jn3-n016",
+        "end": "jn3-n019",
+        "via": [
+          {
+            "x": 1845.53,
+            "y": 4639.69
+          }
+        ],
+        "curve_control": null,
+        "label": "理科体育场西侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e026",
+        "start": "jn3-n016",
+        "end": "jn3-n017",
+        "via": [],
+        "curve_control": null,
+        "label": "西南片区南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e027",
+        "start": "jn3-n017",
+        "end": "jn3-n018",
+        "via": [],
+        "curve_control": null,
+        "label": "西南门内连接道",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e028",
+        "start": "jn3-n017",
+        "end": "jn3-n030",
+        "via": [
+          {
+            "x": 2143.05,
+            "y": 4885.47
+          }
+        ],
+        "curve_control": null,
+        "label": "西南片区南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e029",
+        "start": "jn3-n019",
+        "end": "jn3-n024",
+        "via": [
+          {
+            "x": 1871.4,
+            "y": 4350.79
+          },
+          {
+            "x": 1905.89,
+            "y": 4122.25
+          }
+        ],
+        "curve_control": null,
+        "label": "理科体育场西侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e030",
+        "start": "jn3-n021",
+        "end": "jn3-n026",
+        "via": [
+          {
+            "x": 1931.77,
+            "y": 1802.41
+          },
+          {
+            "x": 1992.13,
+            "y": 1500.57
+          }
+        ],
+        "curve_control": null,
+        "label": "留学生公寓西侧路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e031",
+        "start": "jn3-n021",
+        "end": "jn3-n057",
+        "via": [
+          {
+            "x": 2224.98,
+            "y": 2091.31
+          },
+          {
+            "x": 2488.01,
+            "y": 1944.7
+          }
+        ],
+        "curve_control": null,
+        "label": "留学生公寓南侧路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e032",
+        "start": "jn3-n022",
+        "end": "jn3-n023",
+        "via": [],
+        "curve_control": null,
+        "label": "药学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e033",
+        "start": "jn3-n023",
+        "end": "jn3-n024",
+        "via": [
+          {
+            "x": 1905.89,
+            "y": 3738.49
+          }
+        ],
+        "curve_control": null,
+        "label": "西部学部南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e034",
+        "start": "jn3-n023",
+        "end": "jn3-n025",
+        "via": [],
+        "curve_control": null,
+        "label": "西部学部南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e035",
+        "start": "jn3-n024",
+        "end": "jn3-n037",
+        "via": [
+          {
+            "x": 2151.68,
+            "y": 3898.03
+          },
+          {
+            "x": 2345.72,
+            "y": 3923.9
+          }
+        ],
+        "curve_control": null,
+        "label": "湖区南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e036",
+        "start": "jn3-n025",
+        "end": "jn3-n027",
+        "via": [],
+        "curve_control": null,
+        "label": "西部学部南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e037",
+        "start": "jn3-n026",
+        "end": "jn3-n044",
+        "via": [
+          {
+            "x": 2281.04,
+            "y": 1315.15
+          }
+        ],
+        "curve_control": null,
+        "label": "西北宿舍片区中路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e038",
+        "start": "jn3-n027",
+        "end": "jn3-n028",
+        "via": [],
+        "curve_control": null,
+        "label": "西部学部南北道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e039",
+        "start": "jn3-n027",
+        "end": "jn3-n033",
+        "via": [
+          {
+            "x": 2319.84,
+            "y": 3203.8
+          }
+        ],
+        "curve_control": null,
+        "label": "西部湖区北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e040",
+        "start": "jn3-n028",
+        "end": "jn3-n057",
+        "via": [
+          {
+            "x": 2186.17,
+            "y": 2410.4
+          },
+          {
+            "x": 2289.66,
+            "y": 2194.8
+          },
+          {
+            "x": 2440.58,
+            "y": 2082.69
+          },
+          {
+            "x": 2617.37,
+            "y": 1983.51
+          }
+        ],
+        "curve_control": null,
+        "label": "文科学部西侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e041",
+        "start": "jn3-n029",
+        "end": "jn3-n030",
+        "via": [],
+        "curve_control": null,
+        "label": "理工学部西侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e042",
+        "start": "jn3-n029",
+        "end": "jn3-n038",
+        "via": [],
+        "curve_control": null,
+        "label": "校园西南内环",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e043",
+        "start": "jn3-n030",
+        "end": "jn3-n032",
+        "via": [],
+        "curve_control": null,
+        "label": "理工学部西侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e044",
+        "start": "jn3-n030",
+        "end": "jn3-n038",
+        "via": [],
+        "curve_control": null,
+        "label": "西南片区南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e045",
+        "start": "jn3-n031",
+        "end": "jn3-n036",
+        "via": [
+          {
+            "x": 2367.28,
+            "y": 2824.35
+          },
+          {
+            "x": 2466.45,
+            "y": 2845.91
+          }
+        ],
+        "curve_control": null,
+        "label": "木斋图书馆广场通路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e046",
+        "start": "jn3-n032",
+        "end": "jn3-n034",
+        "via": [
+          {
+            "x": 2431.96,
+            "y": 4514.64
+          }
+        ],
+        "curve_control": null,
+        "label": "理工学部西侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e047",
+        "start": "jn3-n032",
+        "end": "jn3-n048",
+        "via": [
+          {
+            "x": 2673.43,
+            "y": 4868.22
+          }
+        ],
+        "curve_control": null,
+        "label": "南侧宿舍南路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e048",
+        "start": "jn3-n033",
+        "end": "jn3-n035",
+        "via": [],
+        "curve_control": null,
+        "label": "秀山堂入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e049",
+        "start": "jn3-n033",
+        "end": "jn3-n046",
+        "via": [],
+        "curve_control": null,
+        "label": "西部湖区北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e050",
+        "start": "jn3-n034",
+        "end": "jn3-n037",
+        "via": [],
+        "curve_control": null,
+        "label": "理工学部西侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e051",
+        "start": "jn3-n034",
+        "end": "jn3-n059",
+        "via": [
+          {
+            "x": 2785.54,
+            "y": 4320.6
+          }
+        ],
+        "curve_control": null,
+        "label": "南侧宿舍中路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e052",
+        "start": "jn3-n036",
+        "end": "jn3-n039",
+        "via": [],
+        "curve_control": null,
+        "label": "思源堂入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e053",
+        "start": "jn3-n036",
+        "end": "jn3-n045",
+        "via": [
+          {
+            "x": 2600.12,
+            "y": 2871.78
+          }
+        ],
+        "curve_control": null,
+        "label": "木斋图书馆广场通路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e054",
+        "start": "jn3-n037",
+        "end": "jn3-n046",
+        "via": [
+          {
+            "x": 2582.88,
+            "y": 3777.29
+          },
+          {
+            "x": 2638.93,
+            "y": 3522.89
+          }
+        ],
+        "curve_control": null,
+        "label": "理工学部西侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e055",
+        "start": "jn3-n037",
+        "end": "jn3-n055",
+        "via": [
+          {
+            "x": 2742.42,
+            "y": 4010.14
+          }
+        ],
+        "curve_control": null,
+        "label": "湖区南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e056",
+        "start": "jn3-n038",
+        "end": "jn3-n109",
+        "via": [
+          {
+            "x": 2876.09,
+            "y": 5049.33
+          },
+          {
+            "x": 3225.36,
+            "y": 5109.7
+          },
+          {
+            "x": 3492.7,
+            "y": 5131.26
+          },
+          {
+            "x": 3686.74,
+            "y": 5096.76
+          }
+        ],
+        "curve_control": null,
+        "label": "校园西南内环",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e057",
+        "start": "jn3-n041",
+        "end": "jn3-n042",
+        "via": [],
+        "curve_control": null,
+        "label": "西北门内道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e058",
+        "start": "jn3-n042",
+        "end": "jn3-n043",
+        "via": [
+          {
+            "x": 2638.93,
+            "y": 1142.67
+          }
+        ],
+        "curve_control": null,
+        "label": "西北门内道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e059",
+        "start": "jn3-n042",
+        "end": "jn3-n102",
+        "via": [
+          {
+            "x": 3035.63,
+            "y": 940.01
+          }
+        ],
+        "curve_control": null,
+        "label": "文科宿舍北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e060",
+        "start": "jn3-n043",
+        "end": "jn3-n044",
+        "via": [],
+        "curve_control": null,
+        "label": "西北门内道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e061",
+        "start": "jn3-n043",
+        "end": "jn3-n054",
+        "via": [],
+        "curve_control": null,
+        "label": "校医院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e062",
+        "start": "jn3-n044",
+        "end": "jn3-n057",
+        "via": [
+          {
+            "x": 2716.55,
+            "y": 1677.36
+          }
+        ],
+        "curve_control": null,
+        "label": "西北门内道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e063",
+        "start": "jn3-n045",
+        "end": "jn3-n046",
+        "via": [
+          {
+            "x": 2660.49,
+            "y": 3195.18
+          }
+        ],
+        "curve_control": null,
+        "label": "文科学部东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e064",
+        "start": "jn3-n045",
+        "end": "jn3-n047",
+        "via": [],
+        "curve_control": null,
+        "label": "文科学部东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e065",
+        "start": "jn3-n046",
+        "end": "jn3-n061",
+        "via": [],
+        "curve_control": null,
+        "label": "理工学部北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e066",
+        "start": "jn3-n047",
+        "end": "jn3-n057",
+        "via": [
+          {
+            "x": 2733.79,
+            "y": 2410.4
+          },
+          {
+            "x": 2776.91,
+            "y": 2125.81
+          }
+        ],
+        "curve_control": null,
+        "label": "文科学部东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e067",
+        "start": "jn3-n047",
+        "end": "jn3-n079",
+        "via": [
+          {
+            "x": 3027.01,
+            "y": 2699.3
+          }
+        ],
+        "curve_control": null,
+        "label": "文科学部南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e068",
+        "start": "jn3-n048",
+        "end": "jn3-n050",
+        "via": [],
+        "curve_control": null,
+        "label": "学5-D入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e069",
+        "start": "jn3-n048",
+        "end": "jn3-n052",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍南路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e070",
+        "start": "jn3-n049",
+        "end": "jn3-n092",
+        "via": [
+          {
+            "x": 3164.99,
+            "y": 1595.43
+          }
+        ],
+        "curve_control": null,
+        "label": "文科宿舍中部道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e071",
+        "start": "jn3-n051",
+        "end": "jn3-n058",
+        "via": [],
+        "curve_control": null,
+        "label": "学5-C入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e072",
+        "start": "jn3-n052",
+        "end": "jn3-n053",
+        "via": [],
+        "curve_control": null,
+        "label": "学6入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e073",
+        "start": "jn3-n052",
+        "end": "jn3-n063",
+        "via": [
+          {
+            "x": 2979.58,
+            "y": 4924.28
+          }
+        ],
+        "curve_control": null,
+        "label": "南侧宿舍南路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e074",
+        "start": "jn3-n055",
+        "end": "jn3-n056",
+        "via": [],
+        "curve_control": null,
+        "label": "电子信息与光学工程学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e075",
+        "start": "jn3-n055",
+        "end": "jn3-n066",
+        "via": [],
+        "curve_control": null,
+        "label": "湖区南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e076",
+        "start": "jn3-n057",
+        "end": "jn3-n069",
+        "via": [
+          {
+            "x": 3022.7,
+            "y": 1901.58
+          }
+        ],
+        "curve_control": null,
+        "label": "文科南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e077",
+        "start": "jn3-n058",
+        "end": "jn3-n059",
+        "via": [],
+        "curve_control": null,
+        "label": "理科食堂入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e078",
+        "start": "jn3-n059",
+        "end": "jn3-n077",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍中路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e079",
+        "start": "jn3-n060",
+        "end": "jn3-n061",
+        "via": [],
+        "curve_control": null,
+        "label": "软件学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e080",
+        "start": "jn3-n061",
+        "end": "jn3-n083",
+        "via": [
+          {
+            "x": 3057.19,
+            "y": 3359.03
+          }
+        ],
+        "curve_control": null,
+        "label": "理工学部北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e081",
+        "start": "jn3-n062",
+        "end": "jn3-n063",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍东支路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e082",
+        "start": "jn3-n063",
+        "end": "jn3-n064",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍东支路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e083",
+        "start": "jn3-n063",
+        "end": "jn3-n072",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍南路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e084",
+        "start": "jn3-n064",
+        "end": "jn3-n067",
+        "via": [],
+        "curve_control": null,
+        "label": "学5-A入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e085",
+        "start": "jn3-n064",
+        "end": "jn3-n071",
+        "via": [
+          {
+            "x": 3052.88,
+            "y": 4665.56
+          }
+        ],
+        "curve_control": null,
+        "label": "南侧宿舍东支路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e086",
+        "start": "jn3-n065",
+        "end": "jn3-n066",
+        "via": [],
+        "curve_control": null,
+        "label": "理工学部中部道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e087",
+        "start": "jn3-n066",
+        "end": "jn3-n083",
+        "via": [
+          {
+            "x": 3078.75,
+            "y": 3902.34
+          },
+          {
+            "x": 3134.81,
+            "y": 3639.31
+          }
+        ],
+        "curve_control": null,
+        "label": "理工学部中部道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e088",
+        "start": "jn3-n066",
+        "end": "jn3-n088",
+        "via": [
+          {
+            "x": 3096.0,
+            "y": 4070.51
+          }
+        ],
+        "curve_control": null,
+        "label": "湖区南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e089",
+        "start": "jn3-n068",
+        "end": "jn3-n071",
+        "via": [],
+        "curve_control": null,
+        "label": "学5-B入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e090",
+        "start": "jn3-n069",
+        "end": "jn3-n070",
+        "via": [],
+        "curve_control": null,
+        "label": "文科食堂入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e091",
+        "start": "jn3-n069",
+        "end": "jn3-n076",
+        "via": [],
+        "curve_control": null,
+        "label": "文科南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e092",
+        "start": "jn3-n071",
+        "end": "jn3-n077",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍东支路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e093",
+        "start": "jn3-n072",
+        "end": "jn3-n073",
+        "via": [],
+        "curve_control": null,
+        "label": "教3入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e094",
+        "start": "jn3-n072",
+        "end": "jn3-n087",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍南路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e095",
+        "start": "jn3-n074",
+        "end": "jn3-n080",
+        "via": [],
+        "curve_control": null,
+        "label": "法学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e096",
+        "start": "jn3-n075",
+        "end": "jn3-n076",
+        "via": [],
+        "curve_control": null,
+        "label": "周恩来政府管理学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e097",
+        "start": "jn3-n076",
+        "end": "jn3-n086",
+        "via": [],
+        "curve_control": null,
+        "label": "文科南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e098",
+        "start": "jn3-n077",
+        "end": "jn3-n082",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍中路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e099",
+        "start": "jn3-n078",
+        "end": "jn3-n079",
+        "via": [],
+        "curve_control": null,
+        "label": "文科学部内支路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e100",
+        "start": "jn3-n079",
+        "end": "jn3-n080",
+        "via": [],
+        "curve_control": null,
+        "label": "文科学部内支路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e101",
+        "start": "jn3-n079",
+        "end": "jn3-n100",
+        "via": [
+          {
+            "x": 3371.97,
+            "y": 2759.67
+          }
+        ],
+        "curve_control": null,
+        "label": "文科学部南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e102",
+        "start": "jn3-n080",
+        "end": "jn3-n086",
+        "via": [
+          {
+            "x": 3186.55,
+            "y": 2431.96
+          },
+          {
+            "x": 3238.3,
+            "y": 2173.24
+          }
+        ],
+        "curve_control": null,
+        "label": "文科学部内支路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e103",
+        "start": "jn3-n081",
+        "end": "jn3-n082",
+        "via": [],
+        "curve_control": null,
+        "label": "学7-B入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e104",
+        "start": "jn3-n082",
+        "end": "jn3-n095",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍中路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e105",
+        "start": "jn3-n083",
+        "end": "jn3-n084",
+        "via": [],
+        "curve_control": null,
+        "label": "理工学部中部道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e106",
+        "start": "jn3-n083",
+        "end": "jn3-n099",
+        "via": [
+          {
+            "x": 3419.4,
+            "y": 3436.65
+          }
+        ],
+        "curve_control": null,
+        "label": "理工学部北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e107",
+        "start": "jn3-n085",
+        "end": "jn3-n087",
+        "via": [],
+        "curve_control": null,
+        "label": "理工学部东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e108",
+        "start": "jn3-n086",
+        "end": "jn3-n092",
+        "via": [],
+        "curve_control": null,
+        "label": "文科宿舍南北通路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e109",
+        "start": "jn3-n086",
+        "end": "jn3-n094",
+        "via": [],
+        "curve_control": null,
+        "label": "文科南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e110",
+        "start": "jn3-n087",
+        "end": "jn3-n091",
+        "via": [
+          {
+            "x": 3333.16,
+            "y": 4700.06
+          }
+        ],
+        "curve_control": null,
+        "label": "理工学部东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e111",
+        "start": "jn3-n087",
+        "end": "jn3-n090",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍南路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e112",
+        "start": "jn3-n088",
+        "end": "jn3-n089",
+        "via": [],
+        "curve_control": null,
+        "label": "计算机学院、网络空间安全学院、人工智能学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e113",
+        "start": "jn3-n088",
+        "end": "jn3-n104",
+        "via": [],
+        "curve_control": null,
+        "label": "湖区南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e114",
+        "start": "jn3-n090",
+        "end": "jn3-n096",
+        "via": [],
+        "curve_control": null,
+        "label": "学9入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e115",
+        "start": "jn3-n091",
+        "end": "jn3-n095",
+        "via": [],
+        "curve_control": null,
+        "label": "理工学部东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e116",
+        "start": "jn3-n091",
+        "end": "jn3-n105",
+        "via": [],
+        "curve_control": null,
+        "label": "学8入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e117",
+        "start": "jn3-n092",
+        "end": "jn3-n102",
+        "via": [
+          {
+            "x": 3376.28,
+            "y": 1556.62
+          },
+          {
+            "x": 3449.58,
+            "y": 1306.53
+          }
+        ],
+        "curve_control": null,
+        "label": "文科宿舍南北通路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e118",
+        "start": "jn3-n092",
+        "end": "jn3-n111",
+        "via": [],
+        "curve_control": null,
+        "label": "文科宿舍中部道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e119",
+        "start": "jn3-n093",
+        "end": "jn3-n094",
+        "via": [],
+        "curve_control": null,
+        "label": "历史学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e120",
+        "start": "jn3-n094",
+        "end": "jn3-n108",
+        "via": [
+          {
+            "x": 3540.13,
+            "y": 1974.89
+          }
+        ],
+        "curve_control": null,
+        "label": "文科南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e121",
+        "start": "jn3-n095",
+        "end": "jn3-n104",
+        "via": [
+          {
+            "x": 3415.09,
+            "y": 4398.22
+          }
+        ],
+        "curve_control": null,
+        "label": "理工学部东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e122",
+        "start": "jn3-n095",
+        "end": "jn3-n097",
+        "via": [],
+        "curve_control": null,
+        "label": "南侧宿舍中路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e123",
+        "start": "jn3-n097",
+        "end": "jn3-n103",
+        "via": [],
+        "curve_control": null,
+        "label": "学7-A入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e124",
+        "start": "jn3-n098",
+        "end": "jn3-n099",
+        "via": [],
+        "curve_control": null,
+        "label": "材料科学与工程学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e125",
+        "start": "jn3-n099",
+        "end": "jn3-n106",
+        "via": [],
+        "curve_control": null,
+        "label": "理工学部北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e126",
+        "start": "jn3-n100",
+        "end": "jn3-n101",
+        "via": [],
+        "curve_control": null,
+        "label": "金融学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e127",
+        "start": "jn3-n100",
+        "end": "jn3-n118",
+        "via": [
+          {
+            "x": 3691.05,
+            "y": 2763.98
+          }
+        ],
+        "curve_control": null,
+        "label": "文科学部南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e128",
+        "start": "jn3-n102",
+        "end": "jn3-n112",
+        "via": [],
+        "curve_control": null,
+        "label": "文科宿舍北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e129",
+        "start": "jn3-n104",
+        "end": "jn3-n106",
+        "via": [
+          {
+            "x": 3540.13,
+            "y": 3803.17
+          }
+        ],
+        "curve_control": null,
+        "label": "理工学部东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e130",
+        "start": "jn3-n104",
+        "end": "jn3-n114",
+        "via": [],
+        "curve_control": null,
+        "label": "湖区南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e131",
+        "start": "jn3-n106",
+        "end": "jn3-n116",
+        "via": [
+          {
+            "x": 3768.67,
+            "y": 3583.25
+          }
+        ],
+        "curve_control": null,
+        "label": "理工学部北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e132",
+        "start": "jn3-n107",
+        "end": "jn3-n108",
+        "via": [],
+        "curve_control": null,
+        "label": "马克思主义学院入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e133",
+        "start": "jn3-n108",
+        "end": "jn3-n110",
+        "via": [],
+        "curve_control": null,
+        "label": "文科南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e134",
+        "start": "jn3-n110",
+        "end": "jn3-n111",
+        "via": [],
+        "curve_control": null,
+        "label": "文科宿舍东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e135",
+        "start": "jn3-n110",
+        "end": "jn3-n121",
+        "via": [],
+        "curve_control": null,
+        "label": "文科南侧主路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e136",
+        "start": "jn3-n111",
+        "end": "jn3-n112",
+        "via": [
+          {
+            "x": 3885.09,
+            "y": 1392.77
+          }
+        ],
+        "curve_control": null,
+        "label": "文科宿舍东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e137",
+        "start": "jn3-n112",
+        "end": "jn3-n125",
+        "via": [],
+        "curve_control": null,
+        "label": "文科宿舍北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e138",
+        "start": "jn3-n113",
+        "end": "jn3-n114",
+        "via": [],
+        "curve_control": null,
+        "label": "学术西路南段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e139",
+        "start": "jn3-n113",
+        "end": "jn3-n116",
+        "via": [],
+        "curve_control": null,
+        "label": "学术西路南段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e140",
+        "start": "jn3-n113",
+        "end": "jn3-n139",
+        "via": [
+          {
+            "x": 4182.62,
+            "y": 3846.29
+          },
+          {
+            "x": 4385.28,
+            "y": 3846.29
+          }
+        ],
+        "curve_control": null,
+        "label": "图书馆北侧东西台阶",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e141",
+        "start": "jn3-n114",
+        "end": "jn3-n122",
+        "via": [
+          {
+            "x": 3919.59,
+            "y": 4428.4
+          },
+          {
+            "x": 3949.77,
+            "y": 4518.95
+          },
+          {
+            "x": 4018.76,
+            "y": 4579.32
+          }
+        ],
+        "curve_control": null,
+        "label": "学术西路南段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e142",
+        "start": "jn3-n115",
+        "end": "jn3-n117",
+        "via": [
+          {
+            "x": 3928.21,
+            "y": 3190.86
+          },
+          {
+            "x": 3949.77,
+            "y": 2949.39
+          }
+        ],
+        "curve_control": null,
+        "label": "学术西路中段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e143",
+        "start": "jn3-n115",
+        "end": "jn3-n116",
+        "via": [],
+        "curve_control": null,
+        "label": "学术西路中段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e144",
+        "start": "jn3-n115",
+        "end": "jn3-n119",
+        "via": [],
+        "curve_control": null,
+        "label": "公共教学楼A区入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e145",
+        "start": "jn3-n116",
+        "end": "jn3-n138",
+        "via": [
+          {
+            "x": 4234.36,
+            "y": 3617.75
+          }
+        ],
+        "curve_control": null,
+        "label": "公共教学楼南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e146",
+        "start": "jn3-n117",
+        "end": "jn3-n118",
+        "via": [],
+        "curve_control": null,
+        "label": "学术西路中段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e147",
+        "start": "jn3-n117",
+        "end": "jn3-n120",
+        "via": [],
+        "curve_control": null,
+        "label": "公共教学楼D区入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e148",
+        "start": "jn3-n118",
+        "end": "jn3-n121",
+        "via": [
+          {
+            "x": 4027.39,
+            "y": 2526.82
+          },
+          {
+            "x": 4066.2,
+            "y": 2289.66
+          }
+        ],
+        "curve_control": null,
+        "label": "学术西路北段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e149",
+        "start": "jn3-n118",
+        "end": "jn3-n135",
+        "via": [
+          {
+            "x": 4311.98,
+            "y": 2707.92
+          }
+        ],
+        "curve_control": null,
+        "label": "公共教学楼北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e150",
+        "start": "jn3-n121",
+        "end": "jn3-n124",
+        "via": [
+          {
+            "x": 4174.0,
+            "y": 1940.39
+          },
+          {
+            "x": 4217.12,
+            "y": 1754.98
+          }
+        ],
+        "curve_control": null,
+        "label": "体育馆西侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e151",
+        "start": "jn3-n121",
+        "end": "jn3-n130",
+        "via": [
+          {
+            "x": 4268.86,
+            "y": 2164.61
+          },
+          {
+            "x": 4445.65,
+            "y": 2216.36
+          }
+        ],
+        "curve_control": null,
+        "label": "体育馆南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e152",
+        "start": "jn3-n122",
+        "end": "jn3-n126",
+        "via": [],
+        "curve_control": null,
+        "label": "公能南道",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e153",
+        "start": "jn3-n123",
+        "end": "jn3-n124",
+        "via": [],
+        "curve_control": null,
+        "label": "文科体育场入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e154",
+        "start": "jn3-n124",
+        "end": "jn3-n132",
+        "via": [
+          {
+            "x": 4260.24,
+            "y": 1569.56
+          },
+          {
+            "x": 4299.04,
+            "y": 1410.02
+          },
+          {
+            "x": 4350.79,
+            "y": 1293.59
+          },
+          {
+            "x": 4437.03,
+            "y": 1233.23
+          },
+          {
+            "x": 4531.89,
+            "y": 1211.67
+          }
+        ],
+        "curve_control": null,
+        "label": "体育馆西侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e155",
+        "start": "jn3-n126",
+        "end": "jn3-n145",
+        "via": [
+          {
+            "x": 4441.34,
+            "y": 4734.55
+          },
+          {
+            "x": 4475.83,
+            "y": 4881.16
+          },
+          {
+            "x": 4501.71,
+            "y": 5001.9
+          },
+          {
+            "x": 4531.89,
+            "y": 5114.01
+          },
+          {
+            "x": 4518.95,
+            "y": 5183.0
+          },
+          {
+            "x": 4557.76,
+            "y": 5247.68
+          }
+        ],
+        "curve_control": null,
+        "label": "南门翔宇路西侧",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e156",
+        "start": "jn3-n126",
+        "end": "jn3-n144",
+        "via": [],
+        "curve_control": null,
+        "label": "公能南道",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e157",
+        "start": "jn3-n127",
+        "end": "jn3-n142",
+        "via": [],
+        "curve_control": null,
+        "label": "综合业务楼中部广场西支",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e158",
+        "start": "jn3-n128",
+        "end": "jn3-n136",
+        "via": [],
+        "curve_control": null,
+        "label": "教学区上部步行连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e159",
+        "start": "jn3-n129",
+        "end": "jn3-n137",
+        "via": [],
+        "curve_control": null,
+        "label": "教学区下部步行连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e160",
+        "start": "jn3-n130",
+        "end": "jn3-n133",
+        "via": [],
+        "curve_control": null,
+        "label": "体育馆入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e161",
+        "start": "jn3-n130",
+        "end": "jn3-n134",
+        "via": [],
+        "curve_control": null,
+        "label": "体育馆南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e162",
+        "start": "jn3-n131",
+        "end": "jn3-n132",
+        "via": [
+          {
+            "x": 4613.82,
+            "y": 1159.92
+          }
+        ],
+        "curve_control": null,
+        "label": "北门内通路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e163",
+        "start": "jn3-n132",
+        "end": "jn3-n151",
+        "via": [
+          {
+            "x": 4704.37,
+            "y": 1211.67
+          },
+          {
+            "x": 4794.92,
+            "y": 1250.47
+          }
+        ],
+        "curve_control": null,
+        "label": "体育馆東侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e164",
+        "start": "jn3-n134",
+        "end": "jn3-n135",
+        "via": [
+          {
+            "x": 4613.82,
+            "y": 2470.76
+          }
+        ],
+        "curve_control": null,
+        "label": "中央教学区轴线",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e165",
+        "start": "jn3-n134",
+        "end": "jn3-n157",
+        "via": [
+          {
+            "x": 4799.23,
+            "y": 2216.36
+          },
+          {
+            "x": 4954.46,
+            "y": 2186.17
+          }
+        ],
+        "curve_control": null,
+        "label": "体育馆南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e166",
+        "start": "jn3-n135",
+        "end": "jn3-n136",
+        "via": [],
+        "curve_control": null,
+        "label": "中央教学区轴线",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e167",
+        "start": "jn3-n135",
+        "end": "jn3-n153",
+        "via": [],
+        "curve_control": null,
+        "label": "公共教学楼北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e168",
+        "start": "jn3-n136",
+        "end": "jn3-n137",
+        "via": [
+          {
+            "x": 4613.82,
+            "y": 3251.23
+          }
+        ],
+        "curve_control": null,
+        "label": "中央教学区轴线",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e169",
+        "start": "jn3-n136",
+        "end": "jn3-n147",
+        "via": [],
+        "curve_control": null,
+        "label": "教学区上部步行连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e170",
+        "start": "jn3-n137",
+        "end": "jn3-n138",
+        "via": [
+          {
+            "x": 4613.82,
+            "y": 3449.58
+          }
+        ],
+        "curve_control": null,
+        "label": "中央教学区轴线",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e171",
+        "start": "jn3-n137",
+        "end": "jn3-n148",
+        "via": [],
+        "curve_control": null,
+        "label": "教学区下部步行连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e172",
+        "start": "jn3-n138",
+        "end": "jn3-n139",
+        "via": [
+          {
+            "x": 4613.82,
+            "y": 3716.93
+          }
+        ],
+        "curve_control": null,
+        "label": "图书馆北广场",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e173",
+        "start": "jn3-n138",
+        "end": "jn3-n162",
+        "via": [
+          {
+            "x": 4928.59,
+            "y": 3613.44
+          }
+        ],
+        "curve_control": null,
+        "label": "公共教学楼南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e174",
+        "start": "jn3-n139",
+        "end": "jn3-n140",
+        "via": [],
+        "curve_control": null,
+        "label": "图书馆北广场",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e175",
+        "start": "jn3-n139",
+        "end": "jn3-n164",
+        "via": [
+          {
+            "x": 4872.54,
+            "y": 3846.29
+          },
+          {
+            "x": 5045.02,
+            "y": 3846.29
+          }
+        ],
+        "curve_control": null,
+        "label": "图书馆北侧东西台阶",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e176",
+        "start": "jn3-n141",
+        "end": "jn3-n142",
+        "via": [
+          {
+            "x": 4613.82,
+            "y": 4100.69
+          }
+        ],
+        "curve_control": null,
+        "label": "图书馆南侧广场",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e177",
+        "start": "jn3-n142",
+        "end": "jn3-n143",
+        "via": [
+          {
+            "x": 4613.82,
+            "y": 4380.97
+          }
+        ],
+        "curve_control": null,
+        "label": "图书馆南侧广场",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e178",
+        "start": "jn3-n142",
+        "end": "jn3-n150",
+        "via": [],
+        "curve_control": null,
+        "label": "综合业务楼中部广场东支",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e179",
+        "start": "jn3-n143",
+        "end": "jn3-n144",
+        "via": [],
+        "curve_control": null,
+        "label": "图书馆南侧广场",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e180",
+        "start": "jn3-n144",
+        "end": "jn3-n149",
+        "via": [],
+        "curve_control": null,
+        "label": "公能南道",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e181",
+        "start": "jn3-n145",
+        "end": "jn3-n146",
+        "via": [],
+        "curve_control": null,
+        "label": "南门翔宇路西侧",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e182",
+        "start": "jn3-n145",
+        "end": "jn3-n149",
+        "via": [
+          {
+            "x": 4691.43,
+            "y": 5234.74
+          },
+          {
+            "x": 4734.55,
+            "y": 5170.06
+          },
+          {
+            "x": 4712.99,
+            "y": 5109.7
+          },
+          {
+            "x": 4738.87,
+            "y": 4997.58
+          },
+          {
+            "x": 4769.05,
+            "y": 4855.29
+          },
+          {
+            "x": 4790.61,
+            "y": 4730.24
+          }
+        ],
+        "curve_control": null,
+        "label": "南门翔宇路东侧",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e183",
+        "start": "jn3-n149",
+        "end": "jn3-n155",
+        "via": [],
+        "curve_control": null,
+        "label": "公能南道",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e184",
+        "start": "jn3-n151",
+        "end": "jn3-n154",
+        "via": [
+          {
+            "x": 4932.9,
+            "y": 1504.88
+          },
+          {
+            "x": 4984.65,
+            "y": 1720.48
+          }
+        ],
+        "curve_control": null,
+        "label": "体育馆東侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e185",
+        "start": "jn3-n151",
+        "end": "jn3-n169",
+        "via": [
+          {
+            "x": 5105.38,
+            "y": 1224.6
+          },
+          {
+            "x": 5364.1,
+            "y": 1198.73
+          }
+        ],
+        "curve_control": null,
+        "label": "体育场北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e186",
+        "start": "jn3-n152",
+        "end": "jn3-n153",
+        "via": [],
+        "curve_control": null,
+        "label": "前沿交叉学科中心入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e187",
+        "start": "jn3-n153",
+        "end": "jn3-n158",
+        "via": [
+          {
+            "x": 4919.97,
+            "y": 2716.55
+          }
+        ],
+        "curve_control": null,
+        "label": "公共教学楼北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e188",
+        "start": "jn3-n154",
+        "end": "jn3-n156",
+        "via": [],
+        "curve_control": null,
+        "label": "主体育场入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e189",
+        "start": "jn3-n154",
+        "end": "jn3-n157",
+        "via": [
+          {
+            "x": 5040.7,
+            "y": 1936.08
+          }
+        ],
+        "curve_control": null,
+        "label": "体育馆東侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e190",
+        "start": "jn3-n155",
+        "end": "jn3-n163",
+        "via": [
+          {
+            "x": 5122.63,
+            "y": 4587.95
+          },
+          {
+            "x": 5204.56,
+            "y": 4531.89
+          },
+          {
+            "x": 5251.99,
+            "y": 4424.09
+          }
+        ],
+        "curve_control": null,
+        "label": "学术东路南段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e191",
+        "start": "jn3-n157",
+        "end": "jn3-n165",
+        "via": [
+          {
+            "x": 5178.69,
+            "y": 2371.59
+          },
+          {
+            "x": 5239.05,
+            "y": 2582.88
+          }
+        ],
+        "curve_control": null,
+        "label": "学术东路北段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e192",
+        "start": "jn3-n157",
+        "end": "jn3-n166",
+        "via": [
+          {
+            "x": 5273.55,
+            "y": 2078.37
+          }
+        ],
+        "curve_control": null,
+        "label": "体育场南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e193",
+        "start": "jn3-n158",
+        "end": "jn3-n159",
+        "via": [],
+        "curve_control": null,
+        "label": "综合实验楼D区入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e194",
+        "start": "jn3-n158",
+        "end": "jn3-n165",
+        "via": [],
+        "curve_control": null,
+        "label": "公共教学楼北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e195",
+        "start": "jn3-n160",
+        "end": "jn3-n161",
+        "via": [],
+        "curve_control": null,
+        "label": "综合实验楼A区入口候选连接",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e196",
+        "start": "jn3-n161",
+        "end": "jn3-n165",
+        "via": [
+          {
+            "x": 5251.99,
+            "y": 3221.05
+          },
+          {
+            "x": 5256.3,
+            "y": 2949.39
+          }
+        ],
+        "curve_control": null,
+        "label": "学术东路中段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e197",
+        "start": "jn3-n161",
+        "end": "jn3-n162",
+        "via": [],
+        "curve_control": null,
+        "label": "学术东路中段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e198",
+        "start": "jn3-n162",
+        "end": "jn3-n164",
+        "via": [],
+        "curve_control": null,
+        "label": "学术东路南段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e199",
+        "start": "jn3-n162",
+        "end": "jn3-n172",
+        "via": [
+          {
+            "x": 5441.72,
+            "y": 3492.7
+          },
+          {
+            "x": 5687.5,
+            "y": 3475.46
+          },
+          {
+            "x": 6010.9,
+            "y": 3475.46
+          }
+        ],
+        "curve_control": null,
+        "label": "新开湖南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e200",
+        "start": "jn3-n163",
+        "end": "jn3-n164",
+        "via": [],
+        "curve_control": null,
+        "label": "学术东路南段",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e201",
+        "start": "jn3-n163",
+        "end": "jn3-n168",
+        "via": [],
+        "curve_control": null,
+        "label": "东部门内南路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e202",
+        "start": "jn3-n165",
+        "end": "jn3-n171",
+        "via": [
+          {
+            "x": 5653.0,
+            "y": 2716.55
+          },
+          {
+            "x": 5963.47,
+            "y": 2716.55
+          }
+        ],
+        "curve_control": null,
+        "label": "新开湖北侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e203",
+        "start": "jn3-n166",
+        "end": "jn3-n169",
+        "via": [
+          {
+            "x": 5588.32,
+            "y": 1767.91
+          },
+          {
+            "x": 5618.51,
+            "y": 1500.57
+          }
+        ],
+        "curve_control": null,
+        "label": "体育场东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e204",
+        "start": "jn3-n166",
+        "end": "jn3-n170",
+        "via": [
+          {
+            "x": 5941.91,
+            "y": 2013.69
+          }
+        ],
+        "curve_control": null,
+        "label": "东部门内北路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e205",
+        "start": "jn3-n167",
+        "end": "jn3-n168",
+        "via": [
+          {
+            "x": 5592.64,
+            "y": 4881.16
+          },
+          {
+            "x": 5592.64,
+            "y": 4549.14
+          }
+        ],
+        "curve_control": null,
+        "label": "南侧东部宿舍西路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e206",
+        "start": "jn3-n167",
+        "end": "jn3-n176",
+        "via": [
+          {
+            "x": 6006.59,
+            "y": 5135.57
+          },
+          {
+            "x": 6424.85,
+            "y": 5135.57
+          },
+          {
+            "x": 6868.98,
+            "y": 5135.57
+          },
+          {
+            "x": 7321.74,
+            "y": 5135.57
+          },
+          {
+            "x": 7640.83,
+            "y": 5135.57
+          }
+        ],
+        "curve_control": null,
+        "label": "东南片区南侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e207",
+        "start": "jn3-n168",
+        "end": "jn3-n173",
+        "via": [
+          {
+            "x": 5963.47,
+            "y": 4191.24
+          }
+        ],
+        "curve_control": null,
+        "label": "东部门内南路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e208",
+        "start": "jn3-n170",
+        "end": "jn3-n171",
+        "via": [
+          {
+            "x": 6360.17,
+            "y": 2470.76
+          }
+        ],
+        "curve_control": null,
+        "label": "学生活动中心东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e209",
+        "start": "jn3-n170",
+        "end": "jn3-n174",
+        "via": [
+          {
+            "x": 6588.7,
+            "y": 2056.81
+          },
+          {
+            "x": 6765.5,
+            "y": 2186.17
+          },
+          {
+            "x": 6868.98,
+            "y": 2384.52
+          },
+          {
+            "x": 6890.54,
+            "y": 2707.92
+          },
+          {
+            "x": 6890.54,
+            "y": 3005.45
+          }
+        ],
+        "curve_control": null,
+        "label": "东部门内北路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e210",
+        "start": "jn3-n171",
+        "end": "jn3-n172",
+        "via": [
+          {
+            "x": 6424.85,
+            "y": 2910.59
+          },
+          {
+            "x": 6437.78,
+            "y": 3203.8
+          }
+        ],
+        "curve_control": null,
+        "label": "学生活动中心东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e211",
+        "start": "jn3-n172",
+        "end": "jn3-n173",
+        "via": [
+          {
+            "x": 6424.85,
+            "y": 3880.78
+          }
+        ],
+        "curve_control": null,
+        "label": "学生活动中心东侧道路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e212",
+        "start": "jn3-n173",
+        "end": "jn3-n175",
+        "via": [
+          {
+            "x": 6670.63,
+            "y": 4186.93
+          },
+          {
+            "x": 6808.62,
+            "y": 4087.76
+          },
+          {
+            "x": 6868.98,
+            "y": 3910.97
+          },
+          {
+            "x": 6873.29,
+            "y": 3600.5
+          },
+          {
+            "x": 6864.67,
+            "y": 3294.35
+          }
+        ],
+        "curve_control": null,
+        "label": "东部门内南路",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e213",
+        "start": "jn3-n174",
+        "end": "jn3-n175",
+        "via": [
+          {
+            "x": 6847.42,
+            "y": 3156.37
+          }
+        ],
+        "curve_control": null,
+        "label": "东门内连接道",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      },
+      {
+        "id": "jn3-e214",
+        "start": "jn3-n175",
+        "end": "jn3-n177",
+        "via": [
+          {
+            "x": 7239.81,
+            "y": 3208.11
+          },
+          {
+            "x": 7576.15,
+            "y": 3208.11
+          }
+        ],
+        "curve_control": null,
+        "label": "东门内连接道",
+        "bidirectional": true,
+        "closed": false,
+        "verified": false,
+        "step_free": null,
+        "distance_m": null,
+        "evidence": "规划图描摹初稿，尚未确认现场通行。图上双向仅为待核对默认值。"
+      }
+    ]
+  }
+}

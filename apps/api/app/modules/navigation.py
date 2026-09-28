@@ -28,6 +28,8 @@ class RoadNode(DTO):
     label: str = Field(default="", max_length=100)
     kind: Literal["junction", "waypoint", "entrance"] = "junction"
     point_id: UUID | None = None
+    candidate: bool = False
+    evidence: str = Field(default="", max_length=500)
 
 
 class RoadEdge(DTO):
@@ -36,6 +38,7 @@ class RoadEdge(DTO):
     end: str
     label: str = Field(default="", max_length=100)
     via: list[XY] = Field(default_factory=list, max_length=100)
+    curve_control: XY | None = None
     bidirectional: bool = True
     closed: bool = False
     step_free: bool | None = None
@@ -60,6 +63,8 @@ class RoadGraph(DTO):
             if (node.kind == "entrance") != bool(node.point_id):
                 raise ValueError("建筑入口必须关联地点，其他节点不可关联地点")
         for e in self.edges:
+            if e.curve_control is not None and e.via:
+                raise ValueError("弧线控制点和折线形状点不能同时使用")
             if e.start not in ids or e.end not in ids or e.start == e.end:
                 raise ValueError("路段必须连接两个已有的不同节点")
             directed = [(e.start, e.end)] + ([(e.end, e.start)] if e.bidirectional else [])
@@ -67,6 +72,21 @@ class RoadGraph(DTO):
                 raise ValueError("同方向的两个节点之间只能保留一条路段")
             pairs.update(directed)
         return self
+
+
+def road_path(edge, nodes):
+    """The editor and routing use the same 32-segment quadratic geometry."""
+    a, b = nodes[edge.start].position, nodes[edge.end].position
+    if edge.curve_control is None:
+        return [a, *edge.via, b]
+    c = edge.curve_control
+    return [
+        XY(
+            x=(1 - t) ** 2 * a.x + 2 * (1 - t) * t * c.x + t * t * b.x,
+            y=(1 - t) ** 2 * a.y + 2 * (1 - t) * t * c.y + t * t * b.y,
+        )
+        for t in [i / 32 for i in range(33)]
+    ]
 
 
 class RoadDraft(DTO):
@@ -161,20 +181,27 @@ def validate_graph(db, m, graph, *, publish=False):
         if n.point_id and str(n.point_id) not in points:
             raise DomainError("INVALID_ENTRANCE", "入口必须关联本校区已公开的地点", 422)
     coordinates = [n.position for n in graph.nodes] + [v for e in graph.edges for v in e.via]
+    coordinates += [e.curve_control for e in graph.edges if e.curve_control is not None]
     if any(p.x > m.width_px or p.y > m.height_px for p in coordinates):
         raise DomainError("INVALID_ROAD", "道路坐标超出底图边界", 422)
     nodes = {n.id: n for n in graph.nodes}
     for edge in graph.edges:
-        line = [nodes[edge.start].position, *edge.via, nodes[edge.end].position]
+        line = road_path(edge, nodes)
         if sum(hypot(b.x - a.x, b.y - a.y) for a, b in zip(line, line[1:], strict=False)) <= 0:
             raise DomainError("INVALID_ROAD", "路段长度必须大于零", 422)
     if publish and (
         not graph.edges
         or not graph.note.strip()
         or any(not e.closed and (not e.verified or not e.evidence.strip()) for e in graph.edges)
+        or any(
+            n.kind == "entrance"
+            and n.candidate
+            and any(not e.closed and n.id in (e.start, e.end) for e in graph.edges)
+            for n in graph.nodes
+        )
     ):
         raise DomainError(
-            "ROAD_NOT_VERIFIED", "请核实每条开放道路的通行情况并填写依据和入口说明", 422
+            "ROAD_NOT_VERIFIED", "请确认候选入口，并核实开放道路的通行情况及依据", 422
         )
 
 
@@ -191,7 +218,11 @@ def availability(db, map_id):
     )
     ids = (
         sorted(
-            {n.point_id for n in graph.nodes if n.id in usable and str(n.point_id) in points},
+            {
+                n.point_id
+                for n in graph.nodes
+                if n.id in usable and str(n.point_id) in points and not n.candidate
+            },
             key=str,
         )
         if ready
@@ -232,7 +263,11 @@ def calculate(db, payload, *, draft=None):
         raise DomainError("SAME_DESTINATION", "起点和终点相同，无需导航", 422)
     nodes = {n.id: n for n in graph.nodes}
     # Retired point entrances cannot be used as shortcuts through restricted buildings.
-    blocked = {n.id for n in graph.nodes if n.point_id and str(n.point_id) not in points}
+    blocked = {
+        n.id
+        for n in graph.nodes
+        if n.point_id and (str(n.point_id) not in points or (n.candidate and not draft))
+    }
     edges = [
         e
         for e in graph.edges
@@ -245,7 +280,7 @@ def calculate(db, payload, *, draft=None):
     measured = bool(edges) and all(e.distance_m is not None for e in edges)
     g = nx.DiGraph()
     for edge in edges:
-        path = [nodes[edge.start].position, *edge.via, nodes[edge.end].position]
+        path = road_path(edge, nodes)
         length = sum(hypot(b.x - a.x, b.y - a.y) for a, b in zip(path, path[1:], strict=False))
         g.add_edge(
             edge.start,
