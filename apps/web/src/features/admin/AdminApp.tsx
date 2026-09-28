@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Campus, MapInfo } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
+import { GuideSettings } from "./GuideSettings";
+import { RoadWorkspace } from "./RoadWorkspace";
 import { Accounts } from "./Accounts";
 import { Audit } from "./Audit";
 import { PointWorkspace } from "./PointWorkspace";
@@ -19,6 +21,8 @@ import { ErrorBox, useResource } from "./ui";
 import "./admin.css";
 import "./workbench.css";
 type Tab =
+  | "guide-settings"
+  | "roads"
   | "overview"
   | "points"
   | "review"
@@ -289,6 +293,16 @@ export default function AdminApp() {
       session && !session.user.must_change_password ? "/campuses" : null,
       catalogRevision,
     );
+  const roadStates = useResource<
+    { map_id: string; title: string; state: string }[]
+  >(
+    session && !locked && !session.user.must_change_password
+      ? "/navigation"
+      : null,
+    revision,
+  );
+  const roadPending =
+    roadStates.data?.data.filter((r) => r.state === "in_review") ?? [];
   const workbench = useResource<Workbench>(
     session && !locked && !session.user.must_change_password
       ? "/workbench"
@@ -411,6 +425,13 @@ export default function AdminApp() {
       { id: "overview", title: "工作台", icon: "focus" },
       { id: "points", title: "地图点位", icon: "pin" },
       { id: "resources", title: "资料中心", icon: "layers" },
+      { id: "roads", title: "道路与导航", icon: "pin" },
+      {
+        id: "guide-settings",
+        title: "智能导览设置",
+        icon: "chat",
+        permission: "users.manage",
+      },
       {
         id: "review",
         title: "审核中心",
@@ -477,7 +498,10 @@ export default function AdminApp() {
                 <Icon name={n.icon} />
                 {n.title}
                 <span>
-                  {n.id === "review" && workbench.data?.data.pending_count ? (
+                  {n.id === "roads" && roadPending.length ? (
+                    <b className="ad-nav-count">{roadPending.length}</b>
+                  ) : n.id === "review" &&
+                    workbench.data?.data.pending_count ? (
                     <b className="ad-nav-count">
                       {workbench.data.data.pending_count}
                     </b>
@@ -534,6 +558,16 @@ export default function AdminApp() {
         </header>
         <main className="ad-content">
           <ErrorBox text={navError} />
+          {(tab === "review" || tab === "overview") &&
+            roadPending.length > 0 && (
+              <div className="road-summary">
+                <strong>道路路网待审核 · {roadPending.length}</strong>
+                <p>{roadPending.map((r) => r.title).join("、")}</p>
+                <button onClick={() => navigate("roads")}>
+                  进入路网审核与地图核对 →
+                </button>
+              </div>
+            )}
           {tab === "overview" && (
             <Overview
               session={session}
@@ -582,6 +616,17 @@ export default function AdminApp() {
           )}
           {tab === "resources" && (
             <ResourceWorkspace
+              session={session}
+              onDirty={onDirty}
+              onUpdate={() => setRevision((v) => v + 1)}
+            />
+          )}
+          {tab === "guide-settings" && session.user.role === "admin" && (
+            <GuideSettings onDirty={onDirty} />
+          )}
+          {tab === "roads" && (
+            <RoadWorkspace
+              maps={maps.data?.data ?? []}
               session={session}
               onDirty={onDirty}
               onUpdate={() => setRevision((v) => v + 1)}
