@@ -23,6 +23,7 @@ from app.modules.admin.resources import router as resources_router
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.workbench import router as workbench_router
 from app.modules.assistant import router as assistant_router
+from app.modules.experiences import router as experiences_router
 from app.modules.floors.router import router as floors_router
 from app.modules.guide.router import router as guide_router
 from app.modules.guide_settings import router as guide_settings_router
@@ -95,6 +96,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(navigation_router)
     app.include_router(road_assist_router)
     app.include_router(assistant_router)
+    app.include_router(experiences_router)
     app.include_router(guide_settings_router)
     return app
 

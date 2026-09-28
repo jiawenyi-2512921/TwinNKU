@@ -27,7 +27,9 @@ class Base(DeclarativeBase):
 
 class NavigationRecord(Base):
     __tablename__ = "navigation_graphs"
-    map_id: Mapped[str] = mapped_column(ForeignKey("maps.id", ondelete="RESTRICT"), primary_key=True)
+    map_id: Mapped[str] = mapped_column(
+        ForeignKey("maps.id", ondelete="RESTRICT"), primary_key=True
+    )
     revision: Mapped[int] = mapped_column(Integer, default=1)
     published_revision: Mapped[int] = mapped_column(Integer, default=0)
     state: Mapped[str] = mapped_column(String(24), default="draft")
@@ -317,6 +319,52 @@ class ResourceChangeRecord(Base):
         ForeignKey("staff_users.id", ondelete="RESTRICT")
     )
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    __mapper_args__ = {"version_id_col": revision, "version_id_generator": False}
+
+
+class ExperienceUploadRecord(Base):
+    __tablename__ = "experience_uploads"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    point_id: Mapped[str] = mapped_column(ForeignKey("points.id", ondelete="RESTRICT"), index=True)
+    uploaded_by: Mapped[str] = mapped_column(ForeignKey("staff_users.id", ondelete="RESTRICT"))
+    media_type: Mapped[str] = mapped_column(String(16))
+    mime_type: Mapped[str] = mapped_column(String(48))
+    filename: Mapped[str] = mapped_column(String(80))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+
+class ExperienceRecord(Base):
+    __tablename__ = "experiences"
+    __table_args__ = (
+        CheckConstraint("kind IN ('media','checkin','tour')", name="ck_experiences_kind"),
+        CheckConstraint("status IN ('draft','published','retired')", name="ck_experiences_status"),
+        CheckConstraint(
+            "state IN ('draft','in_review','rejected','published','discarded')",
+            name="ck_experiences_state",
+        ),
+        CheckConstraint("operation IN ('upsert','retire')", name="ck_experiences_operation"),
+        CheckConstraint(
+            "revision >= 1 AND published_revision >= 0", name="ck_experiences_revision"
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    point_id: Mapped[str] = mapped_column(ForeignKey("points.id", ondelete="RESTRICT"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    published_revision: Mapped[int] = mapped_column(Integer, default=0)
+    state: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    status: Mapped[str] = mapped_column(String(24), default="draft")
+    operation: Mapped[str] = mapped_column(String(16), default="upsert")
+    draft: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    published: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    contributor_ids: Mapped[list] = mapped_column(JSON, default=list)
+    submitted_by: Mapped[str | None] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="RESTRICT"), nullable=True
+    )
     review_note: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     __mapper_args__ = {"version_id_col": revision, "version_id_generator": False}
