@@ -340,7 +340,7 @@ def events(
     actor: Actor,
     db: DB,
     point_id: UUID | None = None,
-    category: Literal["point", "resource", "user", "session"] | None = None,
+    category: Literal["point", "resource", "experience", "user", "session"] | None = None,
     q: str = Query("", max_length=120),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
