@@ -169,6 +169,160 @@
         "title": "AdminChangeItem",
         "type": "object"
       },
+      "AdminExperience": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "checkin": "#/components/schemas/ExperienceCheckinContent",
+                    "media": "#/components/schemas/ExperienceMediaContent",
+                    "tour": "#/components/schemas/ExperienceTourContent"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ExperienceMediaContent"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ExperienceCheckinContent"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ExperienceTourContent"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "contributor_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Contributor Ids",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Url"
+          },
+          "operation": {
+            "enum": [
+              "upsert",
+              "retire"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "published_content": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "checkin": "#/components/schemas/ExperienceCheckinContent",
+                    "media": "#/components/schemas/ExperienceMediaContent",
+                    "tour": "#/components/schemas/ExperienceTourContent"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ExperienceMediaContent"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ExperienceCheckinContent"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ExperienceTourContent"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Content"
+          },
+          "published_revision": {
+            "title": "Published Revision",
+            "type": "integer"
+          },
+          "review_note": {
+            "title": "Review Note",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "in_review",
+              "rejected",
+              "published",
+              "discarded"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "published",
+              "retired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted By"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "published_revision",
+          "operation",
+          "state",
+          "status",
+          "content",
+          "published_content",
+          "contributor_ids",
+          "submitted_by",
+          "review_note"
+        ],
+        "title": "AdminExperience",
+        "type": "object"
+      },
       "AdminInquiry": {
         "additionalProperties": false,
         "properties": {
@@ -1124,6 +1278,23 @@
         "title": "Envelope[ActionResult]",
         "type": "object"
       },
+      "Envelope_AdminExperience_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AdminExperience"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[AdminExperience]",
+        "type": "object"
+      },
       "Envelope_AdminInquiry_": {
         "additionalProperties": false,
         "properties": {
@@ -1309,6 +1480,23 @@
           "meta"
         ],
         "title": "Envelope[ChatTurnAccepted]",
+        "type": "object"
+      },
+      "Envelope_ExperienceUpload_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ExperienceUpload"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[ExperienceUpload]",
         "type": "object"
       },
       "Envelope_FloorUpload_": {
@@ -1600,6 +1788,23 @@
         "title": "Envelope[Point]",
         "type": "object"
       },
+      "Envelope_PublicExperience_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PublicExperience"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[PublicExperience]",
+        "type": "object"
+      },
       "Envelope_RoadQuality_": {
         "additionalProperties": false,
         "properties": {
@@ -1789,6 +1994,27 @@
           "meta"
         ],
         "title": "Envelope[list[AdminChangeItem]]",
+        "type": "object"
+      },
+      "Envelope_list_AdminExperience__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/AdminExperience"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[AdminExperience]]",
         "type": "object"
       },
       "Envelope_list_AdminInquiry__": {
@@ -2106,6 +2332,27 @@
         "title": "Envelope[list[Point]]",
         "type": "object"
       },
+      "Envelope_list_PublicExperience__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PublicExperience"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[PublicExperience]]",
+        "type": "object"
+      },
       "Envelope_list_RoadSummary__": {
         "additionalProperties": false,
         "properties": {
@@ -2231,6 +2478,321 @@
           "message"
         ],
         "title": "ErrorInfo",
+        "type": "object"
+      },
+      "ExperienceCheckinContent": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "default": "",
+            "maxLength": 8000,
+            "title": "Description",
+            "type": "string"
+          },
+          "image_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Id"
+          },
+          "kind": {
+            "const": "checkin",
+            "default": "checkin",
+            "title": "Kind",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "source_note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Source Note",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "point_id",
+          "title",
+          "source_note"
+        ],
+        "title": "ExperienceCheckinContent",
+        "type": "object"
+      },
+      "ExperienceMediaContent": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "default": "",
+            "maxLength": 8000,
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "const": "media",
+            "default": "media",
+            "title": "Kind",
+            "type": "string"
+          },
+          "media_type": {
+            "enum": [
+              "image",
+              "video"
+            ],
+            "title": "Media Type",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "source_note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Source Note",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "point_id",
+          "title",
+          "source_note",
+          "media_type"
+        ],
+        "title": "ExperienceMediaContent",
+        "type": "object"
+      },
+      "ExperienceSave": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "discriminator": {
+              "mapping": {
+                "checkin": "#/components/schemas/ExperienceCheckinContent",
+                "media": "#/components/schemas/ExperienceMediaContent",
+                "tour": "#/components/schemas/ExperienceTourContent"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExperienceMediaContent"
+              },
+              {
+                "$ref": "#/components/schemas/ExperienceCheckinContent"
+              },
+              {
+                "$ref": "#/components/schemas/ExperienceTourContent"
+              }
+            ],
+            "title": "Content"
+          },
+          "expected_published_revision": {
+            "minimum": 0.0,
+            "title": "Expected Published Revision",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "expected_published_revision",
+          "content"
+        ],
+        "title": "ExperienceSave",
+        "type": "object"
+      },
+      "ExperienceStop": {
+        "additionalProperties": false,
+        "properties": {
+          "narrative": {
+            "default": "",
+            "maxLength": 8000,
+            "title": "Narrative",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "prompt_timing": {
+            "default": "manual",
+            "enum": [
+              "on_arrival",
+              "after_intro",
+              "manual"
+            ],
+            "title": "Prompt Timing",
+            "type": "string"
+          },
+          "video_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Id"
+          }
+        },
+        "required": [
+          "point_id"
+        ],
+        "title": "ExperienceStop",
+        "type": "object"
+      },
+      "ExperienceTourContent": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "default": "",
+            "maxLength": 8000,
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "const": "tour",
+            "default": "tour",
+            "title": "Kind",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "source_note": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Source Note",
+            "type": "string"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/ExperienceStop"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Stops",
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "point_id",
+          "title",
+          "source_note",
+          "stops"
+        ],
+        "title": "ExperienceTourContent",
+        "type": "object"
+      },
+      "ExperienceUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media_type": {
+            "enum": [
+              "image",
+              "video"
+            ],
+            "title": "Media Type",
+            "type": "string"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "point_id",
+          "media_type",
+          "mime_type",
+          "filename",
+          "size_bytes",
+          "url"
+        ],
+        "title": "ExperienceUpload",
         "type": "object"
       },
       "FieldError": {
@@ -2617,7 +3179,10 @@
               "focus_point",
               "show_floor",
               "open_vr",
-              "show_route"
+              "show_route",
+              "show_checkin",
+              "play_video",
+              "show_tour"
             ],
             "title": "Type",
             "type": "string"
@@ -2836,11 +3401,14 @@
                 "focus_point",
                 "show_floor",
                 "open_vr",
-                "show_route"
+                "show_route",
+                "show_checkin",
+                "play_video",
+                "show_tour"
               ],
               "type": "string"
             },
-            "maxItems": 4,
+            "maxItems": 7,
             "title": "Allowed Actions",
             "type": "array"
           },
@@ -4435,6 +5003,60 @@
           "note"
         ],
         "title": "PointRetireRequest",
+        "type": "object"
+      },
+      "PublicExperience": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "discriminator": {
+              "mapping": {
+                "checkin": "#/components/schemas/ExperienceCheckinContent",
+                "media": "#/components/schemas/ExperienceMediaContent",
+                "tour": "#/components/schemas/ExperienceTourContent"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExperienceMediaContent"
+              },
+              {
+                "$ref": "#/components/schemas/ExperienceCheckinContent"
+              },
+              {
+                "$ref": "#/components/schemas/ExperienceTourContent"
+              }
+            ],
+            "title": "Content"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Url"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "content"
+        ],
+        "title": "PublicExperience",
         "type": "object"
       },
       "ResolveAction": {
@@ -6554,6 +7176,7 @@
                   "enum": [
                     "point",
                     "resource",
+                    "experience",
                     "user",
                     "session"
                   ],
@@ -7326,6 +7949,539 @@
         "x-auth": "staff",
         "x-implementation-status": "implemented",
         "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/experience-media/{upload_id}": {
+      "get": {
+        "operationId": "previewExperienceMedia",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Preview Media",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M02"
+      }
+    },
+    "/api/v1/admin/experiences": {
+      "get": {
+        "operationId": "listAdminExperiences",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "point_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Point Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "media",
+                    "checkin",
+                    "tour"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "in_review",
+                    "rejected",
+                    "published",
+                    "discarded"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "campus_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Campus Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 120,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_AdminExperience__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "List Admin",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M06"
+      },
+      "post": {
+        "operationId": "createExperience",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperienceSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminExperience_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Create",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M06"
+      }
+    },
+    "/api/v1/admin/experiences/{experience_id}": {
+      "get": {
+        "operationId": "getAdminExperience",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experience_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experience Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminExperience_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Get Admin",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M06"
+      },
+      "put": {
+        "operationId": "saveExperience",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experience_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experience Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperienceSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminExperience_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Update",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M06"
+      }
+    },
+    "/api/v1/admin/experiences/{experience_id}/retire": {
+      "post": {
+        "operationId": "retireExperience",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experience_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experience Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceRetireRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminExperience_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Retire",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M06"
+      }
+    },
+    "/api/v1/admin/experiences/{experience_id}/review/{action}": {
+      "post": {
+        "operationId": "reviewExperience",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experience_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experience Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "enum": [
+                "submit",
+                "publish",
+                "reject",
+                "discard"
+              ],
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AdminExperience_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Review",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M06"
       }
     },
     "/api/v1/admin/floor-images/{upload_id}": {
@@ -10220,6 +11376,73 @@
         "x-auth": "staff",
         "x-implementation-status": "implemented",
         "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/points/{point_id}/experience-media": {
+      "post": {
+        "operationId": "uploadExperienceMedia",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_ExperienceUpload_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Upload Media",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M02"
       }
     },
     "/api/v1/admin/points/{point_id}/floor-images": {
@@ -15538,6 +16761,181 @@
         "x-auth": "owner",
         "x-implementation-status": "planned",
         "x-module": "M04"
+      }
+    },
+    "/api/v1/experiences": {
+      "get": {
+        "operationId": "listExperiences",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "point_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Point Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "media",
+                    "checkin",
+                    "tour"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "campus_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Campus Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_PublicExperience__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Public",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "public",
+        "x-implementation-status": "implemented",
+        "x-module": "M06"
+      }
+    },
+    "/api/v1/experiences/{experience_id}": {
+      "get": {
+        "operationId": "getExperience",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experience_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experience Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_PublicExperience_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "public",
+        "x-implementation-status": "implemented",
+        "x-module": "M06"
+      }
+    },
+    "/api/v1/experiences/{experience_id}/media": {
+      "get": {
+        "operationId": "getExperienceMedia",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experience_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experience Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Media",
+        "tags": [
+          "experiences"
+        ],
+        "x-auth": "public",
+        "x-implementation-status": "implemented",
+        "x-module": "M02"
       }
     },
     "/api/v1/floors/{floor_id}": {
