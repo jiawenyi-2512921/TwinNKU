@@ -1,5 +1,47 @@
 // Sharing uses the visible, validated selection. Unrelated URL parameters survive.
 type NavigationPort = Pick<Window, "history" | "location">;
+export const LOCATION_CHANGE_EVENT = "twinnku:location-change";
+export type ExperienceSelection = {
+  id?: string;
+  kind?: "media" | "checkin" | "tour";
+  pointId?: string;
+};
+
+export function readExperienceLocation(
+  href: string,
+): ExperienceSelection | null {
+  const params = new URL(href).searchParams;
+  const value = params.get("experience");
+  if (!value) return null;
+  const selection: ExperienceSelection = {};
+  if (["media", "checkin", "tour"].includes(value))
+    selection.kind = value as ExperienceSelection["kind"];
+  else if (value !== "all") {
+    if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value))
+      return null;
+    selection.id = value;
+  }
+  const pointId = params.get("experience_point");
+  if (pointId) selection.pointId = pointId;
+  return selection;
+}
+
+export function experienceLocation(
+  href: string,
+  selection: ExperienceSelection | null,
+): string {
+  const url = new URL(href);
+  url.searchParams.delete("experience");
+  url.searchParams.delete("experience_point");
+  if (selection) {
+    for (const key of ["floor", "floor_section", "panorama"])
+      url.searchParams.delete(key);
+    url.searchParams.set("experience", selection.id || selection.kind || "all");
+    if (selection.pointId)
+      url.searchParams.set("experience_point", selection.pointId);
+  }
+  return url.href;
+}
 
 // User choices enter history; background reconciliation only replaces it.
 export function writeLocation(
@@ -19,6 +61,10 @@ export function writeLocation(
     if (floorReturnTo) state.twinnkuFloorReturn = floorReturnTo;
     target.history.pushState(state, "", href);
   } else target.history.replaceState(state, "", href);
+  // Browser history writes do not emit popstate. Notify view-context listeners
+  // without treating a floor/section update as a browser Back operation.
+  if (typeof window !== "undefined" && target === window)
+    window.dispatchEvent(new Event(LOCATION_CHANGE_EVENT));
 }
 
 export function closeFloorLocation(
@@ -35,8 +81,16 @@ export function closeFloorLocation(
   else writeLocation(destination, "replace", target);
 }
 
-export function pointLocation(href: string, pointId: string | null): string {
+export function pointLocation(
+  href: string,
+  pointId: string | null,
+  preserveExperience = false,
+): string {
   const url = new URL(href);
+  if (!preserveExperience) {
+    url.searchParams.delete("experience");
+    url.searchParams.delete("experience_point");
+  }
   if (!pointId || url.searchParams.get("point") !== pointId) {
     url.searchParams.delete("panorama");
     url.searchParams.delete("floor");
