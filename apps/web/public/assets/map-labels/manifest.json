@@ -1,0 +1,33 @@
+{
+  "map_id": "eee88cf5-87a0-592e-b1cc-a70674941bbf",
+  "map_revision": 3,
+  "map_sha256": "aa5f84fc993dca7371e1d1bf6a5e190925ec2ce5f0d2d4dc968093346028218f",
+  "source_sha256": "756f20fe37317fc33c118b1700c587a59736ec48f2f3ce64da415d629c52eb43",
+  "width_px": 8279,
+  "height_px": 5604,
+  "source_note": "Exact pixels extracted from the user-supplied original planning JPEG. No base tile changes.",
+  "patches": [
+    {
+      "id": "southwest-gate",
+      "box": [
+        1748,
+        5027,
+        2001,
+        5144
+      ],
+      "file": "southwest-gate.png",
+      "sha256": "7bbe119e7384ebd065a8a3bccedd0ac7b0b21624bcd62fbc232af766dae834d0"
+    },
+    {
+      "id": "media-college",
+      "box": [
+        2194,
+        3122,
+        2636,
+        3233
+      ],
+      "file": "media-college.png",
+      "sha256": "c71c6002b781cd0e4052bc8fb5e0c203eb4118b554a391238469b071cd3c5f20"
+    }
+  ]
+}
