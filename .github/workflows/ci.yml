@@ -35,6 +35,8 @@ jobs:
         working-directory: apps/api
       - run: uv run pytest
         working-directory: apps/api
+      - run: uv run pytest ../../tools/agent-demo/test_demo.py
+        working-directory: apps/api
       - run: uv run python ../../scripts/export_contract.py --check
         working-directory: apps/api
       - run: uv run python ../../scripts/render_api_reference.py --check
