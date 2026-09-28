@@ -2,7 +2,9 @@
 
 适用：已经运行 TwinNKU、已有「问小开」入口的 Docker Compose 服务器。本次通过独立后端调用学校应用 API，复用现有前端窗口；密钥留在服务器。
 
-代码已完成本地 11 项协议/边界测试。服务器连接此前在 SSH 认证前返回 `Network is unreachable`；本说明不代表已部署或学校应用 API 已通过服务器实测。
+代码已完成本地 11 项协议/边界测试。学校应用 API 已在服务器实测连通：`/agent-demo/health` 返回 `{"ok": true, "mode": "private-demo"}`，登录、Cookie 与真实问答全链路可用。此前 `Network is unreachable` 的出口问题已由学校平台侧恢复。
+
+> **注意**：普通整站部署会重建 web 容器，从而丢掉演示入口的 Nginx 挂载。部署后 `/agent-demo/health` 会返回主站 `index.html` 而不是 JSON —— 这是演示入口失效的特征。恢复方法见文末「演示入口被普通部署覆盖后如何恢复」。
 
 ## 从 GitHub 获取代码
 
@@ -63,11 +65,60 @@ sudo python3 tools/agent-demo/deploy.py --rollback
 
 ## 学校 API 不可用时
 
+浏览器已为后端可发出的全部错误码提供中文说明，页面会直接指出故障类别，不再统一显示「暂时无法取得回答」。常见几类：
+
 - `SSO_REDIRECT`：应用 API 仍被统一认证拦截，联系学校平台管理员开放应用调用权限。共享个人登录 Cookie 不能作为公众接入方案。
-- `AUTH_FAILED` / `ACCESS_DENIED`：核实应用 API 密钥、发布与授权。
-- `NETWORK_ERROR` / `NETWORK_TIMEOUT`：检查服务器出口与学校平台连通性。
+- `AUTH_FAILED` / `ACCESS_DENIED` / `ENDPOINT_NOT_FOUND`：核实应用 API 密钥、发布与授权、网关地址。
+- `NETWORK_ERROR` / `NETWORK_TIMEOUT` / `TLS_ERROR`：检查服务器出口与学校平台连通性。
+- `NO_FINAL_ANSWER`：上游未给出合格回答（超时或空响应），换问法重试。
+- `INVALID_REQUEST` / `INTERNAL_ERROR`：请求参数不合规或演示服务内部异常，刷新页面重试；`INTERNAL_ERROR` 持续出现需查服务端日志。
 - `Compose settings differ…`：现有文件/环境与运行配置不一致，先由维护者核对；脚本不会猜测或替换现有配置。
 
+前端错误码与后端保持同步由 `tools/agent-demo/test_demo.py::test_every_backend_error_code_is_mapped_in_the_browser` 强制保证：新增后端错误码而未补前端文案时该测试会失败。
+
 失败时旧页面保持或恢复。比赛备用入口：[学校官方小开对话页](https://coze.nankai.edu.cn/product/llm/chat/dar5kpl4shh989l2lhr0)，需按学校要求登录；此前已取得真实回答，但不表示本站后端已接通。
+
+## 演示入口被普通部署覆盖后如何恢复
+
+普通整站部署（`scripts/deploy.sh`）会重建 web 容器，容器内的 `/etc/nginx/nginx.conf` 回到镜像原版，演示路由随之消失。演示服务容器本身仍在运行，因此不要重新执行安装器（状态目录已存在会拒绝）。
+
+判断是否失效：
+
+```bash
+curl -s https://2512921.cn/agent-demo/health     # 失效时返回 index.html，而不是 {"ok": true, ...}
+docker exec twinnku-web-1 grep -c agent-demo /etc/nginx/nginx.conf   # 失效时输出 0
+```
+
+恢复步骤（不需要重新输入密钥或口令）：
+
+```bash
+cd /root/TwinNKU
+# 1. 从新镜像取出当前 nginx 配置，确认其与安装时备份一致
+docker cp twinnku-web-1:/etc/nginx/nginx.conf /tmp/nginx.current.conf
+diff /tmp/nginx.current.conf /opt/twinnku-agent-demo/nginx.original.conf
+
+# 2. 用安装器的同一函数重新生成演示配置，避免手工编辑出错
+python3 - <<'EOF'
+import sys
+sys.path.insert(0, "/root/TwinNKU/tools/agent-demo")
+sys.path.insert(0, "/root/TwinNKU/scripts")
+from deploy import patch_nginx
+src = open("/opt/twinnku-agent-demo/nginx.original.conf").read()
+patched = patch_nginx(src)
+assert patched != src and "agent-demo" in patched
+open("/opt/twinnku-agent-demo/nginx.demo.conf", "w").write(patched)
+EOF
+
+# 3. 必须同时给出 compose.yaml 与覆盖文件，否则 compose 会当成独立项目另建一套容器
+docker compose --env-file .env \
+  -f compose.yaml -f /opt/twinnku-agent-demo/compose.demo.json \
+  up -d --no-deps --no-build --pull never web
+
+# 4. 验收
+docker exec twinnku-web-1 grep -c agent-demo /etc/nginx/nginx.conf   # 应为 3
+curl -s https://2512921.cn/agent-demo/health                         # 应为 {"ok": true, ...}
+```
+
+第 3 步若漏掉 `-f compose.yaml`，compose 会把覆盖文件当作独立项目，另建 `twinnku-agent-demo-web-1` 与同名网络，而演示路由不会挂到真正对外的 `twinnku-web-1` 上。误建后可清理：`docker rm -f twinnku-agent-demo-web-1 && docker network rm twinnku-agent-demo_default`。
 
 完整限制、服务接口、测试和脚本行为见 [演示模块 README](../tools/agent-demo/README.md)，访问证据与正式 API 文档见 [38 访问诊断](38-nk-genios-access-diagnosis.md)。

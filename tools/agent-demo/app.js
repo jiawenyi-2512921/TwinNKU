@@ -15,6 +15,8 @@ const errors = {
   SESSION_LIMIT: "当前演示名额已满，请稍后再试；或刷新页面重新输入口令。",
   RATE_LIMITED: "请求较多，请稍后再试。",
   // --- request shape (normally impossible from this page) ---
+  INVALID_REQUEST: "请求参数不符合要求，请刷新页面后重试。",
+  INTERNAL_ERROR: "演示服务出现内部错误，请刷新页面重试；若持续出现请联系维护者。",
   EMPTY_QUERY: "请先输入问题，再发送。",
   ORIGIN_REJECTED: "当前页面来源未经授权，演示入口只能在指定域名下使用。",
   JSON_REQUIRED: "请求格式不正确，请刷新页面后重试。",

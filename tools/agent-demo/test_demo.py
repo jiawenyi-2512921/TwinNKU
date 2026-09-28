@@ -3,6 +3,7 @@
 import hashlib
 import http.client
 import json
+import re
 import sys
 import tempfile
 import threading
@@ -203,6 +204,28 @@ class DemoTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join()
+
+    def test_every_backend_error_code_is_mapped_in_the_browser(self):
+        """Guard against an error code reaching the user as the generic fallback.
+
+        This is the regression that made a live desktop failure undiagnosable: a
+        full session pool, an answerless upstream and a broken transport all
+        rendered as one opaque sentence.
+        """
+        root = Path(__file__).resolve().parents[2]
+        app = (root / "tools" / "agent-demo" / "app.js").read_text()
+        table = re.search(r"const errors = \{(.*?)\n\};", app, re.S).group(1)
+        mapped = set(re.findall(r"^\s+([A-Z_]+):", table, re.M))
+
+        backend = set(re.findall(r'"([A-Z_]+)"', (Path(__file__).parent / "server.py").read_text()))
+        backend |= set(
+            re.findall(r"ProbeError\(\"([A-Z_]+)\"", (root / "scripts" / "probe_nk_genios_api.py").read_text())
+        )
+        # Environment variable names and header values are not error codes.
+        not_codes = {"DEMO_CODE", "DEMO_ORIGIN", "NK_GENIOS_API_KEY", "SAMEORIGIN", "SECURE"}
+        codes = {c for c in backend - not_codes if re.fullmatch(r"[A-Z][A-Z_]{3,}", c)}
+
+        self.assertEqual(codes - mapped, set(), "browser is missing copy for these codes")
 
     def test_nginx_patch_keeps_existing_routes(self):
         source = "server { location = /agent/embed.html { try_files $uri =404; } location / { try_files $uri /index.html; } }"
