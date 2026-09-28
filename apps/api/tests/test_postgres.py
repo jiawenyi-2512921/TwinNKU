@@ -30,7 +30,7 @@ def test_postgres_migration_and_seed():
             )
             assert (
                 db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0005_resource_editor"
+                == "0006_navigation"
             )
     finally:
         engine.dispose()
@@ -39,7 +39,7 @@ def test_postgres_migration_and_seed():
 @pytest.mark.skipif(
     not os.environ.get("TEST_POSTGRES_URL"), reason="requires disposable PostgreSQL"
 )
-@pytest.mark.parametrize("workflow", ["point", "floor", "workbench"])
+@pytest.mark.parametrize("workflow", ["point", "floor", "workbench", "navigation"])
 def test_postgres_review_retirement_and_restore(workflow, tmp_path):
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import Session
@@ -75,7 +75,11 @@ def test_postgres_review_retirement_and_restore(workflow, tmp_path):
 
                 app.dependency_overrides[get_db] = override_db
                 with TestClient(app) as client:
-                    if workflow == "workbench":
+                    if workflow == "navigation":
+                        from test_navigation import test_draft_review_scope_and_public_route
+
+                        test_draft_review_scope_and_public_route(client, db)
+                    elif workflow == "workbench":
                         exercise_workbench(client, db, tmp_path)
                     elif workflow == "point":
                         staff = seed_staff(client, db)
