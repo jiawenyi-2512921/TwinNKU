@@ -5,8 +5,8 @@
 业务约束见21—29；接口上线前必须先处理24中的协议缺口和旧角色命名，不能猜学校平台API。
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
-接口操作数：99；状态统计：{"implemented": 63, "planned": 36}。
-契约SHA256：`050525aa47656cbacdadcd1b0f61a3099d4a16ac331546bfad740a59177958e1`。
+接口操作数：110；状态统计：{"implemented": 74, "planned": 36}。
+契约SHA256：`0127bd493b59376dbaa62380678e6e82a0a3e1c496976e1e468cb4907df2ecdf`。
 
 ## 1. 全部端点
 
@@ -18,6 +18,13 @@
 | POST | `/api/v1/admin/auth/password` | changeStaffPassword | implemented | staff | application/json: StaffPasswordChange | 200: application/json Envelope_ActionResult_ |
 | GET | `/api/v1/admin/campuses` | listStaffCampuses | implemented | staff | — | 200: application/json Envelope_list_Campus__ |
 | GET | `/api/v1/admin/changes` | listAdminChanges | implemented | staff | — | 200: application/json Envelope_list_AdminChangeItem__ |
+| GET | `/api/v1/admin/experience-media/{upload_id}` | previewExperienceMedia | implemented | staff | — | 见契约响应 |
+| GET | `/api/v1/admin/experiences` | listAdminExperiences | implemented | staff | — | 200: application/json Envelope_list_AdminExperience__ |
+| POST | `/api/v1/admin/experiences` | createExperience | implemented | staff | application/json: ExperienceSave | 201: application/json Envelope_AdminExperience_ |
+| GET | `/api/v1/admin/experiences/{experience_id}` | getAdminExperience | implemented | staff | — | 200: application/json Envelope_AdminExperience_ |
+| PUT | `/api/v1/admin/experiences/{experience_id}` | saveExperience | implemented | staff | application/json: ExperienceSave | 200: application/json Envelope_AdminExperience_ |
+| POST | `/api/v1/admin/experiences/{experience_id}/retire` | retireExperience | implemented | staff | application/json: ResourceRetireRequest | 200: application/json Envelope_AdminExperience_ |
+| POST | `/api/v1/admin/experiences/{experience_id}/review/{action}` | reviewExperience | implemented | staff | application/json: ReviewRequest | 200: application/json Envelope_AdminExperience_ |
 | GET | `/api/v1/admin/floor-images/{upload_id}` | previewUploadedFloor | implemented | staff | — | 见契约响应 |
 | GET | `/api/v1/admin/guide-settings` | getGuidePolicy | implemented | staff | — | 200: application/json Envelope_GuidePolicyView_ |
 | PUT | `/api/v1/admin/guide-settings` | updateGuidePolicy | implemented | staff | application/json: GuidePolicyUpdate | 200: application/json Envelope_GuidePolicyView_ |
@@ -43,6 +50,7 @@
 | GET | `/api/v1/admin/points/{point_id}` | getAdminPoint | implemented | staff | — | 200: application/json Envelope_AdminPoint_ |
 | PUT | `/api/v1/admin/points/{point_id}` | updatePointDraft | implemented | staff | application/json: PointDraftUpdate | 200: application/json Envelope_AdminPoint_ |
 | POST | `/api/v1/admin/points/{point_id}/discard` | discardPointDraft | implemented | staff | application/json: ReviewRequest | 200: application/json Envelope_AdminPoint_ |
+| POST | `/api/v1/admin/points/{point_id}/experience-media` | uploadExperienceMedia | implemented | staff | — | 201: application/json Envelope_ExperienceUpload_ |
 | POST | `/api/v1/admin/points/{point_id}/floor-images` | uploadFloorOriginal | implemented | staff | image/jpeg: string (binary); image/png: string (binary) | 201: application/json Envelope_FloorUpload_ |
 | POST | `/api/v1/admin/points/{point_id}/publish` | publishPoint | implemented | staff | application/json: ReviewRequest | 200: application/json Envelope_AdminPoint_ |
 | POST | `/api/v1/admin/points/{point_id}/reject` | rejectPointReview | implemented | staff | application/json: ReviewRequest | 200: application/json Envelope_AdminPoint_ |
@@ -86,6 +94,9 @@
 | GET | `/api/v1/chat/turns/{turn_id}` | getChatTurn | planned | owner | — | 200: application/json Envelope_ChatTurnAccepted_ |
 | POST | `/api/v1/chat/turns/{turn_id}/actions/{action_id}/ack` | acknowledgeAction | planned | owner | application/json: ActionAck | 200: application/json Envelope_ActionAck_ |
 | GET | `/api/v1/chat/turns/{turn_id}/events` | streamChatEvents | planned | owner | — | 200: text/event-stream string |
+| GET | `/api/v1/experiences` | listExperiences | implemented | public | — | 200: application/json Envelope_list_PublicExperience__ |
+| GET | `/api/v1/experiences/{experience_id}` | getExperience | implemented | public | — | 200: application/json Envelope_PublicExperience_ |
+| GET | `/api/v1/experiences/{experience_id}/media` | getExperienceMedia | implemented | public | — | 见契约响应 |
 | GET | `/api/v1/floors/{floor_id}` | getFloor | implemented | resource_policy | — | 200: application/json Envelope_Floor_ |
 | GET | `/api/v1/floors/{floor_id}/images/{revision}/{variant}` | getFloorImage | implemented | resource_policy | — | 200: image/jpeg string (binary); 200: image/png string (binary) |
 | GET | `/api/v1/floors/{floor_id}/rooms` | listRooms | planned | resource_policy | — | 200: application/json Envelope_list_Room__ |
@@ -121,7 +132,7 @@
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
 | point_id | query | 否 | string (uuid) / null | —; — |
-| category | query | 否 | point / resource / user / session / null | —; — |
+| category | query | 否 | point / resource / experience / user / session / null | —; — |
 | q | query | 否 | string | 最长: 120; 默认: "" |
 | page | query | 否 | integer | 最小: 1; 默认: 1 |
 | page_size | query | 否 | integer | 最小: 1; 最大: 100; 默认: 25 |
@@ -157,6 +168,60 @@
 | order | query | 否 | oldest / newest | 默认: "oldest" |
 | page | query | 否 | integer | 最小: 1; 默认: 1 |
 | page_size | query | 否 | integer | 最小: 1; 最大: 100; 默认: 20 |
+
+### GET /api/v1/admin/experience-media/{upload_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| upload_id | path | 是 | string (uuid) | — |
+
+### GET /api/v1/admin/experiences
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| point_id | query | 否 | string (uuid) / null | —; — |
+| kind | query | 否 | media / checkin / tour / null | —; — |
+| state | query | 否 | draft / in_review / rejected / published / discarded / null | —; — |
+| campus_id | query | 否 | string / null | —; — |
+| q | query | 否 | string | 最长: 120; 默认: "" |
+
+### POST /api/v1/admin/experiences
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| Origin | header | 是 | string | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### GET /api/v1/admin/experiences/{experience_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| experience_id | path | 是 | string (uuid) | — |
+
+### PUT /api/v1/admin/experiences/{experience_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| experience_id | path | 是 | string (uuid) | — |
+| Origin | header | 是 | string | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/experiences/{experience_id}/retire
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| experience_id | path | 是 | string (uuid) | — |
+| Origin | header | 是 | string | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/experiences/{experience_id}/review/{action}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| experience_id | path | 是 | string (uuid) | — |
+| action | path | 是 | submit / publish / reject / discard | — |
+| Origin | header | 是 | string | — |
+| X-CSRF-Token | header | 是 | string | — |
 
 ### GET /api/v1/admin/floor-images/{upload_id}
 
@@ -296,6 +361,14 @@
 | X-CSRF-Token | header | 是 | string | — |
 
 ### POST /api/v1/admin/points/{point_id}/discard
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| point_id | path | 是 | string (uuid) | — |
+| Origin | header | 是 | string | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/points/{point_id}/experience-media
 
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
@@ -557,6 +630,26 @@
 | turn_id | path | 是 | string (uuid) | — |
 | Last-Event-ID | header | 否 | integer | 最小: 0 |
 
+### GET /api/v1/experiences
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| point_id | query | 否 | string (uuid) / null | —; — |
+| kind | query | 否 | media / checkin / tour / null | —; — |
+| campus_id | query | 否 | string / null | —; — |
+
+### GET /api/v1/experiences/{experience_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| experience_id | path | 是 | string (uuid) | — |
+
+### GET /api/v1/experiences/{experience_id}/media
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| experience_id | path | 是 | string (uuid) | — |
+
 ### GET /api/v1/floors/{floor_id}
 
 | 字段 | 位置 | 必填 | 类型 | 约束 |
@@ -731,6 +824,25 @@
 | submitted_by_name | 是 | string / null | —; — |
 | title | 是 | string | — |
 | updated_at | 是 | string (date-time) | — |
+
+### AdminExperience
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| content | 是 | ExperienceMediaContent / ExperienceCheckinContent / ExperienceTourContent / null | —; —; —; — |
+| contributor_ids | 是 | array<string (uuid)> | — |
+| id | 是 | string (uuid) | — |
+| media_url | 否 | string / null | —; — |
+| operation | 是 | upsert / retire | — |
+| published_content | 是 | ExperienceMediaContent / ExperienceCheckinContent / ExperienceTourContent / null | —; —; —; — |
+| published_revision | 是 | integer | — |
+| review_note | 是 | string | — |
+| revision | 是 | integer | — |
+| state | 是 | draft / in_review / rejected / published / discarded | — |
+| status | 是 | draft / published / retired | — |
+| submitted_by | 是 | string (uuid) / null | —; — |
 
 ### AdminInquiry
 
@@ -996,6 +1108,15 @@
 | data | 是 | ActionResult | — |
 | meta | 是 | Meta | — |
 
+### Envelope_AdminExperience_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | AdminExperience | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_AdminInquiry_
 
 未知字段：拒绝。
@@ -1093,6 +1214,15 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | data | 是 | ChatTurnAccepted | — |
+| meta | 是 | Meta | — |
+
+### Envelope_ExperienceUpload_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | ExperienceUpload | — |
 | meta | 是 | Meta | — |
 
 ### Envelope_FloorUpload_
@@ -1248,6 +1378,15 @@
 | data | 是 | Point | — |
 | meta | 是 | Meta | — |
 
+### Envelope_PublicExperience_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | PublicExperience | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_RoadQuality_
 
 未知字段：拒绝。
@@ -1345,6 +1484,15 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | data | 是 | array<AdminChangeItem> | — |
+| meta | 是 | Meta | — |
+
+### Envelope_list_AdminExperience__
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | array<AdminExperience> | — |
 | meta | 是 | Meta | — |
 
 ### Envelope_list_AdminInquiry__
@@ -1482,6 +1630,15 @@
 | data | 是 | array<Point> | — |
 | meta | 是 | Meta | — |
 
+### Envelope_list_PublicExperience__
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | array<PublicExperience> | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_list_RoadSummary__
 
 未知字段：拒绝。
@@ -1536,6 +1693,82 @@
 | code | 是 | string | — |
 | details | 否 | array<FieldError> | — |
 | message | 是 | string | — |
+
+### ExperienceCheckinContent
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| description | 否 | string | 最长: 8000; 默认: "" |
+| image_id | 否 | string (uuid) / null | —; — |
+| kind | 否 | 'checkin' | 默认: "checkin" |
+| point_id | 是 | string (uuid) | — |
+| source_note | 是 | string | 最短: 1; 最长: 2000 |
+| title | 是 | string | 最短: 1; 最长: 120 |
+
+### ExperienceMediaContent
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| description | 否 | string | 最长: 8000; 默认: "" |
+| kind | 否 | 'media' | 默认: "media" |
+| media_type | 是 | image / video | — |
+| point_id | 是 | string (uuid) | — |
+| source_note | 是 | string | 最短: 1; 最长: 2000 |
+| title | 是 | string | 最短: 1; 最长: 120 |
+| upload_id | 否 | string (uuid) / null | —; — |
+| url | 否 | string / null | 最长: 2048; — |
+
+### ExperienceSave
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| content | 是 | ExperienceMediaContent / ExperienceCheckinContent / ExperienceTourContent | —; —; — |
+| expected_published_revision | 是 | integer | 最小: 0.0 |
+| expected_revision | 是 | integer | 最小: 0.0 |
+
+### ExperienceStop
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| narrative | 否 | string | 最长: 8000; 默认: "" |
+| point_id | 是 | string (uuid) | — |
+| prompt_timing | 否 | on_arrival / after_intro / manual | 默认: "manual" |
+| video_id | 否 | string (uuid) / null | —; — |
+
+### ExperienceTourContent
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| description | 否 | string | 最长: 8000; 默认: "" |
+| kind | 否 | 'tour' | 默认: "tour" |
+| point_id | 是 | string (uuid) | — |
+| source_note | 是 | string | 最短: 1; 最长: 2000 |
+| stops | 是 | array<ExperienceStop> | 至少项数: 1; 最多项数: 50 |
+| title | 是 | string | 最短: 1; 最长: 120 |
+
+### ExperienceUpload
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| filename | 是 | string | — |
+| id | 是 | string (uuid) | — |
+| media_type | 是 | image / video | — |
+| mime_type | 是 | string | — |
+| point_id | 是 | string (uuid) | — |
+| size_bytes | 是 | integer | — |
+| url | 是 | string | — |
 
 ### FieldError
 
@@ -1643,7 +1876,7 @@
 | resource_revision | 否 | integer / null | —; — |
 | section | 否 | string / null | 最长: 32; — |
 | start_point_id | 否 | string (uuid) / null | —; — |
-| type | 是 | focus_point / show_floor / open_vr / show_route | — |
+| type | 是 | focus_point / show_floor / open_vr / show_route / show_checkin / play_video / show_tour | — |
 | url | 否 | string / null | —; — |
 
 ### GuideContext
@@ -1693,7 +1926,7 @@
 
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
-| allowed_actions | 否 | array<focus_point / show_floor / open_vr / show_route> | 最多项数: 4 |
+| allowed_actions | 否 | array<focus_point / show_floor / open_vr / show_route / show_checkin / play_video / show_tour> | 最多项数: 7 |
 | auto_actions | 否 | boolean | 默认: true |
 | chat_enabled | 否 | boolean | 默认: true |
 | navigation_enabled | 否 | boolean | 默认: true |
@@ -2114,6 +2347,17 @@
 | expected_point_revision | 是 | integer | 最小: 1.0 |
 | expected_revision | 是 | integer | 最小: 0.0 |
 | note | 是 | string | 最短: 1; 最长: 1000 |
+
+### PublicExperience
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| content | 是 | ExperienceMediaContent / ExperienceCheckinContent / ExperienceTourContent | —; —; — |
+| id | 是 | string (uuid) | — |
+| media_url | 否 | string / null | —; — |
+| revision | 是 | integer | — |
 
 ### ResolveAction
 
