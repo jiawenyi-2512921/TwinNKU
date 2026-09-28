@@ -1600,6 +1600,40 @@
         "title": "Envelope[Point]",
         "type": "object"
       },
+      "Envelope_RoadQuality_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RoadQuality"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[RoadQuality]",
+        "type": "object"
+      },
+      "Envelope_RoadStarter_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RoadStarter"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[RoadStarter]",
+        "type": "object"
+      },
       "Envelope_RoadWorkspace_": {
         "additionalProperties": false,
         "properties": {
@@ -4670,6 +4704,16 @@
             "title": "Closed",
             "type": "boolean"
           },
+          "curve_control": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XY"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "distance_m": {
             "anyOf": [
               {
@@ -4778,9 +4822,68 @@
         "title": "RoadGraph",
         "type": "object"
       },
+      "RoadIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "edge_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Edge Ids",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "node_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Node Ids",
+            "type": "array"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XY"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "title": "RoadIssue",
+        "type": "object"
+      },
       "RoadNode": {
         "additionalProperties": false,
         "properties": {
+          "candidate": {
+            "default": false,
+            "title": "Candidate",
+            "type": "boolean"
+          },
+          "evidence": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Evidence",
+            "type": "string"
+          },
           "id": {
             "pattern": "^[a-zA-Z0-9_-]{1,64}$",
             "title": "Id",
@@ -4825,6 +4928,67 @@
         "title": "RoadNode",
         "type": "object"
       },
+      "RoadQuality": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_entrances": {
+            "title": "Candidate Entrances",
+            "type": "integer"
+          },
+          "component_count": {
+            "title": "Component Count",
+            "type": "integer"
+          },
+          "covered_points": {
+            "title": "Covered Points",
+            "type": "integer"
+          },
+          "edge_count": {
+            "title": "Edge Count",
+            "type": "integer"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/RoadIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "missing_point_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Missing Point Ids",
+            "type": "array"
+          },
+          "node_count": {
+            "title": "Node Count",
+            "type": "integer"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "unverified_edges": {
+            "title": "Unverified Edges",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "node_count",
+          "edge_count",
+          "component_count",
+          "unverified_edges",
+          "candidate_entrances",
+          "covered_points",
+          "missing_point_ids",
+          "issues"
+        ],
+        "title": "RoadQuality",
+        "type": "object"
+      },
       "RoadReview": {
         "additionalProperties": false,
         "properties": {
@@ -4856,6 +5020,58 @@
           "note"
         ],
         "title": "RoadReview",
+        "type": "object"
+      },
+      "RoadStarter": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "graph": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoadGraph"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "omitted_point_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Omitted Point Ids",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "title",
+          "source",
+          "source_sha256",
+          "message"
+        ],
+        "title": "RoadStarter",
         "type": "object"
       },
       "RoadSummary": {
@@ -9118,6 +9334,75 @@
         "x-module": "M03"
       }
     },
+    "/api/v1/admin/navigation/{map_id}/quality": {
+      "post": {
+        "operationId": "checkRoadQuality",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "map_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Map Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoadGraph"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_RoadQuality_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Quality",
+        "tags": [
+          "navigation"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M03"
+      }
+    },
     "/api/v1/admin/navigation/{map_id}/review": {
       "post": {
         "operationId": "reviewRoadDraft",
@@ -9179,6 +9464,57 @@
           }
         ],
         "summary": "Review",
+        "tags": [
+          "navigation"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M03"
+      }
+    },
+    "/api/v1/admin/navigation/{map_id}/starter": {
+      "get": {
+        "operationId": "getRoadStarter",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "map_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Map Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_RoadStarter_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Starter",
         "tags": [
           "navigation"
         ],
