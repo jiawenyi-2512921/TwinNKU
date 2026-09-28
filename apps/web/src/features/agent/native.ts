@@ -72,6 +72,14 @@ export function canAutoApply(
   current: number,
 ): boolean {
   return (
-    sent === current && a.context_revision === sent && a.type !== "open_vr"
+    sent === current &&
+    a.context_revision === sent &&
+    [
+      "focus_point",
+      "show_floor",
+      "show_route",
+      "show_checkin",
+      "show_tour",
+    ].includes(a.type)
   );
 }

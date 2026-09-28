@@ -1,22 +1,180 @@
-.native-agent[open] {
+/* The native guide floats over the map without resizing it or trapping focus. */
+.agent-dock.native-dock,
+.agent-dock.native-dock.is-open {
+  width: 0;
+}
+.native-agent {
+  position: absolute;
+  right: 18px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 1065;
+  width: min(350px, calc(100vw - 36px));
+  max-height: min(540px, calc(100dvh - 110px));
   display: flex;
   flex-direction: column;
+  overflow: auto;
+  border: 1px solid #ded2e3;
+  border-radius: 20px;
+  background: #fff;
+  color: #302b34;
+  box-shadow: 0 10px 38px #34163d2c;
+}
+.native-agent.is-expanded {
+  width: min(420px, calc(100vw - 36px));
+  height: min(720px, calc(100dvh - 110px));
+  max-height: none;
+}
+.native-agent .agent-heading {
+  padding: 12px 10px 12px 14px;
+  gap: 7px;
+  background: #fcf9fd;
+}
+.native-agent .agent-heading h2 {
+  font-size: 15px;
+}
+.native-agent .agent-heading h2:focus {
+  outline: none;
+}
+.native-agent .agent-heading h2:focus-visible {
+  outline: 2px solid #81428c;
+  outline-offset: 3px;
+}
+.native-agent .agent-heading p {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.native-agent .agent-heading .icon-button {
+  width: 36px;
+  min-height: 36px;
+  flex: none;
+}
+.native-agent .agent-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+}
+.native-voice-controls {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.native-microphone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-direction: column;
+  flex: none;
+  min-width: 66px;
+  min-height: 62px;
+  border: 1px solid #ded0e4;
+  border-radius: 16px;
+  color: #673570;
+  background: #f3e9f7;
+  font: inherit;
+  font-size: 11px;
+}
+.native-microphone.is-active {
+  background: #69346d;
+  border-color: #69346d;
+  color: #fff;
+}
+.native-microphone:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.native-voice-controls > div {
+  flex: 1;
+  min-width: 0;
+}
+.native-voice-controls p {
+  font-size: 12px;
+  margin: 0 0 5px;
+  line-height: 1.55;
+}
+.native-voice-controls small {
+  font-size: 10px;
+  color: #74657b;
+}
+.native-interrupt {
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 1px solid #ddd1e2;
+  border-radius: 10px;
+  font-size: 11px;
+  background: white;
+  color: #69346d;
+}
+.native-subtitles {
+  margin: 0 14px 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8f5fa;
+  overflow: auto;
+  min-height: 48px;
+  max-height: 160px;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.native-subtitles > p {
+  margin: 0 0 8px;
+}
+.native-subtitles > p:last-child {
+  margin: 0;
+}
+.native-last-question {
+  color: #75687b;
+  font-size: 11px;
+}
+.native-toolbar {
+  padding: 8px 12px;
+  border-top: 1px solid #eee7f0;
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.native-toolbar button {
+  flex: 1;
+  min-height: 40px;
+  padding: 8px;
+  border: 0;
+  background: #f7f0fa;
+  color: #63376e;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 12px;
+}
+.native-voice-hint {
+  font-size: 10px;
+  color: #716778;
+  margin: 0;
+  padding: 0 14px 12px;
+  line-height: 1.6;
 }
 .native-messages {
   flex: 1;
-  min-height: 0;
+  min-height: 80px;
   overflow: auto;
-  padding: 22px 20px;
+  padding: 12px 16px;
 }
 .native-login {
-  padding: 28px 22px;
+  padding: 20px;
   display: grid;
-  gap: 16px;
+  gap: 14px;
+}
+.native-login h3 {
+  margin: 0;
+  font-size: 18px;
 }
 .native-login p,
 .native-welcome p {
   color: #716778;
   line-height: 1.7;
+  margin: 0;
 }
 .native-login label {
   display: grid;
@@ -31,14 +189,15 @@
   max-width: 100%;
 }
 .native-turn {
-  margin: 0 0 28px;
+  margin: 0 0 24px;
 }
 .native-question {
   margin-left: 24px;
   background: #f1e9f4;
   border-radius: 16px 16px 4px 16px;
-  padding: 12px 15px;
+  padding: 10px 14px;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .native-answer {
   line-height: 1.85;
@@ -49,6 +208,7 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  white-space: normal;
 }
 .native-actions button,
 .native-welcome button {
@@ -56,8 +216,11 @@
   background: #faf6fc;
   border-radius: 12px;
   padding: 10px;
+  min-height: 44px;
   color: #63376e;
   text-align: left;
+  font: inherit;
+  font-size: 12px;
 }
 .native-welcome button {
   display: block;
@@ -68,28 +231,44 @@
   margin-top: 12px;
   color: #6c6172;
 }
-.native-turn details a {
+.native-turn details button {
   display: block;
-  margin: 8px 0;
+  min-height: 40px;
+  padding: 8px;
+  margin-top: 4px;
+  border: 0;
+  background: transparent;
+  color: #69346d;
+  text-decoration: underline;
+  text-align: left;
 }
 .native-notice {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
   background: #f7f2e9;
   color: #79582c;
-  padding: 10px 14px;
+  padding: 8px 12px;
+  margin: 0 0 8px;
   overflow-wrap: anywhere;
 }
+.native-agent > .native-notice {
+  flex: none;
+  margin: 0 12px 8px;
+  border-radius: 10px;
+}
 .native-composer {
-  padding: 14px 18px;
+  padding: 12px 14px;
   border-top: 1px solid #ebe4ee;
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  flex: none;
 }
 .native-composer textarea {
   resize: vertical;
+  max-height: 120px;
   width: 100%;
   box-sizing: border-box;
+  font-size: 16px;
 }
 .native-composer > div {
   display: flex;
@@ -100,6 +279,7 @@
   margin-left: auto;
 }
 .native-composer > div > button:not(.primary-button) {
+  min-height: 40px;
   border: 0;
   background: transparent;
   color: #68576f;
@@ -110,4 +290,30 @@
   border: 0;
   background: #f6f1f8;
   border-radius: 10px;
+}
+@media (max-width: 760px) {
+  .native-agent {
+    right: 10px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: min(320px, calc(100vw - 20px));
+    max-height: min(440px, calc(100dvh - 90px));
+    border-radius: 18px;
+  }
+  .native-agent.is-expanded {
+    width: min(400px, calc(100vw - 20px));
+    height: min(650px, calc(100dvh - 90px));
+  }
+  .native-agent .agent-heading {
+    padding-top: 10px;
+  }
+  .native-subtitles {
+    max-height: 116px;
+  }
+  .map-stage:has(.navigation-panel)
+    + .native-dock
+    .native-agent:not(.is-expanded) {
+    top: 10px;
+    bottom: auto;
+    max-height: 34%;
+  }
 }
