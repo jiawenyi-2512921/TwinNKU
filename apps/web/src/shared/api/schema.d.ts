@@ -123,6 +123,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/guide-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Policy */
+        get: operations["getGuidePolicy"];
+        /** Update Policy */
+        put: operations["updateGuidePolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/inquiries": {
         parameters: {
             query?: never;
@@ -295,6 +313,75 @@ export interface paths {
          * @description PLANNED, NOT IMPLEMENTED.
          */
         post: operations["retireMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/navigation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Workspaces */
+        get: operations["listRoadWorkspaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/navigation/{map_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Workspace */
+        get: operations["getRoadWorkspace"];
+        /** Save */
+        put: operations["saveRoadDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/navigation/{map_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["previewRoadDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/navigation/{map_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review */
+        post: operations["reviewRoadDraft"];
         delete?: never;
         options?: never;
         head?: never;
@@ -711,6 +798,74 @@ export interface paths {
         };
         /** Workbench */
         get: operations["getAdminWorkbench"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/actions/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Action */
+        post: operations["resolveGuideAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Chat */
+        post: operations["chatNativeAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["loginNativeAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Session */
+        get: operations["getNativeAgentSession"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1147,6 +1302,40 @@ export interface paths {
         get: operations["getMediaAccess"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/navigation/maps/{map_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Availability */
+        get: operations["getNavigationAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/navigation/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Route */
+        post: operations["calculateNavigationPath"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1632,10 +1821,33 @@ export interface components {
              */
             type: "focus_point" | "show_route" | "open_vr" | "show_floor" | "play_narration" | "show_tour";
         };
+        /** AgentLogin */
+        AgentLogin: {
+            /**
+             * Code
+             * Format: password
+             */
+            code: string;
+        };
+        /** AgentSession */
+        AgentSession: {
+            /** Csrf Token */
+            csrf_token: string;
+            /**
+             * Expires In Seconds
+             * @default 3600
+             */
+            expires_in_seconds: number;
+        };
         /** AgentWebConfig */
         AgentWebConfig: {
             /** App Key */
             app_key?: string | null;
+            /**
+             * Auto Actions
+             * @default true
+             */
+            auto_actions: boolean;
             /**
              * Base Url
              * @default https://coze.nankai.edu.cn
@@ -1663,9 +1875,9 @@ export interface components {
             /**
              * Provider
              * @default nk-genios-websdk
-             * @constant
+             * @enum {string}
              */
-            provider: "nk-genios-websdk";
+            provider: "nk-genios-websdk" | "nk-genios-api";
             /** Public Site Origin */
             public_site_origin: string;
             /**
@@ -1880,6 +2092,11 @@ export interface components {
             data: components["schemas"]["AdminWorkbench"];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[AgentSession] */
+        Envelope_AgentSession_: {
+            data: components["schemas"]["AgentSession"];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[AgentWebConfig] */
         Envelope_AgentWebConfig_: {
             data: components["schemas"]["AgentWebConfig"];
@@ -1915,9 +2132,24 @@ export interface components {
             data: components["schemas"]["GuestSession"];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[GuideAction] */
+        Envelope_GuideAction_: {
+            data: components["schemas"]["GuideAction"];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[GuidePoint] */
         Envelope_GuidePoint_: {
             data: components["schemas"]["GuidePoint"];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[GuidePolicyView] */
+        Envelope_GuidePolicyView_: {
+            data: components["schemas"]["GuidePolicyView"];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[GuideReply] */
+        Envelope_GuideReply_: {
+            data: components["schemas"]["GuideReply"];
             meta: components["schemas"]["Meta"];
         };
         /** Envelope[Identity] */
@@ -1955,9 +2187,24 @@ export interface components {
             data: components["schemas"]["MediaInfo"];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[NavigationAvailability] */
+        Envelope_NavigationAvailability_: {
+            data: components["schemas"]["NavigationAvailability"];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[NavigationPath] */
+        Envelope_NavigationPath_: {
+            data: components["schemas"]["NavigationPath"];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[Point] */
         Envelope_Point_: {
             data: components["schemas"]["Point"];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[RoadWorkspace] */
+        Envelope_RoadWorkspace_: {
+            data: components["schemas"]["RoadWorkspace"];
             meta: components["schemas"]["Meta"];
         };
         /** Envelope[RouteResult] */
@@ -2089,6 +2336,12 @@ export interface components {
         Envelope_list_Point__: {
             /** Data */
             data: components["schemas"]["Point"][];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[list[RoadSummary]] */
+        Envelope_list_RoadSummary__: {
+            /** Data */
+            data: components["schemas"]["RoadSummary"][];
             meta: components["schemas"]["Meta"];
         };
         /** Envelope[list[Room]] */
@@ -2258,6 +2511,60 @@ export interface components {
              */
             expires_at: string;
         };
+        /** GuideAction */
+        GuideAction: {
+            /**
+             * Action Id
+             * Format: uuid
+             */
+            action_id: string;
+            /** Context Revision */
+            context_revision: number;
+            /** Label */
+            label: string;
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Point Revision */
+            point_revision: number;
+            /** Resource Id */
+            resource_id?: string | null;
+            /** Resource Revision */
+            resource_revision?: number | null;
+            /** Section */
+            section?: string | null;
+            /** Start Point Id */
+            start_point_id?: string | null;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "focus_point" | "show_floor" | "open_vr" | "show_route";
+            /** Url */
+            url?: string | null;
+        };
+        /** GuideContext */
+        GuideContext: {
+            /** Campus Id */
+            campus_id: string;
+            /** Floor Id */
+            floor_id?: string | null;
+            /**
+             * Map Id
+             * Format: uuid
+             */
+            map_id: string;
+            /** Map Revision */
+            map_revision: number;
+            /** Point Id */
+            point_id?: string | null;
+            /** Revision */
+            revision: number;
+            /** Start Point Id */
+            start_point_id?: string | null;
+        };
         /** GuideLink */
         GuideLink: {
             /**
@@ -2301,6 +2608,90 @@ export interface components {
              * Format: date-time
              */
             retrieved_at: string;
+        };
+        /** GuidePolicy */
+        GuidePolicy: {
+            /** Allowed Actions */
+            allowed_actions?: ("focus_point" | "show_floor" | "open_vr" | "show_route")[];
+            /**
+             * Auto Actions
+             * @default true
+             */
+            auto_actions: boolean;
+            /**
+             * Chat Enabled
+             * @default true
+             */
+            chat_enabled: boolean;
+            /**
+             * Navigation Enabled
+             * @default true
+             */
+            navigation_enabled: boolean;
+            /**
+             * Total Turns Per Hour
+             * @default 120
+             */
+            total_turns_per_hour: number;
+            /**
+             * Visitor Turns Per Hour
+             * @default 30
+             */
+            visitor_turns_per_hour: number;
+        };
+        /** GuidePolicyUpdate */
+        GuidePolicyUpdate: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Note */
+            note: string;
+            policy: components["schemas"]["GuidePolicy"];
+        };
+        /** GuidePolicyView */
+        GuidePolicyView: {
+            /** Api Configured */
+            api_configured: boolean;
+            /**
+             * Concurrency Limit
+             * @default 4
+             */
+            concurrency_limit: number;
+            /** Note */
+            note: string;
+            policy: components["schemas"]["GuidePolicy"];
+            /** Provider */
+            provider: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Session Limit
+             * @default 64
+             */
+            session_limit: number;
+        };
+        /** GuideReply */
+        GuideReply: {
+            /** Actions */
+            actions: components["schemas"]["GuideAction"][];
+            /** Answer */
+            answer: string;
+            /** Context Revision */
+            context_revision: number;
+            /** Materials */
+            materials: components["schemas"]["GuideLink"][];
+            /** Notices */
+            notices: string[];
+        };
+        /** GuideTurn */
+        GuideTurn: {
+            context: components["schemas"]["GuideContext"];
+            /** Query */
+            query: string;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2560,6 +2951,84 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** NavigationAvailability */
+        NavigationAvailability: {
+            /** Available Point Ids */
+            available_point_ids: string[];
+            /** Graph Revision */
+            graph_revision: number | null;
+            /**
+             * Map Id
+             * Format: uuid
+             */
+            map_id: string;
+            /** Map Revision */
+            map_revision: number;
+            /** Message */
+            message: string;
+            /** Ready */
+            ready: boolean;
+        };
+        /** NavigationPath */
+        NavigationPath: {
+            /** Distance M */
+            distance_m: number | null;
+            /**
+             * End Point Id
+             * Format: uuid
+             */
+            end_point_id: string;
+            /** Expires At */
+            expires_at: string;
+            /** Graph Revision */
+            graph_revision: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Map Id
+             * Format: uuid
+             */
+            map_id: string;
+            /** Segments */
+            segments: components["schemas"]["RouteSegment"][];
+            /**
+             * Start Point Id
+             * Format: uuid
+             */
+            start_point_id: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /** NavigationRequest */
+        NavigationRequest: {
+            /**
+             * End Point Id
+             * Format: uuid
+             */
+            end_point_id: string;
+            /** Graph Revision */
+            graph_revision?: number | null;
+            /**
+             * Map Id
+             * Format: uuid
+             */
+            map_id: string;
+            /** Map Revision */
+            map_revision: number;
+            /**
+             * Start Point Id
+             * Format: uuid
+             */
+            start_point_id: string;
+            /**
+             * Step Free
+             * @default false
+             */
+            step_free: boolean;
+        };
         /** OfficialChannel */
         OfficialChannel: {
             /** Description */
@@ -2784,6 +3253,11 @@ export interface components {
             /** Note */
             note: string;
         };
+        /** ResolveAction */
+        ResolveAction: {
+            action: components["schemas"]["GuideAction"];
+            context: components["schemas"]["GuideContext"];
+        };
         /** ResourceChange */
         ResourceChange: {
             /** Base Revision */
@@ -2846,6 +3320,133 @@ export interface components {
             expected_revision: number;
             /** Note */
             note: string;
+        };
+        /** RoadDraft */
+        RoadDraft: {
+            /** Expected Revision */
+            expected_revision: number;
+            graph: components["schemas"]["RoadGraph"];
+        };
+        /** RoadEdge */
+        RoadEdge: {
+            /**
+             * Bidirectional
+             * @default true
+             */
+            bidirectional: boolean;
+            /**
+             * Closed
+             * @default false
+             */
+            closed: boolean;
+            /** Distance M */
+            distance_m?: number | null;
+            /** End */
+            end: string;
+            /**
+             * Evidence
+             * @default
+             */
+            evidence: string;
+            /** Id */
+            id: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /** Start */
+            start: string;
+            /** Step Free */
+            step_free?: boolean | null;
+            /**
+             * Verified
+             * @default false
+             */
+            verified: boolean;
+            /** Via */
+            via?: components["schemas"]["XY"][];
+        };
+        /** RoadGraph */
+        RoadGraph: {
+            /** Edges */
+            edges?: components["schemas"]["RoadEdge"][];
+            /** Map Revision */
+            map_revision: number;
+            /** Nodes */
+            nodes?: components["schemas"]["RoadNode"][];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** RoadNode */
+        RoadNode: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @default junction
+             * @enum {string}
+             */
+            kind: "junction" | "waypoint" | "entrance";
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /** Point Id */
+            point_id?: string | null;
+            position: components["schemas"]["XY"];
+        };
+        /** RoadReview */
+        RoadReview: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "submit" | "publish" | "reject" | "withdraw";
+            /** Expected Revision */
+            expected_revision: number;
+            /** Note */
+            note: string;
+        };
+        /** RoadSummary */
+        RoadSummary: {
+            /**
+             * Map Id
+             * Format: uuid
+             */
+            map_id: string;
+            /** Published Revision */
+            published_revision: number;
+            /** Revision */
+            revision: number;
+            /** State */
+            state: string;
+            /** Title */
+            title: string;
+        };
+        /** RoadWorkspace */
+        RoadWorkspace: {
+            /** Contributor Ids */
+            contributor_ids: string[];
+            draft: components["schemas"]["RoadGraph"] | null;
+            /**
+             * Map Id
+             * Format: uuid
+             */
+            map_id: string;
+            published: components["schemas"]["RoadGraph"] | null;
+            /** Published Revision */
+            published_revision: number;
+            /** Review Note */
+            review_note: string;
+            /** Revision */
+            revision: number;
+            /** State */
+            state: string;
         };
         /** Room */
         Room: {
@@ -3829,6 +4430,61 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getGuidePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_GuidePolicyView_"];
+                };
+            };
+        };
+    };
+    updateGuidePolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuidePolicyUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_GuidePolicyView_"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -5139,6 +5795,168 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listRoadWorkspaces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_RoadSummary__"];
+                };
+            };
+        };
+    };
+    getRoadWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RoadWorkspace_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveRoadDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RoadWorkspace_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    previewRoadDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NavigationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_NavigationPath_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reviewRoadDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadReview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RoadWorkspace_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -7657,6 +8475,129 @@ export interface operations {
             };
         };
     };
+    resolveGuideAction: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_GuideAction_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chatNativeAgent: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuideTurn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_GuideReply_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    loginNativeAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentLogin"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AgentSession_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getNativeAgentSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AgentSession_"];
+                };
+            };
+        };
+    };
     getAgentWebConfig: {
         parameters: {
             query?: never;
@@ -10005,6 +10946,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getNavigationAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_NavigationAvailability_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    calculateNavigationPath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NavigationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_NavigationPath_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
