@@ -5,8 +5,8 @@
 业务约束见21—29；接口上线前必须先处理24中的协议缺口和旧角色命名，不能猜学校平台API。
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
-接口操作数：84；状态统计：{"implemented": 48, "planned": 36}。
-契约SHA256：`5fd326285a2c16746d1473c195ac7433e69b0a9094cd65c36969a5c600a5eee4`。
+接口操作数：97；状态统计：{"implemented": 61, "planned": 36}。
+契约SHA256：`094c9a0207c911720f8e89602b0ccd1cd48e7529465f78dcf0f9bb589358df7f`。
 
 ## 1. 全部端点
 
@@ -19,6 +19,8 @@
 | GET | `/api/v1/admin/campuses` | listStaffCampuses | implemented | staff | — | 200: application/json Envelope_list_Campus__ |
 | GET | `/api/v1/admin/changes` | listAdminChanges | implemented | staff | — | 200: application/json Envelope_list_AdminChangeItem__ |
 | GET | `/api/v1/admin/floor-images/{upload_id}` | previewUploadedFloor | implemented | staff | — | 见契约响应 |
+| GET | `/api/v1/admin/guide-settings` | getGuidePolicy | implemented | staff | — | 200: application/json Envelope_GuidePolicyView_ |
+| PUT | `/api/v1/admin/guide-settings` | updateGuidePolicy | implemented | staff | application/json: GuidePolicyUpdate | 200: application/json Envelope_GuidePolicyView_ |
 | GET | `/api/v1/admin/inquiries` | listAdminInquiries | planned | analyst | — | 200: application/json Envelope_list_AdminInquiry__ |
 | GET | `/api/v1/admin/inquiries/stats` | getInquiryStats | planned | analyst | — | 200: application/json Envelope_InquiryStats_ |
 | PATCH | `/api/v1/admin/inquiries/{inquiry_id}` | resolveInquiry | planned | analyst | application/json: InquiryResolution | 200: application/json Envelope_AdminInquiry_ |
@@ -29,6 +31,11 @@
 | GET | `/api/v1/admin/media/{media_id}` | getAdminMedia | planned | contributor | — | 200: application/json Envelope_AdminMedia_ |
 | POST | `/api/v1/admin/media/{media_id}/publish` | publishMedia | planned | reviewer | application/json: ReviewRequest | 200: application/json Envelope_MediaInfo_ |
 | POST | `/api/v1/admin/media/{media_id}/retire` | retireMedia | planned | reviewer | application/json: ReviewRequest | 200: application/json Envelope_MediaInfo_ |
+| GET | `/api/v1/admin/navigation` | listRoadWorkspaces | implemented | staff | — | 200: application/json Envelope_list_RoadSummary__ |
+| GET | `/api/v1/admin/navigation/{map_id}` | getRoadWorkspace | implemented | staff | — | 200: application/json Envelope_RoadWorkspace_ |
+| PUT | `/api/v1/admin/navigation/{map_id}` | saveRoadDraft | implemented | staff | application/json: RoadDraft | 200: application/json Envelope_RoadWorkspace_ |
+| POST | `/api/v1/admin/navigation/{map_id}/preview` | previewRoadDraft | implemented | staff | application/json: NavigationRequest | 200: application/json Envelope_NavigationPath_ |
+| POST | `/api/v1/admin/navigation/{map_id}/review` | reviewRoadDraft | implemented | staff | application/json: RoadReview | 200: application/json Envelope_RoadWorkspace_ |
 | GET | `/api/v1/admin/points` | listAdminPoints | implemented | staff | — | 200: application/json Envelope_list_AdminPoint__ |
 | POST | `/api/v1/admin/points` | createPointDraft | implemented | staff | application/json: PointDraftInput | 201: application/json Envelope_AdminPoint_ |
 | GET | `/api/v1/admin/points/{point_id}` | getAdminPoint | implemented | staff | — | 200: application/json Envelope_AdminPoint_ |
@@ -58,6 +65,10 @@
 | POST | `/api/v1/admin/users` | createStaffUser | implemented | staff | application/json: StaffUserCreate | 201: application/json Envelope_StaffUser_ |
 | PUT | `/api/v1/admin/users/{user_id}` | updateStaffUser | implemented | staff | application/json: StaffUserUpdate | 200: application/json Envelope_StaffUser_ |
 | GET | `/api/v1/admin/workbench` | getAdminWorkbench | implemented | staff | — | 200: application/json Envelope_AdminWorkbench_ |
+| POST | `/api/v1/agent/actions/resolve` | resolveGuideAction | implemented | agent | application/json: ResolveAction | 200: application/json Envelope_GuideAction_ |
+| POST | `/api/v1/agent/chat` | chatNativeAgent | implemented | agent | application/json: GuideTurn | 200: application/json Envelope_GuideReply_ |
+| POST | `/api/v1/agent/login` | loginNativeAgent | implemented | public | application/json: AgentLogin | 200: application/json Envelope_AgentSession_ |
+| GET | `/api/v1/agent/session` | getNativeAgentSession | implemented | agent | — | 200: application/json Envelope_AgentSession_ |
 | GET | `/api/v1/agent/web-config` | getAgentWebConfig | implemented | public | — | 200: application/json Envelope_AgentWebConfig_ |
 | POST | `/api/v1/auth/guest-session` | createGuestSession | planned | public | — | 201: application/json Envelope_GuestSession_ |
 | GET | `/api/v1/auth/me` | getIdentity | planned | guest_session | — | 200: application/json Envelope_Identity_ |
@@ -82,6 +93,8 @@
 | GET | `/api/v1/maps/{map_id}/features` | getMapFeatures | implemented | public | — | 200: application/json Envelope_MapFeatures_ |
 | GET | `/api/v1/maps/{map_id}/tiles/{revision}/{z}/{x}/{y}.png` | getMapTile | implemented | public | — | 200: image/png string (binary) |
 | GET | `/api/v1/media/{media_id}/access` | getMediaAccess | planned | resource_policy | — | 200: application/json Envelope_MediaAccess_ |
+| GET | `/api/v1/navigation/maps/{map_id}` | getNavigationAvailability | implemented | public | — | 200: application/json Envelope_NavigationAvailability_ |
+| POST | `/api/v1/navigation/route` | calculateNavigationPath | implemented | public | application/json: NavigationRequest | 200: application/json Envelope_NavigationPath_ |
 | GET | `/api/v1/official-channels` | listOfficialChannels | planned | public | — | 200: application/json Envelope_list_OfficialChannel__ |
 | GET | `/api/v1/points/{point_id}` | getPoint | implemented | 未标记 | — | 200: application/json Envelope_Point_ |
 | GET | `/api/v1/points/{point_id}/floors` | listFloors | implemented | resource_policy | — | 200: application/json Envelope_list_Floor__ |
@@ -149,6 +162,12 @@
 | --- | --- | --- | --- | --- |
 | upload_id | path | 是 | string (uuid) | — |
 
+### PUT /api/v1/admin/guide-settings
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
 ### GET /api/v1/admin/inquiries
 
 | 字段 | 位置 | 必填 | 类型 | 约束 |
@@ -200,6 +219,33 @@
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
 | media_id | path | 是 | string (uuid) | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### GET /api/v1/admin/navigation/{map_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| map_id | path | 是 | string (uuid) | — |
+
+### PUT /api/v1/admin/navigation/{map_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| map_id | path | 是 | string (uuid) | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/navigation/{map_id}/preview
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| map_id | path | 是 | string (uuid) | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/navigation/{map_id}/review
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| map_id | path | 是 | string (uuid) | — |
 | X-CSRF-Token | header | 是 | string | — |
 
 ### GET /api/v1/admin/points
@@ -408,6 +454,18 @@
 | Origin | header | 是 | string | — |
 | X-CSRF-Token | header | 是 | string | — |
 
+### POST /api/v1/agent/actions/resolve
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/agent/chat
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
 ### DELETE /api/v1/auth/session
 
 | 字段 | 位置 | 必填 | 类型 | 约束 |
@@ -545,6 +603,12 @@
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
 | media_id | path | 是 | string (uuid) | — |
+
+### GET /api/v1/navigation/maps/{map_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| map_id | path | 是 | string (uuid) | — |
 
 ### GET /api/v1/points/{point_id}
 
@@ -760,6 +824,23 @@
 | resource_revision | 是 | integer | 最小: 1 |
 | type | 是 | focus_point / show_route / open_vr / show_floor / play_narration / show_tour | — |
 
+### AgentLogin
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| code | 是 | string (password) | 最短: 16; 最长: 128 |
+
+### AgentSession
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| csrf_token | 是 | string | — |
+| expires_in_seconds | 否 | integer | 默认: 3600 |
+
 ### AgentWebConfig
 
 未知字段：拒绝。
@@ -767,12 +848,13 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | app_key | 否 | string / null | —; — |
+| auto_actions | 否 | boolean | 默认: true |
 | base_url | 否 | 'https://coze.nankai.edu.cn' | 默认: "https://coze.nankai.edu.cn" |
 | context_enabled | 否 | boolean | 默认: false |
 | display_name | 否 | '小开' | 默认: "小开" |
 | enabled | 是 | boolean | — |
 | hide_sidebar | 否 | boolean | 默认: true |
-| provider | 否 | 'nk-genios-websdk' | 默认: "nk-genios-websdk" |
+| provider | 否 | nk-genios-websdk / nk-genios-api | 默认: "nk-genios-websdk" |
 | public_site_origin | 是 | string | — |
 | sdk_url | 否 | 'https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js' | 默认: "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js" |
 
@@ -953,6 +1035,15 @@
 | data | 是 | AdminWorkbench | — |
 | meta | 是 | Meta | — |
 
+### Envelope_AgentSession_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | AgentSession | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_AgentWebConfig_
 
 未知字段：拒绝。
@@ -1016,6 +1107,15 @@
 | data | 是 | GuestSession | — |
 | meta | 是 | Meta | — |
 
+### Envelope_GuideAction_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | GuideAction | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_GuidePoint_
 
 未知字段：拒绝。
@@ -1023,6 +1123,24 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | data | 是 | GuidePoint | — |
+| meta | 是 | Meta | — |
+
+### Envelope_GuidePolicyView_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | GuidePolicyView | — |
+| meta | 是 | Meta | — |
+
+### Envelope_GuideReply_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | GuideReply | — |
 | meta | 是 | Meta | — |
 
 ### Envelope_Identity_
@@ -1088,6 +1206,24 @@
 | data | 是 | MediaInfo | — |
 | meta | 是 | Meta | — |
 
+### Envelope_NavigationAvailability_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | NavigationAvailability | — |
+| meta | 是 | Meta | — |
+
+### Envelope_NavigationPath_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | NavigationPath | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_Point_
 
 未知字段：拒绝。
@@ -1095,6 +1231,15 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | data | 是 | Point | — |
+| meta | 是 | Meta | — |
+
+### Envelope_RoadWorkspace_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | RoadWorkspace | — |
 | meta | 是 | Meta | — |
 
 ### Envelope_RouteResult_
@@ -1304,6 +1449,15 @@
 | data | 是 | array<Point> | — |
 | meta | 是 | Meta | — |
 
+### Envelope_list_RoadSummary__
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | array<RoadSummary> | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_list_Room__
 
 未知字段：拒绝。
@@ -1441,6 +1595,38 @@
 | csrf_token | 是 | string | — |
 | expires_at | 是 | string (date-time) | — |
 
+### GuideAction
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| action_id | 是 | string (uuid) | — |
+| context_revision | 是 | integer | — |
+| label | 是 | string | — |
+| point_id | 是 | string (uuid) | — |
+| point_revision | 是 | integer | — |
+| resource_id | 否 | string (uuid) / null | —; — |
+| resource_revision | 否 | integer / null | —; — |
+| section | 否 | string / null | 最长: 32; — |
+| start_point_id | 否 | string (uuid) / null | —; — |
+| type | 是 | focus_point / show_floor / open_vr / show_route | — |
+| url | 否 | string / null | —; — |
+
+### GuideContext
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| campus_id | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
+| floor_id | 否 | string (uuid) / null | —; — |
+| map_id | 是 | string (uuid) | — |
+| map_revision | 是 | integer | 最小: 1.0 |
+| point_id | 否 | string (uuid) / null | —; — |
+| revision | 是 | integer | 最小: 0.0 |
+| start_point_id | 否 | string (uuid) / null | —; — |
+
 ### GuideLink
 
 未知字段：拒绝。
@@ -1467,6 +1653,65 @@
 | panoramas | 是 | array<Panorama> | — |
 | point | 是 | Point | — |
 | retrieved_at | 是 | string (date-time) | — |
+
+### GuidePolicy
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| allowed_actions | 否 | array<focus_point / show_floor / open_vr / show_route> | 最多项数: 4 |
+| auto_actions | 否 | boolean | 默认: true |
+| chat_enabled | 否 | boolean | 默认: true |
+| navigation_enabled | 否 | boolean | 默认: true |
+| total_turns_per_hour | 否 | integer | 最小: 1.0; 最大: 1000.0; 默认: 120 |
+| visitor_turns_per_hour | 否 | integer | 最小: 1.0; 最大: 120.0; 默认: 30 |
+
+### GuidePolicyUpdate
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| expected_revision | 是 | integer | 最小: 0.0 |
+| note | 是 | string | 最短: 1; 最长: 500 |
+| policy | 是 | GuidePolicy | — |
+
+### GuidePolicyView
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| api_configured | 是 | boolean | — |
+| concurrency_limit | 否 | integer | 默认: 4 |
+| note | 是 | string | — |
+| policy | 是 | GuidePolicy | — |
+| provider | 是 | string | — |
+| revision | 是 | integer | — |
+| session_limit | 否 | integer | 默认: 64 |
+
+### GuideReply
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| actions | 是 | array<GuideAction> | — |
+| answer | 是 | string | — |
+| context_revision | 是 | integer | — |
+| materials | 是 | array<GuideLink> | — |
+| notices | 是 | array<string> | — |
+
+### GuideTurn
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| context | 是 | GuideContext | — |
+| query | 是 | string | 最短: 1; 最长: 2000 |
+| request_id | 是 | string (uuid) | — |
 
 ### HTTPValidationError
 
@@ -1643,6 +1888,48 @@
 | text | 是 | string | — |
 | title | 是 | string | — |
 
+### NavigationAvailability
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| available_point_ids | 是 | array<string (uuid)> | — |
+| graph_revision | 是 | integer / null | —; — |
+| map_id | 是 | string (uuid) | — |
+| map_revision | 是 | integer | — |
+| message | 是 | string | — |
+| ready | 是 | boolean | — |
+
+### NavigationPath
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| distance_m | 是 | number / null | —; — |
+| end_point_id | 是 | string (uuid) | — |
+| expires_at | 是 | string | — |
+| graph_revision | 是 | integer | — |
+| id | 是 | string (uuid) | — |
+| map_id | 是 | string (uuid) | — |
+| segments | 是 | array<RouteSegment> | — |
+| start_point_id | 是 | string (uuid) | — |
+| warnings | 是 | array<string> | — |
+
+### NavigationRequest
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| end_point_id | 是 | string (uuid) | — |
+| graph_revision | 否 | integer / null | 最小: 1.0; — |
+| map_id | 是 | string (uuid) | — |
+| map_revision | 是 | integer | 最小: 1.0 |
+| start_point_id | 是 | string (uuid) | — |
+| step_free | 否 | boolean | 默认: false |
+
 ### OfficialChannel
 
 未知字段：拒绝。
@@ -1795,6 +2082,15 @@
 | expected_revision | 是 | integer | 最小: 0.0 |
 | note | 是 | string | 最短: 1; 最长: 1000 |
 
+### ResolveAction
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| action | 是 | GuideAction | — |
+| context | 是 | GuideContext | — |
+
 ### ResourceChange
 
 未知字段：拒绝。
@@ -1849,6 +2145,93 @@
 | --- | --- | --- | --- |
 | expected_revision | 是 | integer | 最小: 1.0 |
 | note | 是 | string | 最短: 1; 最长: 1000 |
+
+### RoadDraft
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| expected_revision | 是 | integer | 最小: 0.0 |
+| graph | 是 | RoadGraph | — |
+
+### RoadEdge
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| bidirectional | 否 | boolean | 默认: true |
+| closed | 否 | boolean | 默认: false |
+| distance_m | 否 | number / null | 最大: 20000.0; 大于: 0.0; — |
+| end | 是 | string | — |
+| evidence | 否 | string | 最长: 500; 默认: "" |
+| id | 是 | string | 格式: ^[a-zA-Z0-9_-]{1,64}$ |
+| label | 否 | string | 最长: 100; 默认: "" |
+| start | 是 | string | — |
+| step_free | 否 | boolean / null | —; — |
+| verified | 否 | boolean | 默认: false |
+| via | 否 | array<XY> | 最多项数: 100 |
+
+### RoadGraph
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| edges | 否 | array<RoadEdge> | 最多项数: 2000 |
+| map_revision | 是 | integer | 最小: 1.0 |
+| nodes | 否 | array<RoadNode> | 最多项数: 1000 |
+| note | 否 | string | 最长: 2000; 默认: "" |
+
+### RoadNode
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| id | 是 | string | 格式: ^[a-zA-Z0-9_-]{1,64}$ |
+| kind | 否 | junction / waypoint / entrance | 默认: "junction" |
+| label | 否 | string | 最长: 100; 默认: "" |
+| point_id | 否 | string (uuid) / null | —; — |
+| position | 是 | XY | — |
+
+### RoadReview
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| action | 是 | submit / publish / reject / withdraw | — |
+| expected_revision | 是 | integer | 最小: 1.0 |
+| note | 是 | string | 最短: 1; 最长: 1000 |
+
+### RoadSummary
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| map_id | 是 | string (uuid) | — |
+| published_revision | 是 | integer | — |
+| revision | 是 | integer | — |
+| state | 是 | string | — |
+| title | 是 | string | — |
+
+### RoadWorkspace
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| contributor_ids | 是 | array<string> | — |
+| draft | 是 | RoadGraph / null | —; — |
+| map_id | 是 | string (uuid) | — |
+| published | 是 | RoadGraph / null | —; — |
+| published_revision | 是 | integer | — |
+| review_note | 是 | string | — |
+| revision | 是 | integer | — |
+| state | 是 | string | — |
 
 ### Room
 
