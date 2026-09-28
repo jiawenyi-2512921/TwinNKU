@@ -20,6 +20,7 @@ class ChatVisitor:
     user: str = field(default_factory=lambda: secrets.token_hex(10))
     csrf: str = field(default_factory=lambda: secrets.token_urlsafe(32))
     conversation: str | None = None
+    last_guide_point: tuple[str, int, str] | None = None
     touched: float = field(default_factory=time.monotonic)
     lock: threading.Lock = field(default_factory=threading.Lock)
     requests: dict = field(default_factory=dict)
