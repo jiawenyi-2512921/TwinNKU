@@ -18,12 +18,16 @@ from app.core.errors import (
     http_error_handler,
     validation_error_handler,
 )
+from app.integrations.chat_runtime import ChatRuntime
 from app.modules.admin.resources import router as resources_router
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.workbench import router as workbench_router
+from app.modules.assistant import router as assistant_router
 from app.modules.floors.router import router as floors_router
 from app.modules.guide.router import router as guide_router
+from app.modules.guide_settings import router as guide_settings_router
 from app.modules.maps.router import router as maps_router
+from app.modules.navigation import router as navigation_router
 
 logger = logging.getLogger("twinnku")
 
@@ -40,6 +44,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=None if production else "/openapi.json",
     )
     app.state.settings = settings
+    app.state.agent_runtime = ChatRuntime(
+        settings.nk_genios_api_key.get_secret_value(), settings.agent_access_code.get_secret_value()
+    ) if settings.api_agent_configured else None
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
     app.add_exception_handler(DomainError, domain_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
@@ -84,6 +91,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(workbench_router)
     app.include_router(resources_router)
     app.include_router(guide_router)
+    app.include_router(navigation_router)
+    app.include_router(assistant_router)
+    app.include_router(guide_settings_router)
     return app
 
 

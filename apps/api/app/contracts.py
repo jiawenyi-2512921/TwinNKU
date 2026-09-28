@@ -80,7 +80,8 @@ class SystemStatus(DTO):
 
 class AgentWebConfig(DTO):
     enabled: bool
-    provider: Literal["nk-genios-websdk"] = "nk-genios-websdk"
+    auto_actions: bool = True
+    provider: Literal["nk-genios-websdk", "nk-genios-api"] = "nk-genios-websdk"
     display_name: Literal["小开"] = "小开"
     # Deliberately public, unlike nk_genios_api_key, which is never serialized.
     app_key: str | None = None

@@ -25,6 +25,30 @@ class Base(DeclarativeBase):
     pass
 
 
+class NavigationRecord(Base):
+    __tablename__ = "navigation_graphs"
+    map_id: Mapped[str] = mapped_column(ForeignKey("maps.id", ondelete="RESTRICT"), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    published_revision: Mapped[int] = mapped_column(Integer, default=0)
+    state: Mapped[str] = mapped_column(String(24), default="draft")
+    draft: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    published: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    contributor_ids: Mapped[list] = mapped_column(JSON, default=list)
+    review_note: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    __mapper_args__ = {"version_id_col": revision, "version_id_generator": False}
+
+
+class GuideSettingsRecord(Base):
+    __tablename__ = "guide_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[dict] = mapped_column(JSON)
+    note: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    __mapper_args__ = {"version_id_col": revision, "version_id_generator": False}
+
+
 class CampusRecord(Base):
     __tablename__ = "campuses"
 

@@ -122,11 +122,21 @@ def system_status(request: Request, db: DB):
         )
         is not None
     )
+    from app.modules.guide_settings import policy_for
+    from app.modules.navigation import availability
+    guide_policy = policy_for(db)
+    map_ids = db.scalars(select(MapRecord.id).join(CampusRecord).where(
+        MapRecord.status == "published", MapRecord.visibility == "public", MapRecord.kind == "campus",
+        CampusRecord.is_active.is_(True),
+    )).all()
+    has_routes = request.app.state.settings.map_enabled and any(availability(db, mid).ready for mid in map_ids)
     return envelope(
         request,
         SystemStatus(
             version=request.app.state.settings.app_version,
             capabilities=Capabilities(
+                chat=request.app.state.settings.api_agent_configured and guide_policy.chat_enabled,
+                routing=has_routes,
                 chat_embed=request.app.state.settings.web_agent_configured,
                 map=has_map,
                 admin=bool(
