@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../shared/api/client";
+import { api, get } from "../shared/api/client";
 import {
   availableSelection,
   loadCatalog,
@@ -11,11 +11,19 @@ import {
   watchCatalogChanges,
 } from "../shared/catalogSync";
 import { Icon } from "../shared/ui/Icon";
-import { pointLocation, writeLocation } from "../shared/navigation";
+import {
+  pointLocation,
+  writeLocation,
+  experienceLocation,
+  readExperienceLocation,
+  LOCATION_CHANGE_EVENT,
+  type ExperienceSelection,
+} from "../shared/navigation";
 import { usePlaceMemory } from "../features/places/usePlaceMemory";
 import { findPlaces, type PlaceScope } from "../features/places/search";
 import { PlaceDirectory } from "../features/places/PlaceDirectory";
 import { MapCanvas } from "../features/map/MapCanvas";
+import { correctedDisplayName } from "../features/map/labelCorrections";
 import { AgentDock, type AgentRequest } from "../features/agent/AgentDock";
 import { useAgentConfig } from "../features/agent/useAgentConfig";
 import {
@@ -33,8 +41,13 @@ import {
 import {
   NavigationPanel,
   type RouteSelection,
+  type RoutePickMode,
+  type RoutePickedPoint,
+  type RouteSelectionState,
 } from "../features/map/NavigationPanel";
 import { PointDetails } from "../features/points/PointDetails";
+import { ExperiencePanel } from "../features/experiences/ExperiencePanel";
+import type { Experience } from "../features/experiences/types";
 
 const categories = [
   "all",
@@ -52,6 +65,21 @@ export function App() {
   const agentConfig = useAgentConfig();
   const [route, setRoute] = useState<NavigationPath | null>(null);
   const [navigation, setNavigation] = useState<RouteSelection | null>(null);
+  const [pickMode, setPickMode] = useState<RoutePickMode>(null);
+  const [pickedPoint, setPickedPoint] = useState<RoutePickedPoint | null>(null);
+  const [routeSelection, setRouteSelection] = useState<RouteSelectionState>({
+    start: "",
+    end: "",
+    availablePointIds: [],
+  });
+  const [experience, setExperience] = useState<ExperienceSelection | null>(() =>
+    readExperienceLocation(window.location.href),
+  );
+  const [locationSearch, setLocationSearch] = useState(
+    () => window.location.search,
+  );
+  const [experienceCatalog, setExperienceCatalog] = useState<Experience[]>([]);
+  const [mediaActive, setMediaActive] = useState(false);
   const contextState = useRef({ key: "", revision: 0 });
   const [agentRequest, setAgentRequest] = useState<AgentRequest | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -77,13 +105,42 @@ export function App() {
   const search = useRef<HTMLInputElement>(null);
   const browseButton = useRef<HTMLButtonElement>(null);
   const helpButton = useRef<HTMLButtonElement>(null);
-  const selectPoint = useCallback((id: string | null) => {
-    selectedRef.current = id;
-    setSelectedId(id);
-    setShowList(false);
-    setShowHelp(false);
-    writeLocation(pointLocation(window.location.href, id));
+  const selectPoint = useCallback(
+    (
+      id: string | null,
+      preserveExperience = false,
+      mode: "push" | "replace" = "push",
+    ) => {
+      selectedRef.current = id;
+      setSelectedId(id);
+      setShowList(false);
+      setShowHelp(false);
+      writeLocation(
+        pointLocation(window.location.href, id, preserveExperience),
+        mode,
+      );
+    },
+    [],
+  );
+  const selectExperiencePoint = useCallback(
+    (id: string) => {
+      // A tour owns its step progress. Moving its map highlight does not create
+      // a second, contradictory browser history of tour steps.
+      selectPoint(id, true, "replace");
+    },
+    [selectPoint],
+  );
+  const closeExperience = useCallback(() => {
+    setExperience(null);
+    writeLocation(experienceLocation(window.location.href, null), "replace");
   }, []);
+  const explorePoint = useCallback(
+    (id: string | null) => {
+      setExperience(null);
+      selectPoint(id);
+    },
+    [selectPoint],
+  );
   const closeDetails = useCallback(() => {
     selectPoint(null);
     browseButton.current?.focus();
@@ -102,6 +159,7 @@ export function App() {
         if (retained !== selectedRef.current) {
           selectedRef.current = retained;
           setSelectedId(retained);
+          setExperience(null);
           writeLocation(
             pointLocation(window.location.href, retained),
             "replace",
@@ -125,6 +183,37 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (!catalog?.campus.id) return;
+    let disposed = false;
+    let pending: AbortController | null = null;
+    let generation = 0;
+    const refreshExperiences = async () => {
+      pending?.abort();
+      const current = ++generation;
+      const controller = new AbortController();
+      pending = controller;
+      try {
+        const result = await get<Experience[]>(
+          `/experiences?campus_id=${encodeURIComponent(catalog.campus.id)}`,
+          controller.signal,
+        );
+        if (!disposed && current === generation && !controller.signal.aborted)
+          setExperienceCatalog(result.data);
+      } catch {
+        if (!disposed && current === generation && !controller.signal.aborted)
+          setExperienceCatalog([]);
+      }
+    };
+    const stop = watchCatalogChanges(refreshExperiences);
+    void refreshExperiences();
+    return () => {
+      disposed = true;
+      pending?.abort();
+      stop();
+    };
+  }, [catalog?.campus.id]);
+
+  useEffect(() => {
     function restoreLocation() {
       const requested = new URLSearchParams(window.location.search).get(
         "point",
@@ -133,14 +222,26 @@ export function App() {
       const id = current ? availableSelection(current, requested) : requested;
       selectedRef.current = id;
       setSelectedId(id);
+      setLocationSearch(window.location.search);
+      setExperience(readExperienceLocation(window.location.href));
+      setNavigation(null);
+      setRoute(null);
+      setPickMode(null);
+      setPickedPoint(null);
       setShowList(false);
       setShowHelp(false);
       if (current && requested !== id) {
+        setExperience(null);
         writeLocation(pointLocation(window.location.href, id), "replace");
       }
     }
+    const syncLocationContext = () => setLocationSearch(window.location.search);
     window.addEventListener("popstate", restoreLocation);
-    return () => window.removeEventListener("popstate", restoreLocation);
+    window.addEventListener(LOCATION_CHANGE_EVENT, syncLocationContext);
+    return () => {
+      window.removeEventListener("popstate", restoreLocation);
+      window.removeEventListener(LOCATION_CHANGE_EVENT, syncLocationContext);
+    };
   }, []);
 
   useEffect(() => {
@@ -148,6 +249,20 @@ export function App() {
       if (event.defaultPrevented || document.querySelector("dialog[open]"))
         return;
       if (event.key === "Escape") {
+        if (pickMode) {
+          event.preventDefault();
+          setPickMode(null);
+          return;
+        }
+        if (navigation) {
+          setNavigation(null);
+          setRoute(null);
+          return;
+        }
+        if (experience) {
+          closeExperience();
+          return;
+        }
         if (showHelp) {
           setShowHelp(false);
           helpButton.current?.focus();
@@ -174,9 +289,32 @@ export function App() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showHelp, showList, closeDetails]);
+  }, [
+    showHelp,
+    showList,
+    closeDetails,
+    closeExperience,
+    pickMode,
+    experience,
+    navigation,
+  ]);
 
-  const points = catalog?.points ?? [];
+  const points = useMemo(
+    () =>
+      (catalog?.points ?? []).map((point) => {
+        const name = correctedDisplayName(point.id, point.name);
+        return name === point.name
+          ? point
+          : {
+              ...point,
+              name,
+              summary: point.summary.startsWith(point.name)
+                ? name + point.summary.slice(point.name.length)
+                : point.summary,
+            };
+      }),
+    [catalog?.points],
+  );
   const filtered = useMemo(
     () =>
       findPlaces(
@@ -207,15 +345,20 @@ export function App() {
     map_id: catalog?.map?.id ?? "",
     map_revision: catalog?.map ? String(catalog.map.revision) : "",
   });
+  const locationParams = new URLSearchParams(locationSearch);
   const requestedFloor =
-    agentRequest?.context.point_id === selectedId
-      ? agentRequest.context.floor_id || null
+    !navigation && !experience && locationParams.get("point") === selectedId
+      ? locationParams.get("floor")
       : null;
   const nativeKey = JSON.stringify([
     agentContext,
     requestedFloor,
     navigation?.sequence,
-    navigation?.start,
+    routeSelection.start,
+    routeSelection.end,
+    experience?.id,
+    experience?.kind,
+    locationParams.get("panorama"),
   ]);
   if (contextState.current.key !== nativeKey)
     contextState.current = {
@@ -229,7 +372,7 @@ export function App() {
         map_revision: catalog.map.revision,
         point_id: selected?.id ?? null,
         floor_id: requestedFloor,
-        start_point_id: navigation?.start ?? null,
+        start_point_id: navigation ? routeSelection.start || null : null,
         revision: contextState.current.revision,
       }
     : null;
@@ -237,7 +380,23 @@ export function App() {
     setShowList(false);
     setShowHelp(false);
     setRoute(null);
+    setPickMode(null);
+    setRouteSelection({ start: start ?? "", end, availablePointIds: [] });
     setNavigation((v) => ({ sequence: (v?.sequence ?? 0) + 1, end, start }));
+  }
+  function openExperience(
+    kind?: "media" | "checkin" | "tour",
+    pointId?: string,
+    id?: string,
+  ) {
+    const next = { kind, pointId, id };
+    setExperience(next);
+    writeLocation(experienceLocation(window.location.href, next));
+    setNavigation(null);
+    setRoute(null);
+    setPickMode(null);
+    setShowList(false);
+    setShowHelp(false);
   }
   function applyGuideAction(action: GuideAction) {
     if (
@@ -247,16 +406,33 @@ export function App() {
     )
       return;
     if (action.type === "show_route") {
-      selectPoint(action.point_id);
+      selectPoint(action.point_id, Boolean(experience));
       openNavigation(action.point_id, action.start_point_id);
       return;
     }
+    if (["show_checkin", "play_video", "show_tour"].includes(action.type)) {
+      selectPoint(action.point_id);
+      openExperience(
+        action.type === "show_tour"
+          ? "tour"
+          : action.type === "show_checkin"
+            ? "checkin"
+            : "media",
+        action.type === "show_tour" ? undefined : action.point_id,
+        action.resource_id ?? undefined,
+      );
+      return;
+    }
+    setExperience(null);
+    setPickMode(null);
     setNavigation(null);
     setRoute(null);
     selectedRef.current = action.point_id;
     setSelectedId(action.point_id);
     setShowList(false);
-    writeLocation(actionLocation(window.location.href, action));
+    writeLocation(
+      actionLocation(experienceLocation(window.location.href, null), action),
+    );
     window.dispatchEvent(new PopStateEvent("popstate"));
   }
   useEffect(() => {
@@ -303,13 +479,21 @@ export function App() {
             路线导航
           </button>
         )}
+        {experienceCatalog.some((item) => item.content.kind === "tour") && (
+          <button
+            className="navigation-entry"
+            onClick={() => openExperience("tour")}
+          >
+            主题导览
+          </button>
+        )}
         <div className="explore-tools">
           <form
             className="place-search"
             role="search"
             onSubmit={(e) => {
               e.preventDefault();
-              if (filtered[0]) selectPoint(filtered[0].id);
+              if (filtered[0]) explorePoint(filtered[0].id);
             }}
           >
             <Icon name="search" size={20} />
@@ -424,8 +608,19 @@ export function App() {
               features={catalog.features}
               points={points}
               selectedId={selectedId}
-              onSelect={selectPoint}
+              onSelect={explorePoint}
               routeSegments={route?.segments ?? []}
+              routePickMode={pickMode}
+              routeStartId={navigation ? routeSelection.start : null}
+              routeEndId={navigation ? routeSelection.end : null}
+              routeAvailablePointIds={routeSelection.availablePointIds}
+              onRoutePick={(id) =>
+                setPickedPoint((value) => ({
+                  sequence: (value?.sequence ?? 0) + 1,
+                  id,
+                }))
+              }
+              onRoutePickCancel={() => setPickMode(null)}
             />
           ) : (
             <div className="map-empty" role="status">
@@ -468,7 +663,7 @@ export function App() {
               status={status}
               onScope={setScope}
               onCategory={setCategory}
-              onSelect={selectPoint}
+              onSelect={explorePoint}
               onFavorite={toggleFavorite}
               onClearRecent={() => memory.dispatch({ type: "clear-recent" })}
               onReset={() => {
@@ -486,7 +681,7 @@ export function App() {
               {placeMessage}
             </div>
           )}
-          {selected && !showList && !navigation && (
+          {selected && !showList && !navigation && !experience && (
             <PointDetails
               key={selected.id}
               point={selected}
@@ -494,6 +689,15 @@ export function App() {
               saved={memory.places.favorites.includes(selected.id)}
               onFavorite={() => toggleFavorite(selected.id)}
               onAsk={agentConfig?.enabled ? askAgent : undefined}
+              onExperiences={
+                experienceCatalog.some(
+                  (item) =>
+                    item.content.point_id === selected.id &&
+                    item.content.kind !== "tour",
+                )
+                  ? () => openExperience(undefined, selected.id)
+                  : undefined
+              }
             />
           )}
           {status === "error" && catalog && (
@@ -508,18 +712,58 @@ export function App() {
               points={points}
               initial={navigation}
               onRoute={setRoute}
+              pickMode={pickMode}
+              pickedPoint={pickedPoint}
+              onPickMode={setPickMode}
+              onSelectionChange={setRouteSelection}
               onClose={() => {
                 setNavigation(null);
                 setRoute(null);
+                setPickMode(null);
               }}
             />
           )}
-          {!selected && !showList && !navigation && catalog?.map && (
-            <div className="map-hint">
-              <Icon name="pin" size={17} />
-              <span>点击图上地点，探索校园故事</span>
-            </div>
+          {experience && (
+            <aside
+              className="experience-sheet"
+              hidden={!!navigation || showList}
+              aria-label="校园影像与主题导览"
+            >
+              <ExperiencePanel
+                campusId={catalog?.campus.id}
+                pointId={experience.pointId}
+                initialKind={experience.kind}
+                initialExperienceId={experience.id}
+                active={!navigation && !showList}
+                onSelectPoint={selectExperiencePoint}
+                pointNames={Object.fromEntries(
+                  points.map((point) => [point.id, point.name]),
+                )}
+                onExperienceChange={(id) => {
+                  if (!experience || experience.id === id) return;
+                  const next = { ...experience, id };
+                  setExperience(next);
+                  writeLocation(
+                    experienceLocation(window.location.href, next),
+                    id ? "push" : "replace",
+                  );
+                }}
+                onMediaActiveChange={setMediaActive}
+                onNavigateStop={(from, to) => openNavigation(to, from)}
+                onClose={closeExperience}
+              />
+            </aside>
           )}
+          {!selected &&
+            !showList &&
+            !navigation &&
+            !experience &&
+            catalog?.map && (
+              <div className="map-hint">
+                <Icon name="pin" size={17} />
+                <span>点击图上地点，探索校园故事</span>
+              </div>
+            )}
         </section>
         {agentConfig?.enabled && agentConfig.provider === "nk-genios-api" ? (
           <NativeAgentDock
@@ -529,6 +773,7 @@ export function App() {
             pointName={selected?.name ?? ""}
             onAction={applyGuideAction}
             onNavigate={() => openNavigation()}
+            mediaActive={mediaActive}
           />
         ) : (
           <AgentDock
