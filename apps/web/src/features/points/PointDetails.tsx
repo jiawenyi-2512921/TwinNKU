@@ -31,11 +31,13 @@ export function PointDetails({
   onAsk,
   saved,
   onFavorite,
+  onExperiences,
 }: {
   point: Point;
   onClose: () => void;
   saved: boolean;
   onFavorite: () => void;
+  onExperiences?: () => void;
   onAsk?: (
     floor?: Pick<AgentContext, "floor_id" | "floor_label" | "floor_section">,
   ) => void;
@@ -92,6 +94,11 @@ export function PointDetails({
         <FloorPanel pointId={point.id} pointName={point.name} onAsk={onAsk} />
         <PointIntroduction summary={point.summary} />
         <PanoramaPanel pointId={point.id} />
+        {onExperiences && (
+          <button className="experience-point-entry" onClick={onExperiences}>
+            观看校园影像 · 查看打卡推荐 →
+          </button>
+        )}
       </div>
       <footer className="detail-footer">
         {onAsk && (
