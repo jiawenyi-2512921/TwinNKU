@@ -626,6 +626,43 @@
         "title": "AgentAction",
         "type": "object"
       },
+      "AgentLogin": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Code",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "AgentLogin",
+        "type": "object"
+      },
+      "AgentSession": {
+        "additionalProperties": false,
+        "properties": {
+          "csrf_token": {
+            "title": "Csrf Token",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "default": 3600,
+            "title": "Expires In Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "csrf_token"
+        ],
+        "title": "AgentSession",
+        "type": "object"
+      },
       "AgentWebConfig": {
         "additionalProperties": false,
         "properties": {
@@ -639,6 +676,11 @@
               }
             ],
             "title": "App Key"
+          },
+          "auto_actions": {
+            "default": true,
+            "title": "Auto Actions",
+            "type": "boolean"
           },
           "base_url": {
             "const": "https://coze.nankai.edu.cn",
@@ -667,8 +709,11 @@
             "type": "boolean"
           },
           "provider": {
-            "const": "nk-genios-websdk",
             "default": "nk-genios-websdk",
+            "enum": [
+              "nk-genios-websdk",
+              "nk-genios-api"
+            ],
             "title": "Provider",
             "type": "string"
           },
@@ -1181,6 +1226,23 @@
         "title": "Envelope[AdminWorkbench]",
         "type": "object"
       },
+      "Envelope_AgentSession_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AgentSession"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[AgentSession]",
+        "type": "object"
+      },
       "Envelope_AgentWebConfig_": {
         "additionalProperties": false,
         "properties": {
@@ -1300,6 +1362,23 @@
         "title": "Envelope[GuestSession]",
         "type": "object"
       },
+      "Envelope_GuideAction_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GuideAction"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[GuideAction]",
+        "type": "object"
+      },
       "Envelope_GuidePoint_": {
         "additionalProperties": false,
         "properties": {
@@ -1315,6 +1394,40 @@
           "meta"
         ],
         "title": "Envelope[GuidePoint]",
+        "type": "object"
+      },
+      "Envelope_GuidePolicyView_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GuidePolicyView"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[GuidePolicyView]",
+        "type": "object"
+      },
+      "Envelope_GuideReply_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GuideReply"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[GuideReply]",
         "type": "object"
       },
       "Envelope_Identity_": {
@@ -1436,6 +1549,40 @@
         "title": "Envelope[MediaInfo]",
         "type": "object"
       },
+      "Envelope_NavigationAvailability_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/NavigationAvailability"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[NavigationAvailability]",
+        "type": "object"
+      },
+      "Envelope_NavigationPath_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/NavigationPath"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[NavigationPath]",
+        "type": "object"
+      },
       "Envelope_Point_": {
         "additionalProperties": false,
         "properties": {
@@ -1451,6 +1598,23 @@
           "meta"
         ],
         "title": "Envelope[Point]",
+        "type": "object"
+      },
+      "Envelope_RoadWorkspace_": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RoadWorkspace"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[RoadWorkspace]",
         "type": "object"
       },
       "Envelope_RouteResult_": {
@@ -1908,6 +2072,27 @@
         "title": "Envelope[list[Point]]",
         "type": "object"
       },
+      "Envelope_list_RoadSummary__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RoadSummary"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[RoadSummary]]",
+        "type": "object"
+      },
       "Envelope_list_Room__": {
         "additionalProperties": false,
         "properties": {
@@ -2321,6 +2506,180 @@
         "title": "GuestSession",
         "type": "object"
       },
+      "GuideAction": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "format": "uuid",
+            "title": "Action Id",
+            "type": "string"
+          },
+          "context_revision": {
+            "title": "Context Revision",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "point_revision": {
+            "title": "Point Revision",
+            "type": "integer"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "resource_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Revision"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "start_point_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Point Id"
+          },
+          "type": {
+            "enum": [
+              "focus_point",
+              "show_floor",
+              "open_vr",
+              "show_route"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "type",
+          "point_id",
+          "action_id",
+          "context_revision",
+          "point_revision",
+          "label"
+        ],
+        "title": "GuideAction",
+        "type": "object"
+      },
+      "GuideContext": {
+        "additionalProperties": false,
+        "properties": {
+          "campus_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+            "title": "Campus Id",
+            "type": "string"
+          },
+          "floor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "map_id": {
+            "format": "uuid",
+            "title": "Map Id",
+            "type": "string"
+          },
+          "map_revision": {
+            "minimum": 1.0,
+            "title": "Map Revision",
+            "type": "integer"
+          },
+          "point_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Id"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "start_point_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Point Id"
+          }
+        },
+        "required": [
+          "campus_id",
+          "map_id",
+          "map_revision",
+          "revision"
+        ],
+        "title": "GuideContext",
+        "type": "object"
+      },
       "GuideLink": {
         "additionalProperties": false,
         "properties": {
@@ -2432,6 +2791,194 @@
           "retrieved_at"
         ],
         "title": "GuidePoint",
+        "type": "object"
+      },
+      "GuidePolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_actions": {
+            "items": {
+              "enum": [
+                "focus_point",
+                "show_floor",
+                "open_vr",
+                "show_route"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "auto_actions": {
+            "default": true,
+            "title": "Auto Actions",
+            "type": "boolean"
+          },
+          "chat_enabled": {
+            "default": true,
+            "title": "Chat Enabled",
+            "type": "boolean"
+          },
+          "navigation_enabled": {
+            "default": true,
+            "title": "Navigation Enabled",
+            "type": "boolean"
+          },
+          "total_turns_per_hour": {
+            "default": 120,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Total Turns Per Hour",
+            "type": "integer"
+          },
+          "visitor_turns_per_hour": {
+            "default": 30,
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Visitor Turns Per Hour",
+            "type": "integer"
+          }
+        },
+        "title": "GuidePolicy",
+        "type": "object"
+      },
+      "GuidePolicyUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/GuidePolicy"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "policy",
+          "note"
+        ],
+        "title": "GuidePolicyUpdate",
+        "type": "object"
+      },
+      "GuidePolicyView": {
+        "additionalProperties": false,
+        "properties": {
+          "api_configured": {
+            "title": "Api Configured",
+            "type": "boolean"
+          },
+          "concurrency_limit": {
+            "default": 4,
+            "title": "Concurrency Limit",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/GuidePolicy"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "session_limit": {
+            "default": 64,
+            "title": "Session Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "policy",
+          "api_configured",
+          "provider",
+          "note"
+        ],
+        "title": "GuidePolicyView",
+        "type": "object"
+      },
+      "GuideReply": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/GuideAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "context_revision": {
+            "title": "Context Revision",
+            "type": "integer"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/GuideLink"
+            },
+            "title": "Materials",
+            "type": "array"
+          },
+          "notices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answer",
+          "actions",
+          "materials",
+          "context_revision",
+          "notices"
+        ],
+        "title": "GuideReply",
+        "type": "object"
+      },
+      "GuideTurn": {
+        "additionalProperties": false,
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/GuideContext"
+          },
+          "query": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "query",
+          "context"
+        ],
+        "title": "GuideTurn",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -3109,6 +3656,178 @@
         "title": "Narration",
         "type": "object"
       },
+      "NavigationAvailability": {
+        "additionalProperties": false,
+        "properties": {
+          "available_point_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Available Point Ids",
+            "type": "array"
+          },
+          "graph_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Revision"
+          },
+          "map_id": {
+            "format": "uuid",
+            "title": "Map Id",
+            "type": "string"
+          },
+          "map_revision": {
+            "title": "Map Revision",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "map_id",
+          "map_revision",
+          "graph_revision",
+          "available_point_ids",
+          "ready",
+          "message"
+        ],
+        "title": "NavigationAvailability",
+        "type": "object"
+      },
+      "NavigationPath": {
+        "additionalProperties": false,
+        "properties": {
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "end_point_id": {
+            "format": "uuid",
+            "title": "End Point Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "graph_revision": {
+            "title": "Graph Revision",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "map_id": {
+            "format": "uuid",
+            "title": "Map Id",
+            "type": "string"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/RouteSegment"
+            },
+            "title": "Segments",
+            "type": "array"
+          },
+          "start_point_id": {
+            "format": "uuid",
+            "title": "Start Point Id",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "map_id",
+          "graph_revision",
+          "start_point_id",
+          "end_point_id",
+          "segments",
+          "distance_m",
+          "warnings",
+          "expires_at"
+        ],
+        "title": "NavigationPath",
+        "type": "object"
+      },
+      "NavigationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "end_point_id": {
+            "format": "uuid",
+            "title": "End Point Id",
+            "type": "string"
+          },
+          "graph_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Revision"
+          },
+          "map_id": {
+            "format": "uuid",
+            "title": "Map Id",
+            "type": "string"
+          },
+          "map_revision": {
+            "minimum": 1.0,
+            "title": "Map Revision",
+            "type": "integer"
+          },
+          "start_point_id": {
+            "format": "uuid",
+            "title": "Start Point Id",
+            "type": "string"
+          },
+          "step_free": {
+            "default": false,
+            "title": "Step Free",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "map_id",
+          "map_revision",
+          "start_point_id",
+          "end_point_id"
+        ],
+        "title": "NavigationRequest",
+        "type": "object"
+      },
       "OfficialChannel": {
         "additionalProperties": false,
         "properties": {
@@ -3684,6 +4403,23 @@
         "title": "PointRetireRequest",
         "type": "object"
       },
+      "ResolveAction": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/GuideAction"
+          },
+          "context": {
+            "$ref": "#/components/schemas/GuideContext"
+          }
+        },
+        "required": [
+          "action",
+          "context"
+        ],
+        "title": "ResolveAction",
+        "type": "object"
+      },
       "ResourceChange": {
         "additionalProperties": false,
         "properties": {
@@ -3900,6 +4636,326 @@
           "note"
         ],
         "title": "ReviewRequest",
+        "type": "object"
+      },
+      "RoadDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "graph": {
+            "$ref": "#/components/schemas/RoadGraph"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "graph"
+        ],
+        "title": "RoadDraft",
+        "type": "object"
+      },
+      "RoadEdge": {
+        "additionalProperties": false,
+        "properties": {
+          "bidirectional": {
+            "default": true,
+            "title": "Bidirectional",
+            "type": "boolean"
+          },
+          "closed": {
+            "default": false,
+            "title": "Closed",
+            "type": "boolean"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 20000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "evidence": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Evidence",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-zA-Z0-9_-]{1,64}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Label",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "step_free": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Free"
+          },
+          "verified": {
+            "default": false,
+            "title": "Verified",
+            "type": "boolean"
+          },
+          "via": {
+            "items": {
+              "$ref": "#/components/schemas/XY"
+            },
+            "maxItems": 100,
+            "title": "Via",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "start",
+          "end"
+        ],
+        "title": "RoadEdge",
+        "type": "object"
+      },
+      "RoadGraph": {
+        "additionalProperties": false,
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/RoadEdge"
+            },
+            "maxItems": 2000,
+            "title": "Edges",
+            "type": "array"
+          },
+          "map_revision": {
+            "minimum": 1.0,
+            "title": "Map Revision",
+            "type": "integer"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/RoadNode"
+            },
+            "maxItems": 1000,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "map_revision"
+        ],
+        "title": "RoadGraph",
+        "type": "object"
+      },
+      "RoadNode": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-zA-Z0-9_-]{1,64}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "junction",
+            "enum": [
+              "junction",
+              "waypoint",
+              "entrance"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Label",
+            "type": "string"
+          },
+          "point_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Id"
+          },
+          "position": {
+            "$ref": "#/components/schemas/XY"
+          }
+        },
+        "required": [
+          "id",
+          "position"
+        ],
+        "title": "RoadNode",
+        "type": "object"
+      },
+      "RoadReview": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "submit",
+              "publish",
+              "reject",
+              "withdraw"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "action",
+          "note"
+        ],
+        "title": "RoadReview",
+        "type": "object"
+      },
+      "RoadSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "map_id": {
+            "format": "uuid",
+            "title": "Map Id",
+            "type": "string"
+          },
+          "published_revision": {
+            "title": "Published Revision",
+            "type": "integer"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "map_id",
+          "title",
+          "state",
+          "revision",
+          "published_revision"
+        ],
+        "title": "RoadSummary",
+        "type": "object"
+      },
+      "RoadWorkspace": {
+        "additionalProperties": false,
+        "properties": {
+          "contributor_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Contributor Ids",
+            "type": "array"
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoadGraph"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "map_id": {
+            "format": "uuid",
+            "title": "Map Id",
+            "type": "string"
+          },
+          "published": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoadGraph"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published_revision": {
+            "title": "Published Revision",
+            "type": "integer"
+          },
+          "review_note": {
+            "title": "Review Note",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "map_id",
+          "revision",
+          "published_revision",
+          "state",
+          "draft",
+          "published",
+          "contributor_ids",
+          "review_note"
+        ],
+        "title": "RoadWorkspace",
         "type": "object"
       },
       "Room": {
@@ -5226,6 +6282,11 @@
       }
     },
     "securitySchemes": {
+      "AgentCookie": {
+        "in": "cookie",
+        "name": "twinnku_agent",
+        "type": "apiKey"
+      },
       "SessionCookie": {
         "description": "Opaque session; staff role comes from trusted identity provider.",
         "in": "cookie",
@@ -6093,6 +7154,92 @@
         "x-auth": "staff",
         "x-implementation-status": "implemented",
         "x-module": "M01"
+      }
+    },
+    "/api/v1/admin/guide-settings": {
+      "get": {
+        "operationId": "getGuidePolicy",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_GuidePolicyView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Get Policy",
+        "tags": [
+          "admin"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M04"
+      },
+      "put": {
+        "operationId": "updateGuidePolicy",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuidePolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_GuidePolicyView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Update Policy",
+        "tags": [
+          "admin"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M04"
       }
     },
     "/api/v1/admin/inquiries": {
@@ -7753,6 +8900,291 @@
         "x-auth": "reviewer",
         "x-implementation-status": "planned",
         "x-module": "M02"
+      }
+    },
+    "/api/v1/admin/navigation": {
+      "get": {
+        "operationId": "listRoadWorkspaces",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_RoadSummary__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "List Workspaces",
+        "tags": [
+          "navigation"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M03"
+      }
+    },
+    "/api/v1/admin/navigation/{map_id}": {
+      "get": {
+        "operationId": "getRoadWorkspace",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "map_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Map Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_RoadWorkspace_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Workspace",
+        "tags": [
+          "navigation"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M03"
+      },
+      "put": {
+        "operationId": "saveRoadDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "map_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Map Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoadDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_RoadWorkspace_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Save",
+        "tags": [
+          "navigation"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M03"
+      }
+    },
+    "/api/v1/admin/navigation/{map_id}/preview": {
+      "post": {
+        "operationId": "previewRoadDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "map_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Map Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NavigationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_NavigationPath_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Preview",
+        "tags": [
+          "navigation"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M03"
+      }
+    },
+    "/api/v1/admin/navigation/{map_id}/review": {
+      "post": {
+        "operationId": "reviewRoadDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "map_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Map Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoadReview"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_RoadWorkspace_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "StaffCookie": []
+          }
+        ],
+        "summary": "Review",
+        "tags": [
+          "navigation"
+        ],
+        "x-auth": "staff",
+        "x-implementation-status": "implemented",
+        "x-module": "M03"
       }
     },
     "/api/v1/admin/points": {
@@ -11490,6 +12922,197 @@
         "x-module": "M01"
       }
     },
+    "/api/v1/agent/actions/resolve": {
+      "post": {
+        "operationId": "resolveGuideAction",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_GuideAction_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "AgentCookie": []
+          }
+        ],
+        "summary": "Resolve Action",
+        "tags": [
+          "agent"
+        ],
+        "x-auth": "agent",
+        "x-implementation-status": "implemented",
+        "x-module": "M04"
+      }
+    },
+    "/api/v1/agent/chat": {
+      "post": {
+        "operationId": "chatNativeAgent",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuideTurn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_GuideReply_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "AgentCookie": []
+          }
+        ],
+        "summary": "Chat",
+        "tags": [
+          "agent"
+        ],
+        "x-auth": "agent",
+        "x-implementation-status": "implemented",
+        "x-module": "M04"
+      }
+    },
+    "/api/v1/agent/login": {
+      "post": {
+        "operationId": "loginNativeAgent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AgentSession_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "agent"
+        ],
+        "x-auth": "public",
+        "x-implementation-status": "implemented",
+        "x-module": "M04"
+      }
+    },
+    "/api/v1/agent/session": {
+      "get": {
+        "operationId": "getNativeAgentSession",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_AgentSession_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "AgentCookie": []
+          }
+        ],
+        "summary": "Session",
+        "tags": [
+          "agent"
+        ],
+        "x-auth": "agent",
+        "x-implementation-status": "implemented",
+        "x-module": "M04"
+      }
+    },
     "/api/v1/agent/web-config": {
       "get": {
         "operationId": "getAgentWebConfig",
@@ -14576,6 +16199,96 @@
         "x-auth": "resource_policy",
         "x-implementation-status": "planned",
         "x-module": "M02"
+      }
+    },
+    "/api/v1/navigation/maps/{map_id}": {
+      "get": {
+        "operationId": "getNavigationAvailability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "map_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Map Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_NavigationAvailability_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Availability",
+        "tags": [
+          "navigation"
+        ],
+        "x-auth": "public",
+        "x-implementation-status": "implemented",
+        "x-module": "M03"
+      }
+    },
+    "/api/v1/navigation/route": {
+      "post": {
+        "operationId": "calculateNavigationPath",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NavigationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_NavigationPath_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Route",
+        "tags": [
+          "navigation"
+        ],
+        "x-auth": "public",
+        "x-implementation-status": "implemented",
+        "x-module": "M03"
       }
     },
     "/api/v1/official-channels": {
