@@ -23,6 +23,14 @@ const names: Record<string, string> = {
   "resource.published": "发布楼层或 VR",
   "resource.retire_requested": "申请下架资料",
   "resource.retired": "下架楼层或 VR",
+  "experience.uploaded": "上传校园影像",
+  "experience.draft_saved": "保存影像或导览草稿",
+  "experience.submit": "提交影像或导览审核",
+  "experience.reject": "退回影像或导览修改",
+  "experience.discard": "撤回影像或导览草稿",
+  "experience.published": "发布影像或导览",
+  "experience.retire_requested": "申请下架影像或导览",
+  "experience.retired": "下架影像或导览",
 };
 export function Audit() {
   const [page, setPage] = useState(1),
@@ -67,6 +75,7 @@ export function Audit() {
             <option value="">全部操作</option>
             <option value="point">地图点位</option>
             <option value="resource">楼层与 VR</option>
+            <option value="experience">影像、打卡与导览</option>
             <option value="user">账号权限</option>
             <option value="session">登录与退出</option>
           </select>

@@ -7,6 +7,8 @@ import { Accounts } from "./Accounts";
 import { Audit } from "./Audit";
 import { PointWorkspace } from "./PointWorkspace";
 import { ResourceWorkspace } from "./ResourceWorkspace";
+import { ExperienceWorkspace } from "./ExperienceWorkspace";
+import type { AdminExperience } from "../experiences/types";
 import { Overview } from "./Overview";
 import { ReviewCenter, type ReviewStart } from "./ReviewCenter";
 import {
@@ -21,6 +23,7 @@ import { ErrorBox, useResource } from "./ui";
 import "./admin.css";
 import "./workbench.css";
 type Tab =
+  | "experiences"
   | "guide-settings"
   | "roads"
   | "overview"
@@ -245,6 +248,7 @@ export default function AdminApp() {
     [locked, setLocked] = useState(false),
     [reviewStart, setReviewStart] = useState<ReviewStart>({}),
     [reviewKey, setReviewKey] = useState(0);
+  const [experienceId, setExperienceId] = useState<string | undefined>();
   const dirty = useRef(false);
   const processing = useRef(false);
   const onDirty = useCallback((value: boolean, busy = false) => {
@@ -303,6 +307,12 @@ export default function AdminApp() {
   );
   const roadPending =
     roadStates.data?.data.filter((r) => r.state === "in_review") ?? [];
+  const experiencePending = useResource<AdminExperience[]>(
+    session && !locked && !session.user.must_change_password
+      ? "/experiences?state=in_review"
+      : null,
+    revision,
+  );
   const workbench = useResource<Workbench>(
     session && !locked && !session.user.must_change_password
       ? "/workbench"
@@ -425,6 +435,7 @@ export default function AdminApp() {
       { id: "overview", title: "工作台", icon: "focus" },
       { id: "points", title: "地图点位", icon: "pin" },
       { id: "resources", title: "资料中心", icon: "layers" },
+      { id: "experiences", title: "影像、打卡与导览", icon: "bookmark" },
       { id: "roads", title: "道路与导航", icon: "pin" },
       {
         id: "guide-settings",
@@ -498,7 +509,12 @@ export default function AdminApp() {
                 <Icon name={n.icon} />
                 {n.title}
                 <span>
-                  {n.id === "roads" && roadPending.length ? (
+                  {n.id === "experiences" &&
+                  experiencePending.data?.data.length ? (
+                    <b className="ad-nav-count">
+                      {experiencePending.data.data.length}
+                    </b>
+                  ) : n.id === "roads" && roadPending.length ? (
                     <b className="ad-nav-count">{roadPending.length}</b>
                   ) : n.id === "review" &&
                     workbench.data?.data.pending_count ? (
@@ -558,6 +574,35 @@ export default function AdminApp() {
         </header>
         <main className="ad-content">
           <ErrorBox text={navError} />
+          {(tab === "review" || tab === "overview") && (
+            <>
+              <ErrorBox
+                text={experiencePending.error}
+                onRetry={() => setRevision((v) => v + 1)}
+              />
+              {!!experiencePending.data?.data.length && (
+                <div className="road-summary">
+                  <strong>
+                    影像、打卡与导览待审核 ·{" "}
+                    {experiencePending.data.data.length}
+                  </strong>
+                  {experiencePending.data.data.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        if (navigate("experiences")) setExperienceId(item.id);
+                      }}
+                    >
+                      {item.content?.title ??
+                        item.published_content?.title ??
+                        "待审核内容"}{" "}
+                      →
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
           {(tab === "review" || tab === "overview") &&
             roadPending.length > 0 && (
               <div className="road-summary">
@@ -623,6 +668,14 @@ export default function AdminApp() {
           )}
           {tab === "guide-settings" && session.user.role === "admin" && (
             <GuideSettings onDirty={onDirty} />
+          )}
+          {tab === "experiences" && (
+            <ExperienceWorkspace
+              session={session}
+              onDirty={onDirty}
+              onUpdate={() => setRevision((v) => v + 1)}
+              initialId={experienceId}
+            />
           )}
           {tab === "roads" && (
             <RoadWorkspace

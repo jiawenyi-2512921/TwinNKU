@@ -10,6 +10,9 @@ const labels = {
   show_floor: "打开楼层图",
   open_vr: "打开已发布全景",
   show_route: "规划地图路线",
+  show_checkin: "展示打卡点与样图",
+  play_video: "询问是否观看已发布视频",
+  show_tour: "打开定制校园导览",
 } as const;
 
 export function GuideSettings({
