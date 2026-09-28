@@ -106,6 +106,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/experience-media/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Media */
+        get: operations["previewExperienceMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/experiences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Admin */
+        get: operations["listAdminExperiences"];
+        put?: never;
+        /** Create */
+        post: operations["createExperience"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/experiences/{experience_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin */
+        get: operations["getAdminExperience"];
+        /** Update */
+        put: operations["saveExperience"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/experiences/{experience_id}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire */
+        post: operations["retireExperience"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/experiences/{experience_id}/review/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review */
+        post: operations["reviewExperience"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/floor-images/{upload_id}": {
         parameters: {
             query?: never;
@@ -469,6 +556,23 @@ export interface paths {
         put?: never;
         /** Discard Point */
         post: operations["discardPointDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/points/{point_id}/experience-media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Media */
+        post: operations["uploadExperienceMedia"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1177,6 +1281,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/experiences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Public */
+        get: operations["listExperiences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/experiences/{experience_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Public */
+        get: operations["getExperience"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/experiences/{experience_id}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Media */
+        get: operations["getExperienceMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/floors/{floor_id}": {
         parameters: {
             query?: never;
@@ -1700,6 +1855,45 @@ export interface components {
              */
             updated_at: string;
         };
+        /** AdminExperience */
+        AdminExperience: {
+            /** Content */
+            content: (components["schemas"]["ExperienceMediaContent"] | components["schemas"]["ExperienceCheckinContent"] | components["schemas"]["ExperienceTourContent"]) | null;
+            /** Contributor Ids */
+            contributor_ids: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Media Url */
+            media_url?: string | null;
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "upsert" | "retire";
+            /** Published Content */
+            published_content: (components["schemas"]["ExperienceMediaContent"] | components["schemas"]["ExperienceCheckinContent"] | components["schemas"]["ExperienceTourContent"]) | null;
+            /** Published Revision */
+            published_revision: number;
+            /** Review Note */
+            review_note: string;
+            /** Revision */
+            revision: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "draft" | "in_review" | "rejected" | "published" | "discarded";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published" | "retired";
+            /** Submitted By */
+            submitted_by: string | null;
+        };
         /** AdminInquiry */
         AdminInquiry: {
             /**
@@ -2096,6 +2290,11 @@ export interface components {
             data: components["schemas"]["ActionResult"];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[AdminExperience] */
+        Envelope_AdminExperience_: {
+            data: components["schemas"]["AdminExperience"];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[AdminInquiry] */
         Envelope_AdminInquiry_: {
             data: components["schemas"]["AdminInquiry"];
@@ -2149,6 +2348,11 @@ export interface components {
         /** Envelope[ChatTurnAccepted] */
         Envelope_ChatTurnAccepted_: {
             data: components["schemas"]["ChatTurnAccepted"];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[ExperienceUpload] */
+        Envelope_ExperienceUpload_: {
+            data: components["schemas"]["ExperienceUpload"];
             meta: components["schemas"]["Meta"];
         };
         /** Envelope[FloorUpload] */
@@ -2236,6 +2440,11 @@ export interface components {
             data: components["schemas"]["Point"];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[PublicExperience] */
+        Envelope_PublicExperience_: {
+            data: components["schemas"]["PublicExperience"];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[RoadQuality] */
         Envelope_RoadQuality_: {
             data: components["schemas"]["RoadQuality"];
@@ -2290,6 +2499,12 @@ export interface components {
         Envelope_list_AdminChangeItem__: {
             /** Data */
             data: components["schemas"]["AdminChangeItem"][];
+            meta: components["schemas"]["Meta"];
+        };
+        /** Envelope[list[AdminExperience]] */
+        Envelope_list_AdminExperience__: {
+            /** Data */
+            data: components["schemas"]["AdminExperience"][];
             meta: components["schemas"]["Meta"];
         };
         /** Envelope[list[AdminInquiry]] */
@@ -2382,6 +2597,12 @@ export interface components {
             data: components["schemas"]["Point"][];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[list[PublicExperience]] */
+        Envelope_list_PublicExperience__: {
+            /** Data */
+            data: components["schemas"]["PublicExperience"][];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[list[RoadSummary]] */
         Envelope_list_RoadSummary__: {
             /** Data */
@@ -2419,6 +2640,141 @@ export interface components {
             details?: components["schemas"]["FieldError"][];
             /** Message */
             message: string;
+        };
+        /** ExperienceCheckinContent */
+        ExperienceCheckinContent: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Image Id */
+            image_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "checkin";
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Source Note */
+            source_note: string;
+            /** Title */
+            title: string;
+        };
+        /** ExperienceMediaContent */
+        ExperienceMediaContent: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "media";
+            /**
+             * Media Type
+             * @enum {string}
+             */
+            media_type: "image" | "video";
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Source Note */
+            source_note: string;
+            /** Title */
+            title: string;
+            /** Upload Id */
+            upload_id?: string | null;
+            /** Url */
+            url?: string | null;
+        };
+        /** ExperienceSave */
+        ExperienceSave: {
+            /** Content */
+            content: components["schemas"]["ExperienceMediaContent"] | components["schemas"]["ExperienceCheckinContent"] | components["schemas"]["ExperienceTourContent"];
+            /** Expected Published Revision */
+            expected_published_revision: number;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** ExperienceStop */
+        ExperienceStop: {
+            /**
+             * Narrative
+             * @default
+             */
+            narrative: string;
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /**
+             * Prompt Timing
+             * @default manual
+             * @enum {string}
+             */
+            prompt_timing: "on_arrival" | "after_intro" | "manual";
+            /** Video Id */
+            video_id?: string | null;
+        };
+        /** ExperienceTourContent */
+        ExperienceTourContent: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "tour";
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Source Note */
+            source_note: string;
+            /** Stops */
+            stops: components["schemas"]["ExperienceStop"][];
+            /** Title */
+            title: string;
+        };
+        /** ExperienceUpload */
+        ExperienceUpload: {
+            /** Filename */
+            filename: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Media Type
+             * @enum {string}
+             */
+            media_type: "image" | "video";
+            /** Mime Type */
+            mime_type: string;
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Url */
+            url: string;
         };
         /** FieldError */
         FieldError: {
@@ -2585,7 +2941,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "focus_point" | "show_floor" | "open_vr" | "show_route";
+            type: "focus_point" | "show_floor" | "open_vr" | "show_route" | "show_checkin" | "play_video" | "show_tour";
             /** Url */
             url?: string | null;
         };
@@ -2656,7 +3012,7 @@ export interface components {
         /** GuidePolicy */
         GuidePolicy: {
             /** Allowed Actions */
-            allowed_actions?: ("focus_point" | "show_floor" | "open_vr" | "show_route")[];
+            allowed_actions?: ("focus_point" | "show_floor" | "open_vr" | "show_route" | "show_checkin" | "play_video" | "show_tour")[];
             /**
              * Auto Actions
              * @default true
@@ -3296,6 +3652,20 @@ export interface components {
             expected_revision: number;
             /** Note */
             note: string;
+        };
+        /** PublicExperience */
+        PublicExperience: {
+            /** Content */
+            content: components["schemas"]["ExperienceMediaContent"] | components["schemas"]["ExperienceCheckinContent"] | components["schemas"]["ExperienceTourContent"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Media Url */
+            media_url?: string | null;
+            /** Revision */
+            revision: number;
         };
         /** ResolveAction */
         ResolveAction: {
@@ -4025,7 +4395,7 @@ export interface operations {
         parameters: {
             query?: {
                 point_id?: string | null;
-                category?: ("point" | "resource" | "user" | "session") | null;
+                category?: ("point" | "resource" | "experience" | "user" | "session") | null;
                 q?: string;
                 page?: number;
                 page_size?: number;
@@ -4518,6 +4888,252 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    previewExperienceMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listAdminExperiences: {
+        parameters: {
+            query?: {
+                point_id?: string | null;
+                kind?: ("media" | "checkin" | "tour") | null;
+                state?: ("draft" | "in_review" | "rejected" | "published" | "discarded") | null;
+                campus_id?: string | null;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_AdminExperience__"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createExperience: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExperienceSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminExperience_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getAdminExperience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experience_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminExperience_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveExperience: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                experience_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExperienceSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminExperience_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retireExperience: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                experience_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceRetireRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminExperience_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reviewExperience: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                experience_id: string;
+                action: "submit" | "publish" | "reject" | "discard";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AdminExperience_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -6583,6 +7199,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    uploadExperienceMedia: {
+        parameters: {
+            query?: never;
+            header: {
+                Origin: string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                point_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ExperienceUpload_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -10398,6 +11048,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listExperiences: {
+        parameters: {
+            query?: {
+                point_id?: string | null;
+                kind?: ("media" | "checkin" | "tour") | null;
+                campus_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_PublicExperience__"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getExperience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experience_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PublicExperience_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getExperienceMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experience_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
