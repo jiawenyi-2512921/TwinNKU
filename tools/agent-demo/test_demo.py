@@ -1,10 +1,12 @@
 """Local boundary tests use a stub API; they do not prove school connectivity."""
 
+import hashlib
 import http.client
 import json
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 import deploy
 from deploy import patch_nginx
 from probe_nk_genios_api import ProbeError
-from server import COOKIE, Chat, Demo, Failure, Server
+from server import COOKIE, SESSION_LIMIT, Chat, Demo, Failure, Server
 
 CODE = "test-demo-code-123456"
 
@@ -87,6 +89,62 @@ class DemoTests(unittest.TestCase):
         with self.assertRaises(Failure) as error:
             self.demo.session(f"{COOKIE}={token}")
         self.assertEqual(error.exception.status, 401)
+
+    def fill_pool(self):
+        """Top the session pool up to SESSION_LIMIT without tripping the login throttle.
+
+        The per-IP login throttle (30/60s) is a separate control from the pool size,
+        and is exercised in its own test; clear it so this test isolates eviction.
+        """
+        while len(self.demo.sessions) < SESSION_LIMIT:
+            self.demo.login_attempts.clear()
+            self.demo.login(CODE)
+
+    def test_full_pool_evicts_the_idle_session_instead_of_refusing_login(self):
+        idle_token = self.demo.login(CODE)
+        idle_key = hashlib.sha256(idle_token.encode()).digest()
+        self.demo.sessions[idle_key].touched -= 10_000
+        self.fill_pool()
+        self.assertEqual(len(self.demo.sessions), SESSION_LIMIT)
+
+        # The pool is full, but a new visitor must still get in.
+        self.demo.login_attempts.clear()
+        token = self.demo.login(CODE)
+        self.assertEqual(len(self.demo.sessions), SESSION_LIMIT)
+        self.assertIsNotNone(self.demo.session(f"{COOKIE}={token}"))
+        # The stalest session was evicted rather than the newcomer being refused.
+        self.assertNotIn(idle_key, self.demo.sessions)
+
+    def test_active_sessions_are_not_evicted_before_idle_ones(self):
+        active_token = self.demo.login(CODE)
+        active_key = hashlib.sha256(active_token.encode()).digest()
+        self.demo.sessions[active_key].touch()
+        self.fill_pool()
+        for key in self.demo.sessions:
+            if key != active_key:
+                self.demo.sessions[key].touched -= 10_000
+        self.demo.login_attempts.clear()
+        self.demo.login(CODE)
+        self.assertIn(active_key, self.demo.sessions)
+    def test_activity_extends_the_session_deadline(self):
+        token = self.demo.login(CODE)
+        session = self.demo.session(f"{COOKIE}={token}")
+        session.expires = time.monotonic() + 1
+        self.demo.session(f"{COOKIE}={token}")
+        self.assertGreater(session.expires, time.monotonic() + 3000)
+
+    def test_unknown_upstream_error_never_reaches_the_client(self):
+        def upstream(endpoint, body, key, timeout):
+            raise ProbeError("RAW UPSTREAM SECRET")
+
+        demo = Demo("fake-key", CODE, "https://2512921.cn", upstream)
+        token = demo.login(CODE)
+        with self.assertRaises(Failure) as error:
+            demo.chat(
+                demo.session(f"{COOKIE}={token}"),
+                Chat(query="test", request_id="unknown-error-request-1"),
+            )
+        self.assertEqual(error.exception.code, "PLATFORM_ERROR")
 
     def test_http_auth_origin_cookie_and_schema(self):
         server = Server(("127.0.0.1", 0), self.demo)

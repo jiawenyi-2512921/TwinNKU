@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 ROOT = Path(__file__).resolve().parent
 COOKIE = "__Host-twinnku-demo"
+SESSION_LIMIT = 64
 
 
 class Login(BaseModel):
@@ -44,6 +45,37 @@ class Failure(Exception):
         self.status, self.code = status, code
 
 
+# ProbeError classifications are a closed set. Whitelisting them here means a
+# future probe error can never leak an arbitrary string (or upstream text) into
+# a response body, and that every code the browser receives has a known meaning.
+UPSTREAM_CODES = frozenset(
+    {
+        "SSO_REDIRECT",
+        "REDIRECT_BLOCKED",
+        "AUTH_FAILED",
+        "ACCESS_DENIED",
+        "ENDPOINT_NOT_FOUND",
+        "RATE_LIMITED",
+        "INVALID_KEY_FORMAT",
+        "INVALID_ENDPOINT",
+        "NETWORK_TIMEOUT",
+        "NETWORK_ERROR",
+        "TLS_ERROR",
+        "TRANSPORT_ERROR",
+        "NON_JSON_RESPONSE",
+        "INVALID_JSON",
+        "UNEXPECTED_HTTP_STATUS",
+        "RESPONSE_TOO_LARGE",
+        "INVALID_RESPONSE_SHAPE",
+        "PLATFORM_ERROR",
+        "INVALID_CONFIG_RESPONSE",
+        "INVALID_CONVERSATION_RESPONSE",
+        "NO_FINAL_ANSWER",
+        "CONTEXT_NOT_CONFIRMED",
+    }
+)
+
+
 @dataclass
 class Session:
     user: str = field(default_factory=lambda: secrets.token_hex(10))
@@ -52,6 +84,14 @@ class Session:
     lock: threading.Lock = field(default_factory=threading.Lock)
     requests: dict = field(default_factory=dict)
     turns: deque = field(default_factory=deque)
+    touched: float = field(default_factory=time.monotonic)
+
+    def touch(self):
+        # Sliding expiry. Without this, a session that is actively in use still
+        # hard-expires 60 minutes after login, which surfaces mid-conversation as
+        # an unexplained LOGIN_REQUIRED.
+        self.touched = time.monotonic()
+        self.expires = self.touched + 3600
 
 
 class Demo:
@@ -80,11 +120,14 @@ class Demo:
             self.throttle(self.login_attempts, 30, 60)
             if not hmac.compare_digest(code.encode(), self.code.encode()):
                 raise Failure(401, "INVALID_DEMO_CODE")
-            self.sessions = {
-                k: v for k, v in self.sessions.items() if v.expires > time.monotonic()
-            }
-            if len(self.sessions) >= 64:
-                raise Failure(429, "SESSION_LIMIT")
+            now = time.monotonic()
+            self.sessions = {k: v for k, v in self.sessions.items() if v.expires > now}
+            # The pool is a budget for *concurrent* visitors, not a lifetime cap.
+            # Evict the least recently active session instead of refusing a new
+            # visitor -- an idle login should never lock everyone else out.
+            while len(self.sessions) >= SESSION_LIMIT:
+                oldest = min(self.sessions, key=lambda k: self.sessions[k].touched)
+                del self.sessions[oldest]
             token = secrets.token_urlsafe(32)
             self.sessions[hashlib.sha256(token.encode()).digest()] = Session()
             return token
@@ -98,6 +141,8 @@ class Demo:
             raise Failure(401, "LOGIN_REQUIRED") from None
         with self.lock:
             session = self.sessions.get(hashlib.sha256(token.encode()).digest())
+            if session is not None and session.expires > time.monotonic():
+                session.touch()
         if session is None or session.expires <= time.monotonic():
             raise Failure(401, "LOGIN_REQUIRED")
         return session
@@ -174,8 +219,14 @@ class Demo:
             session.requests[body.request_id] = (fingerprint, answer)
             return Answer(answer=answer)
         except ProbeError as error:
-            # ProbeError contains fixed classifications, never raw upstream content.
-            raise Failure(503, str(error)) from None
+            # ProbeError is expected to carry a fixed classification, but do not
+            # trust that here: anything outside the known set must not reach the
+            # client. Fall back to a generic upstream code instead of forwarding
+            # an arbitrary string.
+            code = str(error)
+            if code not in UPSTREAM_CODES:
+                code = "PLATFORM_ERROR"
+            raise Failure(503, code) from None
         finally:
             session.lock.release()
 
