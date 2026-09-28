@@ -23,6 +23,17 @@ import {
   safeContext,
   type AgentContext,
 } from "../features/agent/protocol";
+import { NativeAgentDock } from "../features/agent/NativeAgentDock";
+import {
+  actionLocation,
+  type GuideAction,
+  type GuideContext,
+  type NavigationPath,
+} from "../features/agent/native";
+import {
+  NavigationPanel,
+  type RouteSelection,
+} from "../features/map/NavigationPanel";
 import { PointDetails } from "../features/points/PointDetails";
 
 const categories = [
@@ -39,6 +50,9 @@ const categories = [
 
 export function App() {
   const agentConfig = useAgentConfig();
+  const [route, setRoute] = useState<NavigationPath | null>(null);
+  const [navigation, setNavigation] = useState<RouteSelection | null>(null);
+  const contextState = useRef({ key: "", revision: 0 });
   const [agentRequest, setAgentRequest] = useState<AgentRequest | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "error">(
@@ -193,6 +207,70 @@ export function App() {
     map_id: catalog?.map?.id ?? "",
     map_revision: catalog?.map ? String(catalog.map.revision) : "",
   });
+  const requestedFloor =
+    agentRequest?.context.point_id === selectedId
+      ? agentRequest.context.floor_id || null
+      : null;
+  const nativeKey = JSON.stringify([
+    agentContext,
+    requestedFloor,
+    navigation?.sequence,
+    navigation?.start,
+  ]);
+  if (contextState.current.key !== nativeKey)
+    contextState.current = {
+      key: nativeKey,
+      revision: contextState.current.revision + 1,
+    };
+  const nativeContext: GuideContext | null = catalog?.map
+    ? {
+        campus_id: catalog.campus.id,
+        map_id: catalog.map.id,
+        map_revision: catalog.map.revision,
+        point_id: selected?.id ?? null,
+        floor_id: requestedFloor,
+        start_point_id: navigation?.start ?? null,
+        revision: contextState.current.revision,
+      }
+    : null;
+  function openNavigation(end = selectedId ?? "", start?: string | null) {
+    setShowList(false);
+    setShowHelp(false);
+    setRoute(null);
+    setNavigation((v) => ({ sequence: (v?.sequence ?? 0) + 1, end, start }));
+  }
+  function applyGuideAction(action: GuideAction) {
+    if (
+      !catalog?.points.some(
+        (p) => p.id === action.point_id && p.revision === action.point_revision,
+      )
+    )
+      return;
+    if (action.type === "show_route") {
+      selectPoint(action.point_id);
+      openNavigation(action.point_id, action.start_point_id);
+      return;
+    }
+    setNavigation(null);
+    setRoute(null);
+    selectedRef.current = action.point_id;
+    setSelectedId(action.point_id);
+    setShowList(false);
+    writeLocation(actionLocation(window.location.href, action));
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
+  useEffect(() => {
+    if (
+      route &&
+      (!catalog?.map ||
+        route.segments.some(
+          (s) =>
+            s.map_revision !== catalog.map!.revision ||
+            s.map_id !== catalog.map!.id,
+        ))
+    )
+      setRoute(null);
+  }, [catalog?.map, route]);
   function askAgent(
     floor?: Pick<AgentContext, "floor_id" | "floor_label" | "floor_section">,
   ) {
@@ -220,6 +298,11 @@ export function App() {
           </span>
         </a>
         <span className="header-campus">南开大学 · 津南校区</span>
+        {catalog?.map && (
+          <button className="navigation-entry" onClick={() => openNavigation()}>
+            路线导航
+          </button>
+        )}
         <div className="explore-tools">
           <form
             className="place-search"
@@ -342,6 +425,7 @@ export function App() {
               points={points}
               selectedId={selectedId}
               onSelect={selectPoint}
+              routeSegments={route?.segments ?? []}
             />
           ) : (
             <div className="map-empty" role="status">
@@ -402,7 +486,7 @@ export function App() {
               {placeMessage}
             </div>
           )}
-          {selected && !showList && (
+          {selected && !showList && !navigation && (
             <PointDetails
               key={selected.id}
               point={selected}
@@ -418,18 +502,41 @@ export function App() {
               <button onClick={() => refresh.current()}>重试</button>
             </div>
           )}
-          {!selected && !showList && catalog?.map && (
+          {navigation && catalog?.map && (
+            <NavigationPanel
+              map={catalog.map}
+              points={points}
+              initial={navigation}
+              onRoute={setRoute}
+              onClose={() => {
+                setNavigation(null);
+                setRoute(null);
+              }}
+            />
+          )}
+          {!selected && !showList && !navigation && catalog?.map && (
             <div className="map-hint">
               <Icon name="pin" size={17} />
               <span>点击图上地点，探索校园故事</span>
             </div>
           )}
         </section>
-        <AgentDock
-          config={agentConfig}
-          current={agentContext}
-          request={agentRequest}
-        />
+        {agentConfig?.enabled && agentConfig.provider === "nk-genios-api" ? (
+          <NativeAgentDock
+            autoActions={agentConfig.auto_actions ?? true}
+            current={nativeContext}
+            request={agentRequest}
+            pointName={selected?.name ?? ""}
+            onAction={applyGuideAction}
+            onNavigate={() => openNavigation()}
+          />
+        ) : (
+          <AgentDock
+            config={agentConfig}
+            current={agentContext}
+            request={agentRequest}
+          />
+        )}
       </main>
     </div>
   );
