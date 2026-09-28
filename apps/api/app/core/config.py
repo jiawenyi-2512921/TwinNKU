@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     db_password: SecretStr | None = None
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "testserver", "api"]
     nk_genios_api_key: SecretStr | None = None
+    nk_genios_api_enabled: bool = False
+    agent_access_code: SecretStr | None = None
+
+    @property
+    def api_agent_configured(self) -> bool:
+        return bool(self.nk_genios_api_enabled and self.nk_genios_api_key and self.agent_access_code)
     # WebSDK appKey is a browser-visible embed identifier, never a server API token.
     nk_genios_web_enabled: bool = False
     nk_genios_web_app_key: SecretStr | None = None
@@ -57,6 +63,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def production_is_explicit(self):
+        if self.nk_genios_api_enabled and (
+            not self.nk_genios_api_key or not self.agent_access_code
+            or len(self.agent_access_code.get_secret_value()) < 16
+        ):
+            raise ValueError("NK_GENIOS_API_ENABLED requires API key and 16+ character AGENT_ACCESS_CODE")
         origin = urlsplit(self.public_site_origin)
         if (
             origin.scheme != "https"
