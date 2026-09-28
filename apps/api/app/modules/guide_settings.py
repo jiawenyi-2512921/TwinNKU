@@ -18,8 +18,27 @@ class GuidePolicy(DTO):
     chat_enabled: bool = True
     navigation_enabled: bool = True
     auto_actions: bool = True
-    allowed_actions: list[Literal["focus_point", "show_floor", "open_vr", "show_route"]] = Field(
-        default_factory=lambda: ["focus_point", "show_floor", "open_vr", "show_route"], max_length=4
+    allowed_actions: list[
+        Literal[
+            "focus_point",
+            "show_floor",
+            "open_vr",
+            "show_route",
+            "show_checkin",
+            "play_video",
+            "show_tour",
+        ]
+    ] = Field(
+        default_factory=lambda: [
+            "focus_point",
+            "show_floor",
+            "open_vr",
+            "show_route",
+            "show_checkin",
+            "play_video",
+            "show_tour",
+        ],
+        max_length=7,
     )
     visitor_turns_per_hour: int = Field(default=30, ge=1, le=120)
     total_turns_per_hour: int = Field(default=120, ge=1, le=1000)
