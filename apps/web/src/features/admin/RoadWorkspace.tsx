@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import * as L from "leaflet";
+
 import type { components } from "../../shared/api/schema";
 import {
   api,
@@ -7,7 +7,13 @@ import {
   type Point,
   type XY,
 } from "../../shared/api/client";
-import { fromMapPoint, imageBounds, toMapPoint } from "../map/coordinates";
+import { RoadCanvas, type RoadMode } from "./RoadCanvas";
+import {
+  connectCrossing,
+  edgePath,
+  invalidate,
+  makeHistory,
+} from "./roadGeometry";
 import { request, message, type StaffSession } from "./api";
 import { ErrorBox } from "./ui";
 import "../map/navigation.css";
@@ -17,7 +23,9 @@ type Node = components["schemas"]["RoadNode"];
 type Edge = components["schemas"]["RoadEdge"];
 type Workspace = components["schemas"]["RoadWorkspace"];
 type Path = components["schemas"]["NavigationPath"];
-type Mode = "select" | "node" | "road";
+type Mode = RoadMode;
+type Starter = components["schemas"]["RoadStarter"];
+type Quality = components["schemas"]["RoadQuality"];
 const blank = (revision: number): Graph => ({
   map_revision: revision,
   nodes: [],
@@ -31,203 +39,6 @@ const states: Record<string, string> = {
   rejected: "已退回",
   published: "已发布",
 };
-
-function RoadCanvas({
-  info,
-  graph,
-  mode,
-  editable,
-  selected,
-  setSelected,
-  onChange,
-  preview,
-}: {
-  info: MapInfo;
-  graph: Graph;
-  mode: Mode;
-  editable: boolean;
-  selected: string;
-  setSelected: (id: string) => void;
-  onChange: (g: Graph) => void;
-  preview: Path | null;
-}) {
-  const element = useRef<HTMLDivElement>(null),
-    map = useRef<L.Map | null>(null);
-  const chain = useRef<string | null>(null);
-  const [tileError, setTileError] = useState(false);
-  const latest = useRef({ graph, mode, editable, onChange, setSelected });
-  latest.current = { graph, mode, editable, onChange, setSelected };
-  useEffect(() => {
-    chain.current = null;
-  }, [mode, editable, info.id]);
-  function choose(id: string | null, position?: XY) {
-    const s = latest.current;
-    if (!s.editable || s.mode === "select") {
-      if (id) s.setSelected(id);
-      return;
-    }
-    let nodes = [...(s.graph.nodes ?? [])],
-      edges = [...(s.graph.edges ?? [])];
-    const next = id ?? crypto.randomUUID();
-    if (!id && position)
-      nodes.push({
-        id: next,
-        position,
-        kind: "junction",
-        label: "新路口",
-        point_id: null,
-      });
-    if (s.mode === "road" && chain.current && chain.current !== next) {
-      const start = chain.current;
-      if (
-        !edges.some(
-          (e) =>
-            (e.start === start && e.end === next) ||
-            (e.bidirectional && e.start === next && e.end === start),
-        )
-      ) {
-        edges.push({
-          id: crypto.randomUUID(),
-          label: "新路段",
-          start,
-          end: next,
-          via: [],
-          bidirectional: true,
-          closed: false,
-          verified: false,
-          evidence: "",
-          distance_m: null,
-          step_free: null,
-        });
-      }
-    }
-    chain.current = s.mode === "road" ? next : null;
-    s.onChange({ ...s.graph, nodes, edges });
-    s.setSelected(next);
-  }
-  useEffect(() => {
-    if (!element.current || !info.tiles) return;
-    const m = L.map(element.current, {
-      crs: L.CRS.Simple,
-      attributionControl: false,
-      minZoom: info.tiles.min_zoom,
-      maxZoom: info.tiles.max_native_zoom + 1,
-      zoomSnap: 0.25,
-      doubleClickZoom: false,
-    });
-    map.current = m;
-    const layer = L.tileLayer(info.tiles.url_template, {
-      tileSize: info.tiles.tile_size,
-      noWrap: true,
-      bounds: imageBounds(info),
-      maxNativeZoom: info.tiles.max_native_zoom,
-    }).addTo(m);
-    layer.on("tileerror", () => setTileError(true));
-    m.fitBounds(imageBounds(info), { padding: [20, 20] });
-    m.on("click", (e: L.LeafletMouseEvent) => {
-      const p = fromMapPoint(e.latlng, info.tiles!.max_native_zoom);
-      if (p.x >= 0 && p.y >= 0 && p.x <= info.width_px && p.y <= info.height_px)
-        choose(null, p);
-    });
-    const observer = new ResizeObserver(() => m.invalidateSize({ pan: false }));
-    observer.observe(element.current);
-    return () => {
-      observer.disconnect();
-      m.remove();
-      map.current = null;
-    };
-  }, [info]);
-  useEffect(() => {
-    const m = map.current;
-    if (!m || !info.tiles) return;
-    const layer = L.layerGroup().addTo(m),
-      nodes = new Map((graph.nodes ?? []).map((n) => [n.id, n]));
-    for (const edge of graph.edges ?? []) {
-      const a = nodes.get(edge.start),
-        b = nodes.get(edge.end);
-      if (!a || !b) continue;
-      const line = [a.position, ...(edge.via ?? []), b.position].map((p) =>
-        toMapPoint(p, info.tiles!.max_native_zoom),
-      );
-      const poly = L.polyline(line, {
-        color:
-          edge.id === selected
-            ? "#9e3a9e"
-            : edge.closed
-              ? "#b74040"
-              : edge.verified
-                ? "#308779"
-                : "#b28029",
-        weight: edge.id === selected ? 7 : 4,
-        dashArray: edge.closed || !edge.verified ? "7 5" : undefined,
-        bubblingMouseEvents: false,
-      }).addTo(layer);
-      const label = document.createElement("span");
-      label.textContent = `${edge.label || "道路"}${edge.bidirectional ? " ↔" : " →"}${edge.closed ? "（关闭）" : ""}`;
-      poly.bindTooltip(label);
-      poly.on("click", () => latest.current.setSelected(edge.id));
-    }
-    for (const node of graph.nodes ?? []) {
-      const label = document.createElement("span");
-      label.className = "road-node-label";
-      label.textContent = `${node.kind === "entrance" ? "入口·" : ""}${node.label || node.id.slice(0, 6)}`;
-      const marker = L.marker(
-        toMapPoint(node.position, info.tiles.max_native_zoom),
-        {
-          draggable: editable && mode === "select",
-          bubblingMouseEvents: false,
-          icon: L.divIcon({
-            html: label,
-            className: "road-node",
-            iconSize: [80, 22],
-            iconAnchor: [8, 10],
-          }),
-        },
-      ).addTo(layer);
-      marker.on("click", () => choose(node.id));
-      marker.on("dragend", () => {
-        const s = latest.current,
-          p = fromMapPoint(marker.getLatLng(), info.tiles!.max_native_zoom);
-        const position = {
-          x: Math.max(0, Math.min(info.width_px, p.x)),
-          y: Math.max(0, Math.min(info.height_px, p.y)),
-        };
-        s.onChange({
-          ...s.graph,
-          nodes: (s.graph.nodes ?? []).map((n) =>
-            n.id === node.id ? { ...n, position } : n,
-          ),
-          edges: (s.graph.edges ?? []).map((e) =>
-            e.start === node.id || e.end === node.id
-              ? { ...e, verified: false }
-              : e,
-          ),
-        });
-      });
-    }
-    for (const segment of preview?.segments ?? [])
-      L.polyline(
-        segment.path.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
-        { color: "#147ae0", weight: 8, opacity: 0.75, interactive: false },
-      ).addTo(layer);
-    return () => {
-      layer.remove();
-    };
-  }, [graph, selected, editable, mode, info, preview]);
-  return (
-    <>
-      <div
-        ref={element}
-        className="road-map"
-        role="region"
-        aria-label="道路与建筑入口编辑地图"
-      />
-      {tileError && (
-        <p role="alert">部分底图加载失败，请重新加载后核对道路。</p>
-      )}
-    </>
-  );
-}
 
 export function RoadWorkspace({
   maps,
@@ -257,6 +68,20 @@ export function RoadWorkspace({
     [preview, setPreview] = useState<Path | null>(null);
   const [start, setStart] = useState(""),
     [end, setEnd] = useState("");
+  const history = useRef(makeHistory(blank(1)));
+  const [starter, setStarter] = useState<Starter | null>(null);
+  const [quality, setQuality] = useState<Quality | null>(null);
+  const [snapping, setSnapping] = useState(true),
+    [showLabels, setShowLabels] = useState(false);
+  const [drawCommand, setDrawCommand] = useState<{
+    id: number;
+    action: "finish" | "cancel";
+  }>({ id: 0, action: "cancel" });
+  const [sketchCount, setSketchCount] = useState(0);
+  const [focus, setFocus] = useState<{ id: number; position: XY } | null>(null);
+  const [marked, setMarked] = useState<Set<string>>(new Set());
+  const [batchNote, setBatchNote] = useState("");
+  const [onlyUnverified, setOnlyUnverified] = useState(false);
   const info = eligible.find((m) => m.id === mapId);
   useEffect(() => {
     if (!mapId && eligible[0]) setMapId(eligible[0].id);
@@ -271,8 +96,8 @@ export function RoadWorkspace({
   const node = nodes.find((n) => n.id === selected),
     edge = edges.find((e) => e.id === selected);
   useEffect(() => {
-    onDirty(dirty, busy);
-  }, [dirty, busy, onDirty]);
+    onDirty(dirty || sketchCount > 0, busy);
+  }, [dirty, busy, sketchCount, onDirty]);
   useEffect(() => () => onDirty(false), [onDirty]);
   useEffect(() => {
     if (!info) return;
@@ -281,6 +106,9 @@ export function RoadWorkspace({
     setError("");
     setSelected("");
     setPreview(null);
+    setQuality(null);
+    setStarter(null);
+    setMarked(new Set());
     setDirty(false);
     async function load() {
       try {
@@ -308,8 +136,24 @@ export function RoadWorkspace({
         }
         if (controller.signal.aborted) return;
         setWorkspace(w.data);
-        setGraph(w.data.draft ?? w.data.published ?? blank(info!.revision));
+        const initial =
+          w.data.draft ?? w.data.published ?? blank(info!.revision);
+        history.current.reset(initial);
+        setGraph(initial);
         setPoints(all);
+        // Starter availability cannot turn a successfully loaded workspace into an error.
+        try {
+          const prepared = await request<Starter>(
+            `/navigation/${info!.id}/starter`,
+            "GET",
+            undefined,
+            controller.signal,
+          );
+          if (!controller.signal.aborted) setStarter(prepared.data);
+        } catch (e) {
+          if (!controller.signal.aborted)
+            setError(`路网已加载，初稿暂不可用：${message(e)}`);
+        }
       } catch (e) {
         if (!controller.signal.aborted) setError(message(e));
       }
@@ -319,9 +163,146 @@ export function RoadWorkspace({
   }, [info, refresh]);
   function change(next: Graph) {
     if (!editable) return;
+    history.current.change(next);
     setGraph(next);
     setDirty(true);
     setPreview(null);
+    setQuality(null);
+  }
+  function travel(direction: "undo" | "redo") {
+    if (!editable) return;
+    setGraph(history.current[direction]());
+    setDirty(true);
+    setPreview(null);
+    setQuality(null);
+    setDrawCommand((v) => ({ id: v.id + 1, action: "cancel" }));
+  }
+  function locate(id: string, position?: XY) {
+    setSelected(id);
+    const n = nodes.find((n) => n.id === id),
+      e = edges.find((e) => e.id === id);
+    const p =
+      position ?? n?.position ?? (e ? edgePath(e, graph)[0] : undefined);
+    if (p) setFocus((v) => ({ id: (v?.id ?? 0) + 1, position: p }));
+  }
+  async function checkGraph(next = graph) {
+    if (!info) return;
+    setBusy(true);
+    setError("");
+    try {
+      const r = await request<Quality>(
+        `/navigation/${info.id}/quality`,
+        "POST",
+        next,
+      );
+      setQuality(r.data);
+      return r.data;
+    } catch (e) {
+      setError(message(e));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+  function useStarter() {
+    if (!starter?.graph || nodes.length || edges.length || !editable) return;
+    change(structuredClone(starter.graph));
+    setMode("select");
+  }
+  async function importGraph(file: File) {
+    if (!editable || !info) return;
+    setBusy(true);
+    setError("");
+    try {
+      if (file.size > 2_000_000)
+        throw new Error("文件超过2MB，请使用路网JSON备份");
+      const value = JSON.parse(await file.text());
+      if (
+        value.map_id !== info.id ||
+        value.source_sha256 !== info.source_sha256
+      )
+        throw new Error("备份底图不匹配，不能覆盖当前坐标");
+      const next = value.graph as Graph;
+      if (!next || next.map_revision !== info.revision)
+        throw new Error("备份底图版本已过期");
+      if (
+        (nodes.length || edges.length) &&
+        !window.confirm(
+          "用备份替换当前编辑草稿？已发布路网不变，可撤销此操作。",
+        )
+      )
+        return;
+      const unverified = {
+        ...next,
+        nodes: (next.nodes ?? []).map((n) => ({
+          ...n,
+          candidate: n.kind === "entrance" ? true : n.candidate,
+        })),
+        edges: (next.edges ?? []).map((e) => ({ ...e, verified: false })),
+      };
+      // Validate at the same permission-checked API before changing local state.
+      const r = await request<Quality>(
+        `/navigation/${info.id}/quality`,
+        "POST",
+        unverified,
+      );
+      history.current.change(unverified);
+      setGraph(unverified);
+      setDirty(true);
+      setPreview(null);
+      setQuality(r.data);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  function exportGraph() {
+    if (!info) return;
+    const url = URL.createObjectURL(
+      new Blob(
+        [
+          JSON.stringify(
+            {
+              schema_version: 1,
+              map_id: info.id,
+              source_sha256: info.source_sha256,
+              graph,
+            },
+            null,
+            2,
+          ),
+        ],
+        { type: "application/json" },
+      ),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `TwinNKU-road-draft-${info.id}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function batch(action: "verify" | "close" | "open") {
+    if (!batchNote.trim()) {
+      setError("请填写本次所选道路共同适用的核验依据或维护原因");
+      return;
+    }
+    change({
+      ...graph,
+      edges: edges.map((e) =>
+        marked.has(e.id)
+          ? {
+              ...e,
+              evidence: batchNote,
+              ...(action === "verify"
+                ? { verified: true }
+                : { closed: action === "close", verified: false }),
+            }
+          : e,
+      ),
+    });
+    setMarked(new Set());
+    setBatchNote("");
   }
   function updateNode(values: Partial<Node>) {
     if (!node) return;
@@ -329,8 +310,9 @@ export function RoadWorkspace({
       ...graph,
       nodes: nodes.map((n) => (n.id === node.id ? { ...n, ...values } : n)),
       edges: edges.map((e) =>
-        e.start === node.id || e.end === node.id
-          ? { ...e, verified: false }
+        (values.position || values.kind || "point_id" in values) &&
+        (e.start === node.id || e.end === node.id)
+          ? invalidate(e)
           : e,
       ),
     });
@@ -354,6 +336,7 @@ export function RoadWorkspace({
       setWorkspace(result.data);
       onUpdate();
       setGraph(result.data.draft!);
+      history.current.reset(result.data.draft!);
       setDirty(false);
     } catch (e) {
       setError(message(e));
@@ -412,17 +395,37 @@ export function RoadWorkspace({
       (n) => kind !== "road" && (kind === "all" || n.kind === kind),
     ),
     ...(kind === "all" || kind === "road" ? edges : []),
-  ].filter((item) =>
-    `${item.label ?? ""} ${"point_id" in item ? (points.find((p) => p.id === item.point_id)?.name ?? "") : ""}`.includes(
-      query,
-    ),
-  );
+  ]
+    .filter(
+      (item) =>
+        !onlyUnverified || ("start" in item ? !item.verified : item.candidate),
+    )
+    .filter((item) =>
+      `${item.label ?? ""} ${"point_id" in item ? (points.find((p) => p.id === item.point_id)?.name ?? "") : ""}`.includes(
+        query,
+      ),
+    );
   return (
-    <section>
+    <section
+      className="road-workspace"
+      onKeyDown={(event) => {
+        const tag = (event.target as HTMLElement).tagName;
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
+        if (event.key === "Escape")
+          setDrawCommand((v) => ({ id: v.id + 1, action: "cancel" }));
+        if (
+          (event.ctrlKey || event.metaKey) &&
+          event.key.toLowerCase() === "z"
+        ) {
+          event.preventDefault();
+          travel(event.shiftKey ? "redo" : "undo");
+        }
+      }}
+    >
       <div className="ad-eyebrow">CAMPUS NETWORK</div>
       <h1>道路与导航</h1>
       <p className="road-info">
-        维护真实路口、转折点与建筑入口。沿道路逐段绘制，核对现场通行情况，由独立审核员发布后供小开和地图使用。
+        从已经整理的规划图路网开始，精修道路形状与建筑入口。系统辅助连接与检查，人工确认通行后发布，小开与前台导航同步使用。
       </p>
       <div className="road-toolbar">
         <label>
@@ -431,7 +434,10 @@ export function RoadWorkspace({
             value={mapId}
             disabled={busy}
             onChange={(e) => {
-              if (!dirty || window.confirm("放弃未保存的路网修改？"))
+              if (
+                (!dirty && !sketchCount) ||
+                window.confirm("放弃未保存的路网修改？")
+              )
                 setMapId(e.target.value);
             }}
           >
@@ -449,7 +455,10 @@ export function RoadWorkspace({
         <button
           disabled={busy}
           onClick={() => {
-            if (!dirty || window.confirm("放弃未保存的修改并重新加载？"))
+            if (
+              (!dirty && !sketchCount) ||
+              window.confirm("放弃未保存的修改并重新加载？")
+            )
               setRefresh((v) => v + 1);
           }}
         >
@@ -459,6 +468,50 @@ export function RoadWorkspace({
       <ErrorBox text={error} />
       {info && workspace && (
         <>
+          {starter && !nodes.length && !edges.length && (
+            <div className="road-starter">
+              <div>
+                <span className="ad-eyebrow">PREPARED NETWORK</span>
+                <h2>{starter.title}</h2>
+                <p>{starter.message}</p>
+                {starter.graph && (
+                  <p>
+                    {starter.graph.edges?.length} 段道路 ·{" "}
+                    {starter.graph.nodes?.filter((n) => n.point_id).length}{" "}
+                    个入口候选。载入后即可编辑与草稿试算，无需从零描图。
+                  </p>
+                )}
+              </div>
+              <button
+                disabled={!editable || !starter.available}
+                onClick={useStarter}
+              >
+                载入已整理路网初稿
+              </button>
+            </div>
+          )}
+          <div className="road-metrics">
+            <div>
+              <strong>{edges.length}</strong>
+              <span>道路</span>
+            </div>
+            <div>
+              <strong>
+                {nodes.filter((n) => n.kind === "junction").length}
+              </strong>
+              <span>路口</span>
+            </div>
+            <div>
+              <strong>{nodes.filter((n) => n.point_id).length}</strong>
+              <span>入口 / 候选</span>
+            </div>
+            <div>
+              <strong>
+                {edges.filter((e) => !e.verified && !e.closed).length}
+              </strong>
+              <span>待核验道路</span>
+            </div>
+          </div>
           {graph.map_revision !== info.revision && (
             <p className="navigation-note">
               底图版本已变化。请重新核对位置。
@@ -482,6 +535,9 @@ export function RoadWorkspace({
                 ["select", "选择 / 拖动"],
                 ["node", "添加路口或入口"],
                 ["road", "沿道路连续绘制"],
+                ["curve", "绘制弧线"],
+                ["freehand", "自由描线"],
+                ["split", "拆分路口"],
               ] as const
             ).map(([id, title]) => (
               <button
@@ -493,8 +549,39 @@ export function RoadWorkspace({
                 {title}
               </button>
             ))}
-            <button disabled={!editable || !dirty} onClick={() => void save()}>
+            <button
+              disabled={!editable || !dirty || sketchCount > 0}
+              onClick={() => void save()}
+            >
               保存草稿
+            </button>
+            <button
+              disabled={!editable || !history.current.canUndo}
+              onClick={() => travel("undo")}
+            >
+              撤销
+            </button>
+            <button
+              disabled={!editable || !history.current.canRedo}
+              onClick={() => travel("redo")}
+            >
+              重做
+            </button>
+            <button
+              disabled={!editable || mode !== "road" || sketchCount < 2}
+              onClick={() =>
+                setDrawCommand((v) => ({ id: v.id + 1, action: "finish" }))
+              }
+            >
+              完成道路
+            </button>
+            <button
+              disabled={!sketchCount}
+              onClick={() =>
+                setDrawCommand((v) => ({ id: v.id + 1, action: "cancel" }))
+              }
+            >
+              取消绘制
             </button>
             <span>
               {nodes.length} 个节点 · {edges.length} 条道路 ·{" "}
@@ -503,9 +590,55 @@ export function RoadWorkspace({
           </div>
           <p className="road-info">
             {mode === "road"
-              ? "依次点击道路转折处；点击已有节点可接入路网。切回“选择”结束一条道路。"
-              : "点击节点或路段编辑。建筑入口应标在实际门口，不要用建筑中心替代。拖动节点后，相邻道路需要重新核验。"}
+              ? "逐点描出弯道，点击已有路口或“完成道路”结束。中间点仅控制形状；端点会吸附并接入道路。"
+              : mode === "curve"
+                ? "依次点击起点、弧线控制点、终点。完成后可拖动控制点调整弯曲程度，路线计算沿同一条弧线。"
+                : mode === "freehand"
+                  ? "按住鼠标或单指沿道路描绘，松开完成；系统压缩多余形状点并吸附两端。可用缩放按钮调整地图。"
+                  : mode === "split"
+                    ? "点击道路，在准确位置拆成共用路口。保持原有形状与方向，长度和核验状态重新确认。"
+                    : "选择道路可拖动实心形状点；拖动半透明中点可增加形状点，双击实心形状点删除。拖动路口到道路或另一节点可连接。"}
           </p>
+          <div className="road-toolbar road-secondary">
+            <label>
+              <input
+                type="checkbox"
+                checked={snapping}
+                onChange={(e) => setSnapping(e.target.checked)}
+              />{" "}
+              吸附路口与道路
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={showLabels}
+                onChange={(e) => setShowLabels(e.target.checked)}
+              />{" "}
+              显示节点名称
+            </label>
+            <button
+              disabled={busy || sketchCount > 0}
+              onClick={() => void checkGraph()}
+            >
+              检查连通与缺口
+            </button>
+            <button disabled={busy} onClick={exportGraph}>
+              导出草稿备份
+            </button>
+            <label className="road-file">
+              导入草稿备份
+              <input
+                type="file"
+                accept=".json,application/json"
+                disabled={!editable}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void importGraph(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </div>
           <div className="road-layout">
             <div>
               <RoadCanvas
@@ -517,6 +650,12 @@ export function RoadWorkspace({
                 setSelected={setSelected}
                 onChange={change}
                 preview={preview}
+                onError={setError}
+                drawCommand={drawCommand}
+                onSketch={setSketchCount}
+                snapping={snapping}
+                showLabels={showLabels}
+                focus={focus}
               />
               <div className="road-toolbar">
                 <select
@@ -555,6 +694,78 @@ export function RoadWorkspace({
                   蓝线为草稿试算，不对公众生效。{preview.warnings.join(" ")}
                 </p>
               )}
+              {quality && (
+                <div className="road-quality">
+                  <h2>路网检查</h2>
+                  <p>
+                    {quality.component_count} 个连通区域 ·{" "}
+                    {quality.covered_points} 个地点已有入口连接 ·{" "}
+                    {quality.candidate_entrances} 个入口待确认
+                  </p>
+                  <p>
+                    此检查识别图上连接关系，不判断道路是否实际开放。尚未覆盖{" "}
+                    {quality.missing_point_ids.length} 个公开地点。
+                  </p>
+                  {!!quality.missing_point_ids.length && (
+                    <details>
+                      <summary>查看尚无入口连接的地点</summary>
+                      <p>
+                        {quality.missing_point_ids
+                          .map(
+                            (id) => points.find((p) => p.id === id)?.name ?? id,
+                          )
+                          .join("、")}
+                      </p>
+                    </details>
+                  )}
+                  <div className="road-issue-list">
+                    {quality.issues.map((issue, index) => (
+                      <div key={`${issue.code}-${index}`}>
+                        <span>{issue.message}</span>
+                        <button
+                          onClick={() =>
+                            locate(
+                              issue.node_ids?.[0] ?? issue.edge_ids?.[0] ?? "",
+                              issue.position ?? undefined,
+                            )
+                          }
+                        >
+                          定位
+                        </button>
+                        {issue.code === "CROSSING" && issue.position && (
+                          <button
+                            disabled={!editable}
+                            onClick={() => {
+                              if (
+                                !window.confirm(
+                                  "确认此处为同层、可连通的道路？桥上桥下或围墙两侧不可连接。",
+                                )
+                              )
+                                return;
+                              try {
+                                change(
+                                  connectCrossing(
+                                    graph,
+                                    issue.edge_ids ?? [],
+                                    issue.position!,
+                                  ),
+                                );
+                              } catch (e) {
+                                setError(message(e));
+                              }
+                            }}
+                          >
+                            连接为路口
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {quality.truncated && (
+                    <p>检查结果已截取；请先处理当前问题，再检查剩余路段。</p>
+                  )}
+                </div>
+              )}
             </div>
             <aside className="road-controls">
               <label>
@@ -576,20 +787,78 @@ export function RoadWorkspace({
                 <option value="entrance">建筑入口</option>
                 <option value="road">道路</option>
               </select>
+              <label className="road-check">
+                <input
+                  type="checkbox"
+                  checked={onlyUnverified}
+                  onChange={(e) => setOnlyUnverified(e.target.checked)}
+                />{" "}
+                只看待核验 / 待确认
+              </label>
+              <button
+                disabled={!editable || !list.some((item) => "start" in item)}
+                onClick={() =>
+                  setMarked(
+                    new Set(
+                      list
+                        .filter((item) => "start" in item)
+                        .map((item) => item.id),
+                    ),
+                  )
+                }
+              >
+                选择当前筛选道路
+              </button>
               <div className="road-list">
                 {list.map((item) => (
-                  <button
-                    key={item.id}
-                    aria-pressed={item.id === selected}
-                    onClick={() => setSelected(item.id)}
-                  >
-                    {item.label || item.id.slice(0, 8)}
-                    {"kind" in item && item.kind === "entrance"
-                      ? " · 建筑入口"
-                      : ""}
-                  </button>
+                  <div className="road-list-row" key={item.id}>
+                    {"start" in item && (
+                      <input
+                        type="checkbox"
+                        aria-label={`批量选择 ${item.label || item.id}`}
+                        checked={marked.has(item.id)}
+                        disabled={!editable}
+                        onChange={(e) =>
+                          setMarked((old) => {
+                            const next = new Set(old);
+                            if (e.target.checked) next.add(item.id);
+                            else next.delete(item.id);
+                            return next;
+                          })
+                        }
+                      />
+                    )}
+                    <button
+                      aria-pressed={item.id === selected}
+                      onClick={() => locate(item.id)}
+                    >
+                      {item.label || item.id.slice(0, 8)}
+                      {"kind" in item && item.kind === "entrance"
+                        ? " · 建筑入口"
+                        : ""}
+                    </button>
+                  </div>
                 ))}
               </div>
+              {!!marked.size && (
+                <fieldset disabled={!editable} className="road-batch">
+                  <legend>所选 {marked.size} 条道路</legend>
+                  <textarea
+                    maxLength={500}
+                    value={batchNote}
+                    onChange={(e) => setBatchNote(e.target.value)}
+                    placeholder="共同适用的核验日期、人员、资料依据或维护原因"
+                  />
+                  <button onClick={() => batch("verify")}>
+                    确认所选道路已核验
+                  </button>
+                  <button onClick={() => batch("close")}>批量封闭</button>
+                  <button onClick={() => batch("open")}>
+                    恢复通行，待核验
+                  </button>
+                  <button onClick={() => setMarked(new Set())}>取消选择</button>
+                </fieldset>
+              )}
               {node && (
                 <fieldset disabled={!editable}>
                   <legend>节点 / 入口</legend>
@@ -618,23 +887,105 @@ export function RoadWorkspace({
                     </select>
                   </label>
                   {node.kind === "entrance" && (
-                    <label>
-                      所属建筑
-                      <select
-                        value={node.point_id ?? ""}
-                        onChange={(e) =>
-                          updateNode({ point_id: e.target.value || null })
-                        }
-                      >
-                        <option value="">选择建筑</option>
-                        {points.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <>
+                      <label>
+                        所属建筑
+                        <select
+                          value={node.point_id ?? ""}
+                          onChange={(e) =>
+                            updateNode({
+                              point_id: e.target.value || null,
+                              candidate: true,
+                            })
+                          }
+                        >
+                          <option value="">选择建筑</option>
+                          {points.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        入口核对依据
+                        <textarea
+                          maxLength={500}
+                          value={node.evidence ?? ""}
+                          onChange={(e) =>
+                            updateNode({ evidence: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="road-check">
+                        <input
+                          type="checkbox"
+                          checked={!node.candidate}
+                          disabled={!node.point_id || !node.evidence?.trim()}
+                          onChange={(e) =>
+                            updateNode({ candidate: !e.target.checked })
+                          }
+                        />{" "}
+                        已确认入口位置与可通行情况
+                      </label>
+                      {node.candidate && (
+                        <small>
+                          橙色候选入口不会直接用于公开导航。请精修位置并确认。
+                        </small>
+                      )}
+                    </>
                   )}
+                  <div className="road-coordinate">
+                    <label>
+                      X
+                      <input
+                        type="number"
+                        min={0}
+                        max={info.width_px}
+                        step={1}
+                        value={Math.round(node.position.x)}
+                        onChange={(e) =>
+                          updateNode({
+                            position: {
+                              ...node.position,
+                              x: Math.max(
+                                0,
+                                Math.min(info.width_px, Number(e.target.value)),
+                              ),
+                            },
+                            candidate:
+                              node.kind === "entrance" ? true : node.candidate,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Y
+                      <input
+                        type="number"
+                        min={0}
+                        max={info.height_px}
+                        step={1}
+                        value={Math.round(node.position.y)}
+                        onChange={(e) =>
+                          updateNode({
+                            position: {
+                              ...node.position,
+                              y: Math.max(
+                                0,
+                                Math.min(
+                                  info.height_px,
+                                  Number(e.target.value),
+                                ),
+                              ),
+                            },
+                            candidate:
+                              node.kind === "entrance" ? true : node.candidate,
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
                   <small>
                     原图坐标 {Math.round(node.position.x)},{" "}
                     {Math.round(node.position.y)}
@@ -660,6 +1011,57 @@ export function RoadWorkspace({
               {edge && (
                 <fieldset disabled={!editable}>
                   <legend>道路与通行</legend>
+                  <div className="road-toolbar">
+                    <button
+                      onClick={() => {
+                        const path = edgePath(edge, graph),
+                          a = path[0],
+                          b = path.at(-1)!;
+                        if (edge.curve_control)
+                          updateEdge({
+                            ...invalidate(edge),
+                            via: path.slice(1, -1),
+                            curve_control: null,
+                          });
+                        else {
+                          if (
+                            (edge.via?.length ?? 0) > 0 &&
+                            !window.confirm(
+                              "将折线改为单段弧线会重建形状，可撤销。继续？",
+                            )
+                          )
+                            return;
+                          updateEdge({
+                            ...invalidate(edge),
+                            via: [],
+                            curve_control: {
+                              x: (a.x + b.x) / 2,
+                              y: (a.y + b.y) / 2,
+                            },
+                          });
+                        }
+                      }}
+                    >
+                      {edge.curve_control ? "弧线转为形状点" : "转为可调弧线"}
+                    </button>
+                    <button
+                      onClick={() =>
+                        updateEdge({
+                          ...invalidate(edge),
+                          start: edge.end,
+                          end: edge.start,
+                          via: [...(edge.via ?? [])].reverse(),
+                        })
+                      }
+                    >
+                      反转起终点
+                    </button>
+                  </div>
+                  <small>
+                    {edge.curve_control
+                      ? "弧线：拖动紫色控制点调整"
+                      : "折线 / 描线：" + (edge.via?.length ?? 0) + "个形状点"}
+                  </small>
                   <label>
                     道路名称
                     <input
