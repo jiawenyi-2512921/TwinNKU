@@ -5,8 +5,8 @@
 业务约束见21—29；接口上线前必须先处理24中的协议缺口和旧角色命名，不能猜学校平台API。
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
-接口操作数：97；状态统计：{"implemented": 61, "planned": 36}。
-契约SHA256：`094c9a0207c911720f8e89602b0ccd1cd48e7529465f78dcf0f9bb589358df7f`。
+接口操作数：99；状态统计：{"implemented": 63, "planned": 36}。
+契约SHA256：`050525aa47656cbacdadcd1b0f61a3099d4a16ac331546bfad740a59177958e1`。
 
 ## 1. 全部端点
 
@@ -35,7 +35,9 @@
 | GET | `/api/v1/admin/navigation/{map_id}` | getRoadWorkspace | implemented | staff | — | 200: application/json Envelope_RoadWorkspace_ |
 | PUT | `/api/v1/admin/navigation/{map_id}` | saveRoadDraft | implemented | staff | application/json: RoadDraft | 200: application/json Envelope_RoadWorkspace_ |
 | POST | `/api/v1/admin/navigation/{map_id}/preview` | previewRoadDraft | implemented | staff | application/json: NavigationRequest | 200: application/json Envelope_NavigationPath_ |
+| POST | `/api/v1/admin/navigation/{map_id}/quality` | checkRoadQuality | implemented | staff | application/json: RoadGraph | 200: application/json Envelope_RoadQuality_ |
 | POST | `/api/v1/admin/navigation/{map_id}/review` | reviewRoadDraft | implemented | staff | application/json: RoadReview | 200: application/json Envelope_RoadWorkspace_ |
+| GET | `/api/v1/admin/navigation/{map_id}/starter` | getRoadStarter | implemented | staff | — | 200: application/json Envelope_RoadStarter_ |
 | GET | `/api/v1/admin/points` | listAdminPoints | implemented | staff | — | 200: application/json Envelope_list_AdminPoint__ |
 | POST | `/api/v1/admin/points` | createPointDraft | implemented | staff | application/json: PointDraftInput | 201: application/json Envelope_AdminPoint_ |
 | GET | `/api/v1/admin/points/{point_id}` | getAdminPoint | implemented | staff | — | 200: application/json Envelope_AdminPoint_ |
@@ -241,12 +243,25 @@
 | map_id | path | 是 | string (uuid) | — |
 | X-CSRF-Token | header | 是 | string | — |
 
+### POST /api/v1/admin/navigation/{map_id}/quality
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| map_id | path | 是 | string (uuid) | — |
+| X-CSRF-Token | header | 是 | string | — |
+
 ### POST /api/v1/admin/navigation/{map_id}/review
 
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
 | map_id | path | 是 | string (uuid) | — |
 | X-CSRF-Token | header | 是 | string | — |
+
+### GET /api/v1/admin/navigation/{map_id}/starter
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| map_id | path | 是 | string (uuid) | — |
 
 ### GET /api/v1/admin/points
 
@@ -1233,6 +1248,24 @@
 | data | 是 | Point | — |
 | meta | 是 | Meta | — |
 
+### Envelope_RoadQuality_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | RoadQuality | — |
+| meta | 是 | Meta | — |
+
+### Envelope_RoadStarter_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | RoadStarter | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_RoadWorkspace_
 
 未知字段：拒绝。
@@ -2163,6 +2196,7 @@
 | --- | --- | --- | --- |
 | bidirectional | 否 | boolean | 默认: true |
 | closed | 否 | boolean | 默认: false |
+| curve_control | 否 | XY / null | —; — |
 | distance_m | 否 | number / null | 最大: 20000.0; 大于: 0.0; — |
 | end | 是 | string | — |
 | evidence | 否 | string | 最长: 500; 默认: "" |
@@ -2184,17 +2218,48 @@
 | nodes | 否 | array<RoadNode> | 最多项数: 1000 |
 | note | 否 | string | 最长: 2000; 默认: "" |
 
+### RoadIssue
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| code | 是 | string | — |
+| edge_ids | 否 | array<string> | — |
+| message | 是 | string | — |
+| node_ids | 否 | array<string> | — |
+| position | 否 | XY / null | —; — |
+| severity | 是 | string | — |
+
 ### RoadNode
 
 未知字段：拒绝。
 
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
+| candidate | 否 | boolean | 默认: false |
+| evidence | 否 | string | 最长: 500; 默认: "" |
 | id | 是 | string | 格式: ^[a-zA-Z0-9_-]{1,64}$ |
 | kind | 否 | junction / waypoint / entrance | 默认: "junction" |
 | label | 否 | string | 最长: 100; 默认: "" |
 | point_id | 否 | string (uuid) / null | —; — |
 | position | 是 | XY | — |
+
+### RoadQuality
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| candidate_entrances | 是 | integer | — |
+| component_count | 是 | integer | — |
+| covered_points | 是 | integer | — |
+| edge_count | 是 | integer | — |
+| issues | 是 | array<RoadIssue> | — |
+| missing_point_ids | 是 | array<string (uuid)> | — |
+| node_count | 是 | integer | — |
+| truncated | 否 | boolean | 默认: false |
+| unverified_edges | 是 | integer | — |
 
 ### RoadReview
 
@@ -2205,6 +2270,20 @@
 | action | 是 | submit / publish / reject / withdraw | — |
 | expected_revision | 是 | integer | 最小: 1.0 |
 | note | 是 | string | 最短: 1; 最长: 1000 |
+
+### RoadStarter
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| available | 是 | boolean | — |
+| graph | 否 | RoadGraph / null | —; — |
+| message | 是 | string | — |
+| omitted_point_ids | 否 | array<string (uuid)> | — |
+| source | 是 | string | — |
+| source_sha256 | 是 | string | — |
+| title | 是 | string | — |
 
 ### RoadSummary
 
