@@ -220,9 +220,13 @@ def add_experience(db, point, kind, **fields):
         "source_note": "测试夹具",
         **fields,
     }
+    if kind == "tour":
+        content.pop("point_id")
+        content["campus_id"] = point.campus_id
     row = ExperienceRecord(
         id=str(uuid4()),
-        point_id=point.id,
+        campus_id=point.campus_id,
+        point_id=None if kind == "tour" else point.id,
         kind=kind,
         status="published",
         state="published",
@@ -345,3 +349,131 @@ def test_named_video_uses_its_published_anchor_and_generic_tour_is_not_limited_t
     assert [a["resource_id"] for a in result["actions"]] == [video.id]
     result = data(client, turn(m, points[0], "推荐一下参观路线"))
     assert [a["resource_id"] for a in result["actions"]] == [tour.id]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "打开全景地图",
+        "让我看看VR地图",
+        "打开校园全景",
+        "我想看全景观校",
+        "不要楼层图，打开VR全景地图",
+        "打开 ＶＲ 地图",
+    ],
+)
+def test_campus_panorama_opens_published_official_portal_despite_selected_building_and_model_focus(
+    client, db, query
+):
+    _, m, points, _ = setup_roads(client, db)
+    portal = PanoramaRecord(
+        id=str(uuid4()),
+        point_id=points[1].id,
+        title="测试官方全景入口",
+        url="https://stjgpt.nankai.edu.cn/index-jn.php#scene_4744/0.0/-10.2/120.0",
+        revision=3,
+    )
+    other = PanoramaRecord(
+        id=str(uuid4()),
+        point_id=points[0].id,
+        title="测试其他全景",
+        url="https://example.edu/panorama",
+        revision=1,
+    )
+    db.add_all([portal, other])
+    db.commit()
+    calls = []
+    enable(
+        client,
+        lambda: json.dumps(
+            {
+                "answer": "可以查看全景",
+                "actions": [{"type": "focus_point", "point_id": points[0].id}],
+            }
+        ),
+        calls,
+    )
+    result = data(client, turn(m, points[0], query))
+    assert len(result["actions"]) == 1
+    action = result["actions"][0]
+    assert action["type"] == "open_vr" and action["resource_id"] == portal.id
+    assert action["point_id"] == points[1].id and action["resource_revision"] == 3
+    assert '"campus_portal": true' in calls[-1][1]["Query"]
+    assert any("官方全景入口" in notice for notice in result["notices"])
+
+
+def test_campus_panorama_preserves_specific_building_scope_and_rechecks_withdrawal(client, db):
+    _, m, points, _ = setup_roads(client, db)
+    portal = PanoramaRecord(
+        id=str(uuid4()),
+        point_id=points[1].id,
+        title="测试官方入口",
+        url="https://stjgpt.nankai.edu.cn/index-jn.php#scene_4744",
+        revision=1,
+    )
+    db.add(portal)
+    db.commit()
+    enable(
+        client,
+        lambda: json.dumps(
+            {"answer": "请查看全景", "actions": [{"type": "focus_point", "point_id": points[0].id}]}
+        ),
+        [],
+    )
+    for query in ["打开图书馆全景", "看看这个地点的VR"]:
+        result = data(client, turn(m, points[0], query))
+        assert not result["actions"] and result["notices"]
+    payload = turn(m, points[0], "打开校园全景地图")
+    action = data(client, payload)["actions"][0]
+    portal.status = "retired"
+    db.commit()
+    response = client.post(
+        "/api/v1/agent/actions/resolve", json={"action": action, "context": payload["context"]}
+    )
+    assert response.status_code == 404
+    assert not data(client, turn(m, points[0], "打开校园全景地图"))["actions"]
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://stjgpt.nankai.edu.cn/index-jn.php#scene_1", True),
+        ("https://stjgpt.nankai.edu.cn:443/index-jn.php", True),
+        ("http://stjgpt.nankai.edu.cn/index-jn.php", False),
+        ("https://stjgpt.nankai.edu.cn.evil.example/index-jn.php", False),
+        ("https://stjgpt.nankai.edu.cn/other.php", False),
+        ("https://user@stjgpt.nankai.edu.cn/index-jn.php", False),
+        ("https://stjgpt.nankai.edu.cn:444/index-jn.php", False),
+    ],
+)
+def test_official_portal_match_is_exact(url, expected):
+    from app.modules.assistant import official_campus_panorama
+
+    assert official_campus_panorama(url) is expected
+
+
+def test_campus_tour_action_uses_first_stop_only_for_map_focus_and_rejects_other_anchor(client, db):
+    _, m, points, _ = setup_roads(client, db)
+    tour = add_experience(
+        db,
+        points[0],
+        "tour",
+        title="测试全校主题",
+        stops=[
+            {"point_id": points[1].id, "prompt_timing": "manual"},
+            {"point_id": points[0].id, "prompt_timing": "manual"},
+        ],
+    )
+    calls = []
+    enable(client, lambda: "可以查看已发布主题", calls)
+    payload = turn(m, points[0], "推荐校园参观路线")
+    action = data(client, payload)["actions"][0]
+    assert tour.point_id is None
+    assert action["type"] == "show_tour" and action["point_id"] == points[1].id
+    assert action["resource_id"] == tour.id
+    assert '"campus_id": "nku-jinnan"' in calls[-1][1]["Query"]
+    response = client.post(
+        "/api/v1/agent/actions/resolve",
+        json={"action": {**action, "point_id": points[0].id}, "context": payload["context"]},
+    )
+    assert response.status_code == 404

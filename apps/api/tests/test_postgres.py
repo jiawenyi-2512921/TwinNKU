@@ -30,7 +30,7 @@ def test_postgres_migration_and_seed():
             )
             assert (
                 db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0007_experiences"
+                == "0008_campus_tours"
             )
     finally:
         engine.dispose()
