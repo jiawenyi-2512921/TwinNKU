@@ -36,6 +36,9 @@ export function createCatalogRefresh<T>(options: {
         if (!disposed && !pending) options.failed();
       } finally {
         clearTimeout(timeout);
+        // A parallel read may fail before its siblings finish. Stop all work
+        // owned by this refresh before the next attempt or component teardown.
+        request.abort();
       }
     } while (pending && !disposed);
     controller = null;
