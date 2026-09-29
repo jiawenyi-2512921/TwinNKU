@@ -340,6 +340,10 @@ class ExperienceUploadRecord(Base):
 class ExperienceRecord(Base):
     __tablename__ = "experiences"
     __table_args__ = (
+        CheckConstraint(
+            "(kind = 'tour' AND point_id IS NULL) OR (kind <> 'tour' AND point_id IS NOT NULL)",
+            name="ck_experiences_point_binding",
+        ),
         CheckConstraint("kind IN ('media','checkin','tour')", name="ck_experiences_kind"),
         CheckConstraint("status IN ('draft','published','retired')", name="ck_experiences_status"),
         CheckConstraint(
@@ -352,7 +356,13 @@ class ExperienceRecord(Base):
         ),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    point_id: Mapped[str] = mapped_column(ForeignKey("points.id", ondelete="RESTRICT"), index=True)
+    point_id: Mapped[str | None] = mapped_column(
+        ForeignKey("points.id", ondelete="RESTRICT"), index=True, nullable=True
+    )
+    campus_id: Mapped[str] = mapped_column(
+        ForeignKey("campuses.id", ondelete="RESTRICT", name="fk_experiences_campus_id_campuses"),
+        index=True,
+    )
     kind: Mapped[str] = mapped_column(String(16))
     revision: Mapped[int] = mapped_column(Integer, default=1)
     published_revision: Mapped[int] = mapped_column(Integer, default=0)
