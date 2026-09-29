@@ -370,7 +370,11 @@ function mapHarness() {
     picks = [],
     details = [],
     markers = [],
-    options = [];
+    options = [],
+    fits = [],
+    groups = [],
+    tileWatches = [],
+    lifecycle = [];
   const element = () => ({
     attributes: {},
     listeners: {},
@@ -408,13 +412,32 @@ function mapHarness() {
       options.push(config);
       return {
         setMaxBounds() {},
-        fitBounds() {},
+        fitBounds(...args) {
+          fits.push(args);
+        },
+        getSize() {
+          return { x: 1000, y: 600 };
+        },
         invalidateSize() {},
-        remove() {},
+        remove() {
+          lifecycle.push("map removed");
+        },
       };
     },
-    tileLayer: layer,
-    layerGroup: layer,
+    tileLayer() {
+      return {
+        ...layer(),
+        addTo() {
+          lifecycle.push("tiles added");
+          return this;
+        },
+      };
+    },
+    layerGroup() {
+      const group = layer();
+      groups.push(group);
+      return group;
+    },
     latLngBounds: () => bounds,
     divIcon: (value) => value,
     marker(point, config) {
@@ -492,11 +515,34 @@ function mapHarness() {
       disconnect() {}
     },
     document: { createElement: element, createElementNS: element },
+    window: {
+      setTimeout,
+      clearTimeout,
+      matchMedia: () => ({ matches: false }),
+    },
     require(name) {
       if (name === "react") return h.react;
       if (name === "react/jsx-runtime") return jsx;
       if (name === "leaflet") return leaflet;
       if (name === "./labelCorrections") return { appendMapLabelCorrections };
+      if (name === "./tileLoad")
+        return {
+          watchMapTiles(_layer, _map, onChange) {
+            lifecycle.push("tiles observed");
+            const controller = {
+              onChange,
+              retries: 0,
+              retry() {
+                this.retries++;
+              },
+              dispose() {
+                lifecycle.push("tiles released");
+              },
+            };
+            tileWatches.push(controller);
+            return controller;
+          },
+        };
       if (name.endsWith(".css")) return {};
       if (name === "./coordinates")
         return { imageBounds: () => bounds, toMapPoint: (p) => [p.x, p.y] };
@@ -511,6 +557,10 @@ function mapHarness() {
     details,
     markers,
     options,
+    fits,
+    groups,
+    tileWatches,
+    lifecycle,
     get cancelled() {
       return cancelled;
     },
@@ -550,4 +600,90 @@ test("map picks never open details; keyboard, Escape and endpoint badges work wi
   } finally {
     h.dispose();
   }
+});
+
+test("unrelated renders with fresh empty routes do not snap a selected map back or recreate empty layers", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const h = mapHarness();
+  try {
+    h.props.selectedId = "a";
+    h.props.routePickMode = null;
+    h.render();
+    t.mock.timers.tick(30);
+    assert.equal(
+      h.fits.length,
+      2,
+      "initial campus fit plus selected point fit",
+    );
+    const groupCount = h.groups.length;
+    for (let i = 0; i < 3; i++) {
+      h.props.routeSegments = [];
+      h.props.onSelect = () => {};
+      h.render();
+      t.mock.timers.tick(30);
+    }
+    assert.equal(h.options.length, 1, "map remains mounted");
+    assert.equal(h.tileWatches.length, 1, "tile lifecycle remains attached");
+    assert.equal(
+      h.fits.length,
+      2,
+      "polls and search renders leave the user's viewport alone",
+    );
+    assert.equal(
+      h.groups.length,
+      groupCount,
+      "empty route renders create no layers",
+    );
+    h.props.selectedId = "b";
+    h.render();
+    t.mock.timers.tick(30);
+    assert.equal(
+      h.fits.length,
+      3,
+      "explicitly selecting another point still focuses it",
+    );
+  } finally {
+    h.dispose();
+  }
+});
+
+test("omitted optional array props are stable and tile retry does not recreate the map", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const h = mapHarness();
+  delete h.props.routeSegments;
+  delete h.props.routeAvailablePointIds;
+  h.props.routePickMode = null;
+  h.props.selectedId = "a";
+  try {
+    h.render();
+    t.mock.timers.tick(30);
+    assert.deepEqual(h.lifecycle, ["tiles observed", "tiles added"]);
+    const groupCount = h.groups.length,
+      polygonCount = h.polygons.length;
+    h.tileWatches[0].onChange({ failed: 1, retrying: false });
+    const tree = h.render();
+    const retry = walk(tree, (node) => node.type === "button")[0];
+    assert.equal(retry.props.disabled, false);
+    retry.props.onClick();
+    assert.equal(h.tileWatches[0].retries, 1);
+    h.tileWatches[0].onChange({ failed: 1, retrying: true });
+    assert.equal(
+      walk(h.render(), (node) => node.type === "button")[0].props.disabled,
+      true,
+    );
+    h.tileWatches[0].onChange({ failed: 0, retrying: false });
+    assert.equal(
+      walk(h.render(), (node) => node.props?.className === "tile-warning")
+        .length,
+      0,
+    );
+    t.mock.timers.tick(30);
+    assert.equal(h.fits.length, 2);
+    assert.equal(h.groups.length, groupCount);
+    assert.equal(h.polygons.length, polygonCount);
+    assert.equal(h.options.length, 1);
+  } finally {
+    h.dispose();
+  }
+  assert.deepEqual(h.lifecycle.slice(-2), ["tiles released", "map removed"]);
 });

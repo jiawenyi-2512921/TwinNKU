@@ -227,3 +227,83 @@ test("catalog loads later pages, excludes unmapped points and fails on truncated
   revision = 2;
   await assert.rejects(loadCatalog(source, signal), /revision/);
 });
+
+test("campus loading is independent of status and overlaps points with map and geometry reads", async () => {
+  const maps = deferred(),
+    points = deferred(),
+    events = [];
+  const signal = new AbortController().signal;
+  const source = {
+    status: () => assert.fail("status is not a prerequisite for public maps"),
+    campuses: async () => ({ data: [{ id: "nku-jinnan" }] }),
+    maps: (_campus, receivedSignal, kind) => {
+      assert.equal(receivedSignal, signal);
+      assert.equal(kind, "campus");
+      events.push("maps");
+      return maps.promise;
+    },
+    points: () => {
+      events.push("points");
+      return points.promise;
+    },
+    mapFeatures: async () => {
+      events.push("features");
+      return {
+        data: { map_id: "m", map_revision: 3, points: [{ point_id: "p" }] },
+      };
+    },
+  };
+  const loading = loadCatalog(source, signal);
+  await tick();
+  assert.deepEqual(events, ["maps", "points"]);
+  maps.resolve({ data: [{ id: "m", revision: 3, kind: "campus", tiles: {} }] });
+  await tick();
+  assert.deepEqual(events, ["maps", "points", "features"]);
+  points.resolve({ data: [{ id: "p", name: "图书馆" }], meta: {} });
+  assert.equal((await loading).points[0].id, "p");
+});
+
+test("disabled or unpublished campus maps remain empty without bypassing the public API", async () => {
+  const result = await loadCatalog(
+    {
+      status: () => assert.fail("no status request"),
+      campuses: async () => ({ data: [{ id: "nku-jinnan" }] }),
+      maps: async () => ({ data: [{ id: "f", kind: "floor", tiles: null }] }),
+      points: async () => ({ data: [], meta: {} }),
+      mapFeatures: () => assert.fail("never request unavailable geometry"),
+    },
+    new AbortController().signal,
+  );
+  assert.equal(result.map, null);
+  assert.equal(result.features, null);
+});
+
+test("a failed parallel catalog read cancels siblings before they can start more requests", async () => {
+  const maps = deferred();
+  let receivedSignal;
+  const source = {
+    campuses: async () => ({ data: [{ id: "nku-jinnan" }] }),
+    maps: (_campus, signal) => {
+      receivedSignal = signal;
+      return maps.promise; // A transport that resolves late despite cancellation.
+    },
+    points: async () => {
+      throw new Error("offline");
+    },
+    mapFeatures: () =>
+      assert.fail("a completed failed refresh must not start geometry reads"),
+  };
+  let failures = 0;
+  const sync = createCatalogRefresh({
+    load: (signal) => loadCatalog(source, signal),
+    apply: () => assert.fail("never apply a partial catalog"),
+    failed: () => failures++,
+    busy: () => {},
+  });
+  await sync.refresh();
+  assert.equal(failures, 1);
+  assert.equal(receivedSignal.aborted, true);
+  maps.resolve({ data: [{ id: "m", revision: 3, kind: "campus", tiles: {} }] });
+  await tick();
+  sync.dispose();
+});

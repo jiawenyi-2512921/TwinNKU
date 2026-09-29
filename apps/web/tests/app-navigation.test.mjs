@@ -279,6 +279,24 @@ function app(initialHref) {
 }
 const baseHref = `https://guide.example/?point=${pointA}&channel=official#map`;
 
+test("unrelated root renders keep the empty route identity stable for the map", () => {
+  const testApp = app(baseHref);
+  testApp.render();
+  const segments = testApp.node("MapCanvas").props.routeSegments;
+  assert.equal(segments.length, 0);
+  // Opening a help panel should not recreate route layers or recenter a map.
+  const help = walk(
+    testApp.render(),
+    (node) =>
+      node.type === "button" && node.props["aria-label"] === "使用帮助与刷新",
+  )[0];
+  assert.ok(help);
+  help.props.onClick();
+  testApp.render();
+  assert.equal(testApp.node("MapCanvas").props.routeSegments, segments);
+  testApp.dispose();
+});
+
 test("experience deep link restores, tour navigation hides without unmounting and close returns", () => {
   const testApp = app(
     baseHref.replace("#map", `&experience=${experienceId}#map`),
