@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from app.models import CampusRecord, MapImportRecord, MapRecord, PointRecord
+from app.models import CampusRecord, FloorRecord, MapImportRecord, MapRecord, PointRecord
 from app.modules.maps.import_bundle import MapBundle, import_bundle
 
 
@@ -100,9 +100,125 @@ def test_read_map_features_and_original_tile(client, db, bundle):
     assert len(client.get(f"/api/v1/maps/{m}/features").json()["data"]["points"]) == 1
     tile = client.get(f"/api/v1/maps/{m}/tiles/1/0/0/0.png")
     assert tile.content == PNG and tile.headers["content-type"] == "image/png"
-    assert tile.headers["cache-control"] == "no-store"
+    assert tile.headers["cache-control"] == "private, no-cache"
     for suffix in ["2/0/0/0.png", "1/9/0/0.png", "1/0/-1/0.png", "1/0/1/0.png"]:
         assert client.get(f"/api/v1/maps/{m}/tiles/{suffix}").status_code == 404
+
+
+@pytest.mark.parametrize("validator", ["exact", "weak", "list", "wildcard", "repeated"])
+def test_tiles_revalidate_without_resending_original_bytes(client, db, bundle, validator):
+    _, data = install(bundle, db, client)
+    url = f"/api/v1/maps/{data['map']['id']}/tiles/1/0/0/0.png"
+    original = client.get(url)
+    etag = original.headers["etag"]
+    headers = {
+        "exact": [("If-None-Match", etag)],
+        "weak": [("If-None-Match", f"W/{etag}")],
+        "list": [("If-None-Match", f'"unrelated", W/{etag}, "other"')],
+        "wildcard": [("If-None-Match", "*")],
+        "repeated": [("If-None-Match", '"unrelated"'), ("If-None-Match", etag)],
+    }[validator]
+    cached = client.get(url, headers=headers)
+    assert cached.status_code == 304 and cached.content == b""
+    assert cached.headers["cache-control"] == "private, no-cache"
+    assert cached.headers["etag"] == etag
+    assert cached.headers["last-modified"] == original.headers["last-modified"]
+    assert cached.headers["x-content-type-options"] == "nosniff"
+    assert cached.headers["x-request-id"] != original.headers["x-request-id"]
+    changed = client.get(url, headers={"If-None-Match": '"unrelated"'})
+    assert changed.status_code == 200 and changed.content == PNG
+
+
+@pytest.mark.parametrize(
+    "change", ["withdraw", "restricted", "inactive", "disabled", "revision", "missing", "escape"]
+)
+def test_cached_tiles_recheck_authorization_revision_and_file(client, db, bundle, change):
+    _, data = install(bundle, db, client)
+    m = data["map"]["id"]
+    url = f"/api/v1/maps/{m}/tiles/1/0/0/0.png"
+    etag = client.get(url).headers["etag"]
+    tile = client.app.state.settings.map_assets_dir / m / "1/tiles/0/0/0.png"
+    if change == "withdraw":
+        db.get(MapRecord, m).status = "retired"
+    elif change == "restricted":
+        db.get(MapRecord, m).visibility = "restricted"
+    elif change == "inactive":
+        db.get(CampusRecord, "nku-jinnan").is_active = False
+    elif change == "disabled":
+        client.app.state.settings.map_enabled = False
+    elif change == "revision":
+        db.get(MapRecord, m).revision = 2
+    elif change in {"missing", "escape"}:
+        tile.unlink()
+        if change == "escape":
+            tile.symlink_to(bundle[0] / "tiles/0/0/0.png")
+    db.commit()
+    for validator in (etag, "*"):
+        result = client.get(url, headers={"If-None-Match": validator})
+        assert result.status_code == 404
+        assert result.headers["cache-control"] == "no-store"
+        assert "etag" not in result.headers
+
+
+def test_tile_validator_cannot_bypass_tile_boundaries(client, db, bundle):
+    _, data = install(bundle, db, client)
+    for suffix in ["2/0/0/0.png", "1/9/0/0.png", "1/0/-1/0.png", "1/0/1/0.png"]:
+        result = client.get(
+            f"/api/v1/maps/{data['map']['id']}/tiles/{suffix}", headers={"If-None-Match": "*"}
+        )
+        assert result.status_code == 404 and result.headers["cache-control"] == "no-store"
+
+
+def test_map_kind_filter_preserves_legacy_listing_and_public_visibility(client, db, bundle):
+    _, data = install(bundle, db, client)
+    campus_map = db.get(MapRecord, data["map"]["id"])
+    floor_map_id, floor_id = str(uuid4()), str(uuid4())
+    db.add(MapRecord(
+        id=floor_map_id,
+        campus_id=campus_map.campus_id,
+        title="Test floor",
+        kind="floor",
+        revision=1,
+        width_px=100,
+        height_px=100,
+        image_asset_id=str(uuid4()),
+        source_sha256="b" * 64,
+        tile_size=512,
+        max_native_zoom=0,
+        attribution="Test only",
+        status="published",
+        visibility="public",
+    ))
+    db.flush()
+    db.add(FloorRecord(
+        id=floor_id,
+        point_id=data["points"][0]["point"]["id"],
+        map_id=floor_map_id,
+        label="一层",
+        ordinal=1,
+        revision=1,
+        attribution="Test only",
+        status="published",
+        visibility="public",
+        manifest_sha256="b" * 64,
+        images=[],
+    ))
+    db.commit()
+    base = "/api/v1/campuses/nku-jinnan/maps"
+    assert {m["id"] for m in client.get(base).json()["data"]} == {campus_map.id, floor_map_id}
+    for kind, expected in [("campus", campus_map.id), ("floor", floor_map_id)]:
+        result = client.get(base, params={"kind": kind}, headers={"If-None-Match": "*"})
+        assert result.status_code == 200
+        assert result.headers["cache-control"] == "no-store"
+        assert [m["id"] for m in result.json()["data"]] == [expected]
+    invalid = client.get(base, params={"kind": "unknown"})
+    assert invalid.status_code == 422 and invalid.headers["cache-control"] == "no-store"
+    db.get(FloorRecord, floor_id).visibility = "restricted"
+    db.commit()
+    assert client.get(base, params={"kind": "floor"}).json()["data"] == []
+    assert [m["id"] for m in client.get(base).json()["data"]] == [campus_map.id]
+    client.app.state.settings.map_enabled = False
+    assert client.get(base, params={"kind": "campus"}).json()["data"] == []
 
 
 def test_draft_or_disabled_map_cannot_be_read_even_by_direct_tile_url(client, db, bundle):
