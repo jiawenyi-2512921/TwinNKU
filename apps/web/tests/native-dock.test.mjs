@@ -37,8 +37,10 @@ const words = (tree) =>
   Array.isArray(tree)
     ? tree.map(words).join("")
     : tree && typeof tree === "object"
-      ? words(tree.props?.children)
-      : tree == null
+      ? tree.props?.className?.split(" ").includes("sr-only")
+        ? ""
+        : words(tree.props?.children)
+      : tree == null || typeof tree === "boolean"
         ? ""
         : String(tree);
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -64,7 +66,7 @@ const reply = {
   ],
   notices: [],
 };
-function harness() {
+function harness({ voiceEnvironment = {}, sessionError } = {}) {
   const slots = [],
     cleanups = new Map(),
     pending = [],
@@ -72,7 +74,8 @@ function harness() {
     actions = [],
     tabs = [],
     events = [],
-    resourceReads = [];
+    resourceReads = [],
+    sessionReads = [];
   let index = 0,
     navigation = 0,
     cancelledActions = 0,
@@ -80,7 +83,19 @@ function harness() {
     response = reply,
     resourceResolver,
     blocked = false,
-    catalogInvalidation;
+    catalogInvalidation,
+    sessionResolver,
+    voiceCallbacks;
+  const visibilityListeners = new Set();
+  const document = {
+    visibilityState: "visible",
+    addEventListener(type, callback) {
+      if (type === "visibilitychange") visibilityListeners.add(callback);
+    },
+    removeEventListener(type, callback) {
+      if (type === "visibilitychange") visibilityListeners.delete(callback);
+    },
+  };
   const browser = {
     confirm: () => true,
     location: { href: "https://guide.test/?point=point-1&experience=tour-1" },
@@ -159,20 +174,30 @@ function harness() {
     exports,
     AbortController,
     crypto: { randomUUID },
-    document: {
-      visibilityState: "visible",
-      addEventListener() {},
-      removeEventListener() {},
-    },
+    document,
     window: browser,
     require(name) {
       if (name === "react") return react;
       if (name === "react/jsx-runtime") return jsx;
       if (name.endsWith("/Icon")) return { Icon: () => null };
       if (name === "./Companion") return { Companion: "companion" };
+      if (name === "./useCompanionPosition")
+        return {
+          useCompanionPosition: () => ({
+            containerRef: { current: null },
+            style: {},
+            buttonProps: { onClickCapture: () => {} },
+            resetPosition() {},
+          }),
+        };
       if (name.endsWith("/client"))
         return {
-          get: async () => ({ data: { csrf_token: "csrf" } }),
+          get: async (path) => {
+            sessionReads.push(path);
+            if (sessionResolver) return sessionResolver();
+            if (sessionError) throw sessionError;
+            return { data: { csrf_token: "csrf" } };
+          },
           api: {
             async panoramas(pointId, signal) {
               resourceReads.push({ pointId, signal });
@@ -196,7 +221,13 @@ function harness() {
       if (name === "./protocol")
         return { contextQuestion: () => "介绍当前地点" };
       if (name === "./voice")
-        return { createVoiceConversation, browserVoiceEnvironment: () => ({}) };
+        return {
+          createVoiceConversation(environment, callbacks) {
+            voiceCallbacks = callbacks;
+            return createVoiceConversation(environment, callbacks);
+          },
+          browserVoiceEnvironment: () => voiceEnvironment,
+        };
       if (name === "./native.css") return {};
       if (name === "./native")
         return {
@@ -208,6 +239,7 @@ function harness() {
             if (path === "/agent/chat") return response;
             if (path === "/agent/actions/resolve")
               return resolver ? resolver(body) : body.action;
+            if (path === "/agent/login") return { csrf_token: "csrf" };
             throw new Error(path);
           },
         };
@@ -241,7 +273,18 @@ function harness() {
     tabs,
     events,
     resourceReads,
+    sessionReads,
+    get voiceCallbacks() {
+      return voiceCallbacks;
+    },
     browser,
+    setSessionResolver(value) {
+      sessionResolver = value;
+    },
+    setVisibility(value) {
+      document.visibilityState = value;
+      for (const listener of visibilityListeners) listener();
+    },
     setReply(value) {
       response = value;
     },
@@ -264,13 +307,20 @@ function harness() {
       return cancelledActions;
     },
     async open() {
-      button("问小开").props.onClick();
+      const minimized = find(
+        render(),
+        (node) => node.type === "companion" && node.props.label === "展开小开",
+      )[0];
+      minimized?.props.onClick();
+      button("文字交流与记录").props.onClick();
       render();
       await settle();
       render();
+      button("收起文字抽屉").props.onClick();
     },
     async ask(question = "从这里到图书馆怎么走") {
-      button("文字交流与记录").props.onClick();
+      if (!find(render(), (node) => node.type === "textarea").length)
+        button("文字交流与记录").props.onClick();
       find(render(), (node) => node.type === "textarea")[0].props.onChange({
         target: { value: question },
       });
@@ -293,15 +343,17 @@ test("navigation leaves the companion with short captions and reopening preserve
   await h.ask();
   h.button("前往图书馆").props.onClick();
   await settle();
-  let dialog = find(
+  const caption = find(
     h.render(),
-    (node) => node.props?.id === "native-agent-panel",
+    (node) => node.props?.id === "native-agent-captions",
   )[0];
-  assert.ok(dialog);
-  assert.equal(dialog.props.role, "region");
-  assert.equal(dialog.props["aria-modal"], undefined);
-  assert.equal(dialog.props.className.includes("is-expanded"), false);
-  assert.match(words(dialog), /已经找到可用路线/);
+  assert.ok(caption);
+  assert.equal(caption.props.role, "status");
+  assert.equal(
+    find(h.render(), (node) => node.props?.role === "dialog").length,
+    0,
+  );
+  assert.match(words(caption), /已打开路线规划/);
   assert.equal(h.actions.length, 1);
   h.button("文字交流与记录").props.onClick();
   assert.match(words(h.render()), /从这里到图书馆怎么走/);
@@ -311,6 +363,7 @@ test("navigation leaves the companion with short captions and reopening preserve
     0,
   );
   await h.open();
+  h.button("文字交流与记录").props.onClick();
   assert.match(words(h.render()), /已经找到可用路线/);
   h.unmount();
 });
@@ -327,9 +380,7 @@ test("material selection resolves an internal action without a full page link", 
   assert.equal(request.body.action.type, "focus_point");
   assert.equal(request.body.action.point_revision, 3);
   assert.equal(h.actions[0].point_id, "point-2");
-  assert.ok(
-    find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
-  );
+  assert.ok(find(h.render(), (node) => node.type === "companion").length);
   h.unmount();
 });
 
@@ -361,13 +412,12 @@ test("context changing while an action resolves cannot move the newly selected m
 test("map navigation remains available beside unsupported voice with typed fallback", async () => {
   const h = harness();
   await h.open();
+  h.button("开启语音交流").props.onClick();
   assert.match(words(h.render()), /不支持语音识别/);
-  assert.equal(h.button("开启语音交流").props.disabled, true);
+  h.button("文字交流与记录").props.onClick();
   h.button("地图选点导航").props.onClick();
   assert.equal(h.navigation, 1);
-  assert.ok(
-    find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
-  );
+  assert.ok(find(h.render(), (node) => node.type === "companion").length);
   h.button("文字交流与记录").props.onClick();
   assert.equal(find(h.render(), (node) => node.type === "textarea").length, 1);
   h.unmount();
@@ -475,7 +525,7 @@ test("one explicit VR click reserves a detached tab before awaits and opens only
     before,
     "existing map/tour selection survives",
   );
-  assert.match(words(h.render()), /点击按钮在学校原网站查看全景/);
+  assert.match(words(h.render()), /已请求在新标签页打开全景/);
   h.unmount();
   assert.equal(
     h.tabs[0].closed,
@@ -593,8 +643,9 @@ test("publication or resume invalidates blocked-popup fallback while preserving 
   assert.equal(find(h.render(), (node) => node.type === "a").length, 1);
   h.invalidateCatalog();
   assert.equal(find(h.render(), (node) => node.type === "a").length, 0);
-  assert.match(words(h.render()), /点击按钮在学校原网站查看全景/);
   assert.match(words(h.render()), /资料可能已更新/);
+  h.button("文字交流与记录").props.onClick();
+  assert.match(words(h.render()), /点击按钮在学校原网站查看全景/);
   h.button("打开全景").props.onClick();
   await settle();
   assert.equal(
@@ -610,11 +661,11 @@ test("authenticated companion stays present with compact captions and optional t
   const h = harness();
   assert.equal(find(h.render(), (node) => node.type === "companion").length, 1);
   await h.open();
-  const compact = find(
-    h.render(),
-    (node) => node.props?.id === "native-agent-panel",
-  )[0];
-  assert.equal(compact.props.role, "region");
+  assert.equal(
+    find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
+    0,
+  );
+  assert.equal(words(h.render()), "");
   assert.equal(find(h.render(), (node) => node.type === "textarea").length, 0);
   h.button("文字交流与记录").props.onClick();
   assert.equal(
@@ -649,7 +700,8 @@ test("only one matching server-marked action executes automatically", async () =
       assert.equal(h.actions[0].type, "show_route");
       assert.match(words(h.render()), /已打开路线规划/);
       assert.equal(
-        find(h.render(), (node) => node.props?.role === "region").length,
+        find(h.render(), (node) => node.props?.id === "native-agent-captions")
+          .length,
         1,
       );
     }
@@ -891,4 +943,255 @@ test("closing and reopening while chat waits cannot revive the old automatic com
     assert.equal(h.cancelledActions, 1);
     h.unmount();
   }
+});
+
+function browserMic() {
+  let starts = 0,
+    aborts = 0;
+  const recognition = {
+    start() {
+      starts++;
+    },
+    abort() {
+      aborts++;
+    },
+  };
+  return {
+    environment: { recognize: () => recognition },
+    recognition,
+    get starts() {
+      return starts;
+    },
+    get aborts() {
+      return aborts;
+    },
+  };
+}
+
+test("resting fairy has only icon controls, no unsolicited session request, login, or microphone", () => {
+  const mic = browserMic();
+  const h = harness({ voiceEnvironment: mic.environment });
+  const tree = h.render();
+  assert.equal(h.sessionReads.length, 0);
+  assert.equal(mic.starts, 0);
+  assert.equal(words(tree), "");
+  assert.equal(
+    find(
+      tree,
+      (node) =>
+        node.type === "textarea" ||
+        node.type === "input" ||
+        node.props?.role === "dialog",
+    ).length,
+    0,
+  );
+  for (const label of [
+    "开启语音交流",
+    "文字交流与记录",
+    "收起小开并暂停语音",
+  ]) {
+    const control = h.button(label);
+    assert.equal(words(control), "");
+    assert.ok(control.props["aria-label"] || control.props.label);
+  }
+  const fairy = find(tree, (node) => node.type === "companion")[0];
+  assert.equal(typeof fairy.props.buttonProps.onClickCapture, "function");
+  h.unmount();
+});
+
+test("an explicit fairy tap restores the session and starts voice without opening typing", async () => {
+  const mic = browserMic();
+  const h = harness({ voiceEnvironment: mic.environment });
+  find(h.render(), (node) => node.type === "companion")[0].props.onClick();
+  h.render();
+  await settle();
+  assert.equal(h.sessionReads.length, 1);
+  assert.equal(mic.starts, 1);
+  assert.equal(
+    find(
+      h.render(),
+      (node) => node.type === "textarea" || node.props?.role === "dialog",
+    ).length,
+    0,
+  );
+  assert.equal(
+    find(h.render(), (node) => node.type === "companion")[0].props.phase,
+    "listening",
+  );
+  h.button("暂停语音交流").props.onClick();
+  assert.equal(mic.aborts, 1);
+  h.unmount();
+});
+
+test("typing is opt-in and never starts the microphone", async () => {
+  const mic = browserMic();
+  const h = harness({ voiceEnvironment: mic.environment });
+  h.button("文字交流与记录").props.onClick();
+  h.render();
+  await settle();
+  assert.equal(mic.starts, 0);
+  assert.equal(find(h.render(), (node) => node.type === "textarea").length, 1);
+  h.button("收起文字抽屉").props.onClick();
+  assert.equal(find(h.render(), (node) => node.type === "textarea").length, 0);
+  assert.equal(words(h.render()), "");
+  h.unmount();
+});
+
+test("authentication appears only after requesting voice and login resumes that request", async () => {
+  const mic = browserMic();
+  const h = harness({
+    voiceEnvironment: mic.environment,
+    sessionError: new NativeError("需要口令", 401),
+  });
+  assert.equal(find(h.render(), (node) => node.type === "input").length, 0);
+  h.button("开启语音交流").props.onClick();
+  h.render();
+  await settle();
+  assert.equal(mic.starts, 0);
+  const input = find(h.render(), (node) => node.type === "input")[0];
+  assert.equal(input.props.type, "password");
+  input.props.onChange({ target: { value: "test-access-code-for-ui" } });
+  find(
+    h.render(),
+    (node) => node.type === "form" && node.props.className === "native-login",
+  )[0].props.onSubmit({ preventDefault() {} });
+  await settle();
+  assert.equal(mic.starts, 1);
+  assert.equal(
+    find(
+      h.render(),
+      (node) => node.type === "input" || node.type === "textarea",
+    ).length,
+    0,
+  );
+  h.unmount();
+});
+
+test("closing during session restore cannot start a microphone from a stale success", async () => {
+  const mic = browserMic();
+  const h = harness({ voiceEnvironment: mic.environment });
+  let finish;
+  h.setSessionResolver(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  h.button("开启语音交流").props.onClick();
+  h.render();
+  h.button("收起小开并暂停语音").props.onClick();
+  h.render();
+  finish({ data: { csrf_token: "csrf" } });
+  await settle();
+  assert.equal(mic.starts, 0);
+  assert.equal(
+    find(h.render(), (node) => node.props?.role === "dialog").length,
+    0,
+  );
+  assert.equal(
+    find(h.render(), (node) => node.type === "companion")[0].props.label,
+    "展开小开",
+  );
+  h.unmount();
+});
+
+test("a backgrounded page does not start voice when a requested session finishes", async () => {
+  const mic = browserMic();
+  const h = harness({ voiceEnvironment: mic.environment });
+  let finish;
+  h.setSessionResolver(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  h.button("开启语音交流").props.onClick();
+  h.render();
+  h.setVisibility("hidden");
+  finish({ data: { csrf_token: "csrf" } });
+  await settle();
+  assert.equal(mic.starts, 0);
+  assert.match(words(h.render()), /页面已切到后台/);
+  h.setVisibility("visible");
+  assert.equal(mic.starts, 0);
+  h.unmount();
+});
+
+test("expired restored session stops the active recognizer before showing authentication", async () => {
+  const mic = browserMic();
+  const h = harness({ voiceEnvironment: mic.environment });
+  await h.open();
+  h.button("收起小开并暂停语音").props.onClick();
+  h.render();
+  let fail;
+  h.setSessionResolver(
+    () =>
+      new Promise((_, reject) => {
+        fail = reject;
+      }),
+  );
+  find(h.render(), (node) => node.type === "companion")[0].props.onClick();
+  h.button("开启语音交流").props.onClick();
+  h.render();
+  assert.equal(mic.starts, 1);
+  fail(new NativeError("会话过期", 401));
+  await settle();
+  assert.equal(mic.aborts, 1);
+  assert.equal(
+    find(h.render(), (node) => node.type === "input")[0].props.type,
+    "password",
+  );
+  assert.equal(
+    find(h.render(), (node) => node.type === "companion")[0].props.phase,
+    "idle",
+  );
+  h.unmount();
+});
+
+test("speech captions follow actual callbacks, recognized speech takes precedence and source actions stay in drawer", async () => {
+  const h = harness();
+  await h.open();
+  await h.ask();
+  h.button("收起文字抽屉").props.onClick();
+  h.voiceCallbacks.onPhase("speaking");
+  h.voiceCallbacks.onCaption("正在朗读的第二句。");
+  assert.equal(
+    words(
+      find(h.render(), (node) => node.props?.id === "native-agent-captions")[0],
+    ),
+    "正在朗读的第二句。",
+  );
+  h.voiceCallbacks.onTranscript("用户当前说的话");
+  assert.equal(
+    words(
+      find(h.render(), (node) => node.props?.id === "native-agent-captions")[0],
+    ),
+    "用户当前说的话",
+  );
+  assert.equal(
+    find(
+      h.render(),
+      (node) => node.type === "button" && words(node).includes("前往图书馆"),
+    ).length,
+    0,
+  );
+  h.button("文字交流与记录").props.onClick();
+  assert.ok(h.button("前往图书馆"));
+  assert.match(words(h.render()), /已经找到可用路线/);
+  h.unmount();
+});
+
+test("minimize pauses voice and expanding the small fairy does not restart it", async () => {
+  const mic = browserMic();
+  const h = harness({ voiceEnvironment: mic.environment });
+  h.button("开启语音交流").props.onClick();
+  h.render();
+  await settle();
+  h.button("收起小开并暂停语音").props.onClick();
+  assert.equal(mic.aborts, 1);
+  assert.equal(words(h.render()), "");
+  find(h.render(), (node) => node.type === "companion")[0].props.onClick();
+  assert.equal(mic.starts, 1);
+  assert.equal(find(h.render(), (node) => node.type === "textarea").length, 0);
+  h.unmount();
 });

@@ -12,6 +12,7 @@ function harness(
     utterances = [],
     phases = [],
     transcripts = [],
+    captions = [],
     notices = [],
     questions = [];
   let cancellations = 0;
@@ -56,6 +57,7 @@ function harness(
     onPhase: (value) => phases.push(value),
     onTranscript: (value) => transcripts.push(value),
     onNotice: (value) => notices.push(value),
+    onCaption: (value) => captions.push(value),
   });
   const result = (text, final = true) => ({
     results: [{ isFinal: final, 0: { transcript: text } }],
@@ -66,6 +68,7 @@ function harness(
     utterances,
     phases,
     transcripts,
+    captions,
     notices,
     questions,
     result,
@@ -180,7 +183,81 @@ test("missing synthesis uses answer captions and resumes listening without prete
   assert.match(h.notices.at(-1), /不能朗读.*字幕/);
   assert.equal(h.recognizers.length, 2);
   assert.equal(h.phases.at(-1), "listening");
+  assert.equal(h.captions.at(-1), "这是校园资料回答。");
   h.controller.stop();
+});
+
+test("spoken captions follow real boundaries while the full answer is spoken unchanged", async () => {
+  const answer = "图书馆有已发布的楼层图。请选择要查看的楼层。也可以继续提问。";
+  const h = harness(async () => answer);
+  h.controller.start();
+  h.recognizers[0].onresult(h.result("介绍图书馆"));
+  await settle();
+  const speech = h.utterances[0];
+  assert.equal(speech.text, answer);
+  assert.equal(h.captions.at(-1), "图书馆有已发布的楼层图。");
+  speech.onboundary({ charIndex: answer.indexOf("请选择") });
+  assert.equal(h.captions.at(-1), "请选择要查看的楼层。");
+  const count = h.captions.length;
+  speech.onboundary({ charIndex: answer.indexOf("查看") });
+  speech.onboundary({ charIndex: 0 });
+  speech.onboundary({ charIndex: NaN });
+  speech.onboundary({ charIndex: answer.length + 1 });
+  assert.equal(
+    h.captions.length,
+    count,
+    "unchanged, backward and invalid boundaries do not replace captions",
+  );
+  speech.onboundary({ charIndex: answer.indexOf("也可以") });
+  assert.equal(h.captions.at(-1), "也可以继续提问。");
+  speech.onend();
+  assert.equal(
+    h.captions.at(-1),
+    "也可以继续提问。",
+    "last caption remains readable while listening resumes",
+  );
+  assert.equal(speech.onboundary, null);
+  h.controller.stop();
+  assert.equal(h.captions.at(-1), "");
+});
+
+test("engines without speech boundary events retain a useful first caption without advancing on a timer", async () => {
+  const h = harness(
+    async () => "这是第一句。后面的完整回答仍保存在文字记录里。",
+  );
+  h.controller.start();
+  h.recognizers[0].onresult(h.result("介绍一下"));
+  await settle();
+  assert.deepEqual(h.captions, ["这是第一句。"]);
+  h.utterances[0].onend();
+  assert.deepEqual(h.captions, ["这是第一句。"]);
+  h.controller.stop();
+});
+
+test("interrupted or stopped utterance boundaries cannot overwrite the next answer caption", async () => {
+  let turn = 0;
+  const h = harness(async () =>
+    ++turn === 1
+      ? "旧回答第一句。旧回答第二句。"
+      : "新回答第一句。新回答第二句。",
+  );
+  h.controller.start();
+  h.recognizers[0].onresult(h.result("第一问"));
+  await settle();
+  const oldBoundary = h.utterances[0].onboundary;
+  h.controller.interrupt();
+  assert.equal(h.captions.at(-1), "");
+  assert.equal(h.utterances[0].onboundary, null);
+  assert.equal(h.cancellations, 1);
+  h.recognizers[1].onresult(h.result("第二问"));
+  await settle();
+  oldBoundary({ charIndex: 7 });
+  assert.equal(h.captions.at(-1), "新回答第一句。");
+  const newBoundary = h.utterances[1].onboundary;
+  h.controller.stop();
+  newBoundary({ charIndex: 7 });
+  assert.equal(h.captions.at(-1), "");
+  assert.equal(h.cancellations, 2);
 });
 
 test("failed question pauses; stop cancels existing speech and recognizer callbacks", async () => {
