@@ -4,6 +4,7 @@ import json
 import re
 import secrets
 import unicodedata
+from types import SimpleNamespace
 from typing import Literal
 from urllib.parse import urlencode, urlsplit
 from uuid import UUID, uuid4, uuid5
@@ -79,6 +80,7 @@ class GuideTurn(DTO):
 class GuideReply(DTO):
     answer: str
     actions: list[GuideAction]
+    automatic_action_id: UUID | None = None
     materials: list[GuideLink]
     context_revision: int
     notices: list[str]
@@ -159,6 +161,64 @@ def find_mentions(points, query):
 
 def normalize(value):
     return unicodedata.normalize("NFKC", value).casefold().strip()
+
+
+# These rules authorize a small set of explicit browsing commands, not arbitrary
+# model suggestions. Unrecognized wording remains available as a manual choice.
+NEGATED_ACTION = re.compile(
+    r"不要|不用|不需要|不想|不准|禁止|不是|取消|停止|"
+    r"别(?:帮我|给我|再|打开|看|播放|展示|显示|导航|带我|去)|"
+    r"不(?:打开|看|播放|展示|显示|导航)"
+)
+DIRECT_VERB = re.compile(
+    r"打开|显示|展示|查看|观看|看看|看一下|带我看|我想看|我要看|请看|^看|播放|开始|启动|"
+    r"定位|找到|找一下|导航|带我去|我要去|我想去|怎么走"
+)
+QUOTED_TEXT = re.compile(r'"[^"\n]*"|“[^”\n]*”|‘[^’\n]*’|「[^」\n]*」|『[^』\n]*』|`[^`\n]*`')
+
+
+def positive_action_query(query):
+    """Do not turn a negated or quoted instruction into a resource command."""
+    text = QUOTED_TEXT.sub("", normalize(query))
+    return "，".join(
+        clause for clause in re.split(r"[，,。.!！？?；;\n]", text)
+        if not NEGATED_ACTION.search(clause)
+    )
+
+
+def explicitly_requests_execution(query, directory, experiences):
+    text = normalize(query)
+    if (
+        not DIRECT_VERB.search(text)
+        or NEGATED_ACTION.search(text)
+        or QUOTED_TEXT.search(text)
+        or re.search(
+            r"如何|怎样|怎么(?:打开|播放|使用|设置|启动|操作|查看)|怎么用|为什么|为何|"
+            r"是否|能否|可以吗|好吗|吗|有没有|有什么|有哪些|需要|介绍|说明|什么意思|教程|步骤",
+            text,
+        )
+    ):
+        return False
+    labels = []
+    for point in directory:
+        labels.extend([point["name"], *point["aliases"]])
+        labels.extend(resource["title"] for resource in point["vr"])
+    labels.extend(item["title"] for item in experiences)
+    for label in sorted({normalize(label) for label in labels if len(label) >= 2}, key=len, reverse=True):
+        text = text.replace(label, "")
+    text = DIRECT_VERB.sub("", text)
+    text = re.sub(r"(?:地下|负|第)?[一二两三四五六七八九十\d]+[层楼]|\bb\d+\b|\b\d+f\b|[a-z](?:分)?区", "", text)
+    text = re.sub(
+        r"全景观校|全景|实景|vr|楼层图|楼层|平面图|示意图|地图|视频|短片|影片|"
+        r"打卡点|打卡|样图|主题|定制|研学|参观路线|浏览路线|导览|路线|"
+        r"当前地点|这个地点|这里|当前|这个|校园|学校|全校|整个|全部|完整|"
+        r"小开|麻烦|帮我|给我|让我|我想|我要|现在|直接|一下|请|把|的|它|从|到|去",
+        "",
+        text,
+    )
+    # Unknown place/resource titles must not silently fall back to a selected point
+    # or the only available video. This intentionally prefers a choice to guessing.
+    return not re.sub(r"[\s，,。.!！？?；;、]", "", text)
 
 
 def published_directory(db, request, points, priority):
@@ -310,7 +370,7 @@ def official_campus_panorama(url):
 
 def explicit_resources(query, target, directory, experiences, notices):
     """Explicit intent replaces model commands, including incorrect but valid model actions."""
-    text = normalize(query)
+    text = positive_action_query(query)
     intent_text = re.sub(
         r"(?:不要|不用|不看|别打开|不需要)(?:打开|查看|看)?(?:楼层(?:图)?|平面图|示意图|全景(?:地图|图)?|vr)",
         "",
@@ -341,13 +401,53 @@ def explicit_resources(query, target, directory, experiences, notices):
             )
         )
     )
+    named_kinds = {
+        item["kind"] for item in experiences
+        if len(item["title"]) >= 2 and normalize(item["title"]) in text
+    }
+    if kind is None and len(named_kinds) == 1:
+        kind = next(iter(named_kinds))
+    matching_vr = [
+        (point, resource) for point in directory for resource in point["vr"]
+        if len(resource["title"]) >= 2 and normalize(resource["title"]) in text
+    ]
+    if matching_vr and not floor_intent and kind is None:
+        vr_intent = True
     if not (floor_intent or vr_intent or kind):
         return None
-    named_point = any(
-        normalize(d["name"]) in text
-        or any(normalize(a) in text for a in d["aliases"] if len(a) >= 2)
-        for d in directory
-    )
+    # A title can itself contain a building name. Only names outside the exact
+    # matched resource title constrain that resource to an explicitly named point.
+    point_text = text
+    titles = [resource["title"] for _, resource in matching_vr] + [
+        item["title"] for item in experiences
+        if len(item["title"]) >= 2 and normalize(item["title"]) in text
+    ]
+    for title in sorted(titles, key=len, reverse=True):
+        point_text = point_text.replace(normalize(title), "")
+    if len(named_kinds | ({"vr"} if matching_vr else set())) > 1:
+        hints = {
+            name for name, pattern in {
+                "vr": r"全景|实景|vr",
+                "media": r"视频|短片|影片",
+                "checkin": r"打卡|拍照|样图",
+                "tour": r"主题|定制|研学|参观路线|浏览路线|导览",
+            }.items() if re.search(pattern, point_text)
+        }
+        if len(hints) != 1:
+            notices.append("同名资料有多种类型，请明确要查看全景、视频、打卡或导览。")
+            return []
+        selected_kind = next(iter(hints))
+        vr_intent, floor_intent = selected_kind == "vr", False
+        kind = None if vr_intent else selected_kind
+    named_points, _ = find_mentions({
+        point["point_id"]: SimpleNamespace(
+            id=point["point_id"], name=point["name"], aliases=point["aliases"]
+        ) for point in directory
+    }, point_text)
+    named_ids = {point.id for point in named_points}
+    named_point = bool(named_ids)
+    if len(named_ids) == 1:
+        target = next(iter(named_ids))
     global_query = not named_point and (
         bool(re.search(r"校园|学校|全校", text))
         or (
@@ -358,7 +458,13 @@ def explicit_resources(query, target, directory, experiences, notices):
         )
         or (kind == "tour" and not re.search(r"这里|这个|该地点|它的", text))
     )
-    source = [d for d in directory if not target or global_query or d["point_id"] == target]
+    source = [
+        d for d in directory
+        if (
+            d["point_id"] in named_ids if named_point
+            else not target or global_query or d["point_id"] == target or matching_vr
+        )
+    ]
     commands = []
     campus_portals = (
         [
@@ -367,20 +473,22 @@ def explicit_resources(query, target, directory, experiences, notices):
             for resource in point["vr"]
             if resource.get("campus_portal")
         ]
-        if vr_intent and global_query
+        if vr_intent and global_query and not matching_vr
         else []
     )
     if campus_portals:
-        point, resource = campus_portals[0]
         notices.append(
             "已找到已发布的校园官方全景入口；起始场景以该资料链接为准，可在全景内继续浏览校园。"
         )
+        if len(campus_portals) > 1:
+            notices.append("存在多个已发布的官方入口，请明确选择要打开的场景。")
         return [
             GuideCommand(
                 type="open_vr",
                 point_id=UUID(point["point_id"]),
                 resource_id=UUID(resource["resource_id"]),
             )
+            for point, resource in campus_portals[:4]
         ]
     if floor_intent or vr_intent:
         ordinal = floor_ordinal(text) if floor_intent else None
@@ -405,6 +513,10 @@ def explicit_resources(query, target, directory, experiences, notices):
                             )
                         )
                 else:
+                    if matching_vr and not any(
+                        match["resource_id"] == resource["resource_id"] for _, match in matching_vr
+                    ):
+                        continue
                     commands.append(
                         GuideCommand(
                             type="open_vr",
@@ -420,6 +532,12 @@ def explicit_resources(query, target, directory, experiences, notices):
             if item["kind"] == kind and len(item["title"]) >= 2 and normalize(item["title"]) in text
         ]
         for item in matching_titles or experiences:
+            if named_point and (
+                not named_ids.issubset({stop["point_id"] for stop in item.get("stops", [])})
+                if item["kind"] == "tour"
+                else item["point_id"] not in named_ids
+            ):
+                continue
             if item["kind"] == kind and (
                 matching_titles or not target or global_query or item["point_id"] == target
             ):
@@ -442,8 +560,6 @@ def explicit_resources(query, target, directory, experiences, notices):
         notices.append("以下是当前地图中可查看的已发布资料入口，请选择要浏览的地点。")
     if len(commands) > 4:
         notices.append("此处先列出四个入口；可说出具体地点、楼层或分区继续查看。")
-    if kind == "media" and commands:
-        notices.append("视频需由你点击确认后播放，不会自动启动。")
     return commands[:4]
 
 
@@ -632,7 +748,8 @@ def chat(payload: GuideTurn, request: Request, response: Response, db: DB):
         "按用户意图选择动作；楼层和VR的resource_id/section必须来自目录。楼层ordinal为层数，负数为地下层；有楼层图不表示识别了图中的房间。"
         "用户追问该地点的资源时参考view.point_id或conversation_point_id。用户给出楼层或分区时只能选匹配项，不得打开其他楼层。"
         "experiences中checkin可show_checkin展示打卡及样图，media为视频可play_video，tour可show_tour展示审核的站点顺序与讲解。"
-        "视频必须先询问用户是否观看，play_video只是观看邀请，不代表已播放。没有公开素材就如实说明，不编造图片和视频。"
+        "用户只问视频资料或推荐时应先询问是否观看；用户明确要求打开或播放时不要再次要求点击或确认。"
+        "play_video交给网站核验并尝试执行，不代表已经播放；不得声称已打开、已播放或已完成网站动作。没有公开素材就如实说明，不编造图片和视频。"
         "定制/主题路线使用show_tour，路线所属为campus_id校区，point_id仅为首站地图定位，不代表路线归属于该建筑。真实步行导航才提交show_route，实际计算交给网站，不编造路径或距离。"
         "导航起点只采用用户明确说出的起点或view.start_point_id，当前浏览点不是GPS位置。"
         "没有起点就询问从哪里出发，同时给出终点show_route。一个问题最多4个动作，普通聊天actions为空。\n"
@@ -669,39 +786,63 @@ def chat(payload: GuideTurn, request: Request, response: Response, db: DB):
         except ValueError:
             pass
         notices.append("本次回答未返回有效动作格式，可使用下方地图或导航入口。")
-    explicit = explicit_resources(query, target, directory, experiences, notices)
+    action_query = positive_action_query(query)
+    action_mentions, action_ambiguous = find_mentions(points, action_query)
+    action_target = (
+        action_mentions[0].id
+        if len(action_mentions) == 1
+        else (str(payload.context.point_id) if payload.context.point_id else previous_point)
+    )
+    explicit = explicit_resources(action_query, action_target, directory, experiences, notices)
+    direct_request = explicitly_requests_execution(query, directory, experiences)
+    deterministic = False
     # Resource questions take precedence over generic mention of the navigation system.
     route_intent = explicit is None and bool(
-        re.search(r"导航|怎么走|我要去|我想去|带我去|从.+到", query)
+        re.search(r"导航|怎么走|我要去|我想去|带我去|从.+到", action_query)
     )
-    if ambiguous or (
-        route_intent and len(mentions) > 1 and (len(mentions) != 2 or "从" not in query)
+    if NEGATED_ACTION.search(normalize(query)) and not DIRECT_VERB.search(action_query):
+        # A model may still suggest a valid action despite an explicit refusal.
+        commands = []
+    elif action_ambiguous or (
+        len(action_mentions) > 1
+        and not (route_intent and len(action_mentions) == 2 and "从" in action_query)
     ):
-        commands = [GuideCommand(type="focus_point", point_id=UUID(p.id)) for p in mentions[:4]]
+        commands = [GuideCommand(type="focus_point", point_id=UUID(p.id)) for p in action_mentions[:4]]
         notices.append("地点名称或起终点存在歧义，请先选择具体地点。")
     elif explicit is not None:
         commands = explicit
-    elif route_intent and mentions:
+        deterministic = True
+    elif route_intent and action_mentions:
         start = payload.context.start_point_id
-        if len(mentions) >= 2 and "从" in query:
-            start = UUID(mentions[0].id)
-        elif re.search(r"从(这里|当前地点)", query):
+        if len(action_mentions) >= 2 and "从" in action_query:
+            start = UUID(action_mentions[0].id)
+        elif re.search(r"从(这里|当前地点)", action_query):
             start = payload.context.point_id
         commands = [
-            GuideCommand(type="show_route", point_id=UUID(mentions[-1].id), start_point_id=start)
+            GuideCommand(type="show_route", point_id=UUID(action_mentions[-1].id), start_point_id=start)
         ]
-    elif not commands and target and re.search(r"定位|在哪|位置|找一下|地图", query):
-        commands = [GuideCommand(type="focus_point", point_id=UUID(target))]
-    if len(mentions) == 1 and not ambiguous:
+        deterministic = True
+    elif direct_request and len(action_mentions) == 1 and re.search(
+        r"打开|显示|展示|查看|观看|看看|看一下|带我看|我想看|我要看|请看|^看|定位|找到|找一下",
+        action_query,
+    ):
+        # A plain school-model answer (or a conflicting valid action) must not
+        # prevent a clear 'open [published place]' instruction from working.
+        commands = [GuideCommand(type="focus_point", point_id=UUID(action_target))]
+        deterministic = True
+    elif not commands and action_target and re.search(r"定位|在哪|位置|找一下|地图", action_query):
+        commands = [GuideCommand(type="focus_point", point_id=UUID(action_target))]
+        deterministic = True
+    if len(action_mentions) == 1 and not action_ambiguous:
         s.last_guide_point = (
             str(payload.context.map_id),
             payload.context.map_revision,
-            mentions[0].id,
+            action_mentions[0].id,
         )
     allowed_starts = {str(payload.context.start_point_id)}
-    if "从" in query:
-        allowed_starts.update(p.id for p in mentions)
-    if re.search(r"从(这里|当前地点)", query):
+    if "从" in action_query:
+        allowed_starts.update(p.id for p in action_mentions)
+    if re.search(r"从(这里|当前地点)", action_query):
         allowed_starts.add(str(payload.context.point_id))
     actions = []
     for index, c in enumerate(commands):
@@ -715,6 +856,19 @@ def chat(payload: GuideTurn, request: Request, response: Response, db: DB):
             )
         except DomainError as e:
             notices.append(e.message)
+    automatic_action_id = (
+        actions[0].action_id
+        if deterministic and direct_request and not action_ambiguous
+        and not context_data["catalog_truncated"] and len(commands) == len(actions) == 1
+        and policy_for(db).auto_actions
+        else None
+    )
+    if any(action.type == "play_video" for action in actions):
+        notices.append(
+            "已按你的指令准备打开视频；实际播放以浏览器结果为准。"
+            if automatic_action_id
+            else "视频是观看邀请，不会自动播放；可明确说出要播放的视频，或点击入口。"
+        )
     response.set_cookie(
         COOKIE,
         request.cookies[COOKIE],
@@ -729,6 +883,7 @@ def chat(payload: GuideTurn, request: Request, response: Response, db: DB):
         GuideReply(
             answer=answer,
             actions=actions,
+            automatic_action_id=automatic_action_id,
             materials=materials,
             context_revision=payload.context.revision,
             notices=list(dict.fromkeys(notices)),
