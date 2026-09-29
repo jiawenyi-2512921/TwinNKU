@@ -105,7 +105,7 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
               rel="noopener noreferrer"
             >
               <Icon name="arrow" size={17} />
-              在原网站打开 VR
+              打开 VR
               <small>新标签页打开，返回后继续校园导览</small>
             </a>
           ) : (

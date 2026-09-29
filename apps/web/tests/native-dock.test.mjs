@@ -420,7 +420,7 @@ test("VR answers never create automatic popups, even when automatic map actions 
     h.posts.some((post) => post.path === "/agent/actions/resolve"),
     false,
   );
-  assert.ok(h.button("原网站打开全景"));
+  assert.ok(h.button("打开全景"));
   h.unmount();
 });
 
@@ -435,7 +435,7 @@ test("one explicit VR click reserves a detached tab before awaits and opens only
   );
   const before = h.browser.location.href;
   const eventIndex = h.events.length;
-  h.button("原网站打开全景").props.onClick();
+  h.button("打开全景").props.onClick();
   assert.deepEqual(h.events[eventIndex], ["open", "about:blank", "_blank"]);
   assert.equal(h.tabs.length, 1);
   assert.equal(h.tabs[0].opener, null);
@@ -468,7 +468,7 @@ test("one explicit VR click reserves a detached tab before awaits and opens only
 test("blocked popup yields a verified explicit link and hides that fallback on context change", async () => {
   const h = await vrHarness();
   h.setBlocked(true);
-  h.button("原网站打开全景").props.onClick();
+  h.button("打开全景").props.onClick();
   await settle();
   assert.equal(h.tabs.length, 0);
   const link = find(h.render(), (node) => node.type === "a")[0];
@@ -491,7 +491,7 @@ test("changed, retired, foreign and unsafe public VR resources close the blank t
   ]) {
     const h = await vrHarness();
     h.setResourceResolver(async () => ({ data: rows }));
-    h.button("原网站打开全景").props.onClick();
+    h.button("打开全景").props.onClick();
     await settle();
     assert.equal(h.tabs[0].closed, true);
     assert.equal(h.tabs[0].url, undefined);
@@ -511,7 +511,7 @@ test("context changing during the public resource read closes the reserved tab",
         complete = () => resolve({ data: [publishedVr] });
       }),
   );
-  h.button("原网站打开全景").props.onClick();
+  h.button("打开全景").props.onClick();
   await settle();
   h.props.current = { ...h.props.current, revision: 2, point_id: "new-point" };
   h.render();
@@ -533,7 +533,7 @@ test("unmount and explicit floating-card close immediately dispose a pending bla
           complete = () => resolve(body.action);
         }),
     );
-    h.button("原网站打开全景").props.onClick();
+    h.button("打开全景").props.onClick();
     if (action === "unmount") h.unmount();
     else h.button("关闭浮窗并暂停语音").props.onClick();
     assert.equal(h.tabs[0].closed, true);
@@ -556,7 +556,7 @@ test("authentication and network failures close pending VR tabs without offering
       h.setResourceResolver(async () => {
         throw new Error("网络不可用");
       });
-    h.button("原网站打开全景").props.onClick();
+    h.button("打开全景").props.onClick();
     await settle();
     assert.equal(h.tabs[0].closed, true);
     assert.equal(h.tabs[0].url, undefined);
@@ -569,14 +569,14 @@ test("authentication and network failures close pending VR tabs without offering
 test("publication or resume invalidates blocked-popup fallback while preserving conversation and recheck button", async () => {
   const h = await vrHarness();
   h.setBlocked(true);
-  h.button("原网站打开全景").props.onClick();
+  h.button("打开全景").props.onClick();
   await settle();
   assert.equal(find(h.render(), (node) => node.type === "a").length, 1);
   h.invalidateCatalog();
   assert.equal(find(h.render(), (node) => node.type === "a").length, 0);
   assert.match(words(h.render()), /点击按钮在学校原网站查看全景/);
   assert.match(words(h.render()), /资料可能已更新/);
-  h.button("原网站打开全景").props.onClick();
+  h.button("打开全景").props.onClick();
   await settle();
   assert.equal(
     h.resourceReads.length,

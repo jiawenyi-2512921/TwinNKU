@@ -131,7 +131,7 @@ export function NativeAgentDock({
     return watchCatalogChanges(() => {
       setVerifiedVr(null);
       setVoiceNotice(
-        "资料可能已更新，请再次点击「原网站打开全景」核验后打开。",
+        "资料可能已更新，请再次点击「打开全景」核验后打开。",
       );
     });
   }, [verifiedVr]);
@@ -256,7 +256,7 @@ export function NativeAgentDock({
     if (action.type === "open_vr") {
       // Reserve during the actual click. Opening after async verification is
       // blocked by browsers and must never replace the map's own location.
-      voice.current?.stop("正在核验全景原网站，语音已暂停。");
+      voice.current?.stop("正在核验全景，语音已暂停。");
       setVerifiedVr(null);
       let tab: Window | null = null;
       try {
@@ -340,8 +340,8 @@ export function NativeAgentDock({
           });
         setVoiceNotice(
           navigated
-            ? "已在新窗口打开全景原网站。返回这里可继续导览。"
-            : "全景已核验，请点击链接在原网站打开。",
+            ? "已在新窗口打开全景。返回这里可继续导览。"
+            : "全景已核验，请点击链接打开。",
         );
         if (panelOpen.current) collapse();
         return;
@@ -444,7 +444,7 @@ export function NativeAgentDock({
               {a.type === "play_video"
                 ? "观看视频："
                 : a.type === "open_vr"
-                  ? "原网站打开全景："
+                  ? "打开全景："
                   : ""}
               {a.label} →
             </button>
@@ -531,7 +531,7 @@ export function NativeAgentDock({
                   rel="noopener noreferrer"
                   onClick={() => voice.current?.stop()}
                 >
-                  打开{verifiedVr.label}（原网站，新窗口）
+                  打开{verifiedVr.label}（新窗口）
                 </a>
               </p>
             )}

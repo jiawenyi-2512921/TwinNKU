@@ -53,7 +53,7 @@ export function PanoramaViewer({
     >
       <header className="panorama-viewer-header">
         <div>
-          <small>校园 VR · 原网站浏览</small>
+          <small>校园 VR</small>
           <h2 id="panorama-viewer-title" ref={title} tabIndex={-1}>
             {item?.title || "校园全景"}
           </h2>
@@ -69,7 +69,7 @@ export function PanoramaViewer({
       <div className="panorama-unavailable">
         <p role="status">
           {external
-            ? "VR将在原网站的新标签页打开。本站地图、导览进度和小开对话会保留。"
+            ? "VR将在新标签页打开。本站地图、导览进度和小开对话会保留。"
             : notice || "全景链接暂不可用"}
         </p>
       </div>
@@ -81,7 +81,7 @@ export function PanoramaViewer({
         )}
         {external && (
           <a href={external} target="_blank" rel="noopener noreferrer">
-            在原网站打开 VR<span className="sr-only">（新标签页）</span>
+            打开 VR<span className="sr-only">（新标签页）</span>
           </a>
         )}
         <button type="button" onClick={onClose}>

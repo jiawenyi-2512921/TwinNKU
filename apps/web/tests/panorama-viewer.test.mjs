@@ -318,7 +318,7 @@ test("legacy VR links offer the original website for official and external sourc
     assert.equal(link.props.href, url);
     assert.equal(link.props.target, "_blank");
     assert.equal(link.props.rel, "noopener noreferrer");
-    assert.match(words(tree), /原网站/);
+    assert.match(words(tree), /打开 VR/);
     assert.match(words(tree), /返回地图/);
     assert.doesNotMatch(words(tree), /正在连接学校全景|重新载入/);
   }
@@ -344,7 +344,7 @@ test("primary panorama cards link directly to the original scene without rewriti
   assert.equal(link.props.href, official);
   assert.equal(link.props.target, "_blank");
   assert.equal(link.props.rel, "noopener noreferrer");
-  assert.match(words(link), /原网站/);
+  assert.match(words(link), /打开 VR/);
   assert.equal(
     link.props.onClick,
     undefined,
