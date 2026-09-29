@@ -1,4 +1,6 @@
-> 最新任务（2026-09-29 13:25）：地图稳定性与传输性能修复见[45](docs/45-map-performance-and-reliability.md)，API/web需配套更新、无新增迁移；小开轻量随行角色的GitHub调研见[46](docs/46-companion-interaction-research.md)，交互新形态尚未实现。生产与目标电脑验收另行记录。
+> 最新增量（2026-09-29）：小开轻量随行角色、明确指令直接操作、视频播放请求与VR弹窗回退见[47](docs/47-companion-actions-and-voice.md)。需要API/web配套更新，无新增迁移。云端语音尚未接入；47说明百炼开通、音色选择与后续适配工作。生产与真机效果仍需部署后验收。
+
+> 上一增量（2026-09-29 13:25）：地图稳定性与传输性能修复见[45](docs/45-map-performance-and-reliability.md)，API/web需配套更新、无新增迁移；小开轻量随行角色的GitHub调研见[46](docs/46-companion-interaction-research.md)，该篇为研究，后续角色实现见47。生产与目标电脑验收另行记录。
 
 > 最新修复（2026-09-29 10:46）：用户实测站内VR无法打开，现统一改为原网站新标签页。点位入口直接打开已发布链接，小开VR按钮核验后打开原站，旧分享链接保留原站入口卡；不再加载VR iframe。已升级0008的实例只需更新web，本补丁无API/迁移变化，见[44最新更正](docs/44-vr-campus-tours-editor.md)。下方站内嵌入说明为上一版历史。
 
