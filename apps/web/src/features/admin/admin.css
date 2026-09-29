@@ -1842,3 +1842,65 @@
     padding: 18px;
   }
 }
+
+/* Keep content editing primary and secondary queues compact. */
+.ad-nav-item {
+  min-width: 0;
+}
+.ad-sidebar nav .ad-nav-item > button {
+  width: 100%;
+}
+.ad-sidebar nav .ad-sidebar-label {
+  margin: 20px 12px 8px;
+}
+.ad-pending-queue {
+  background: #fff;
+  border: 1px solid var(--ad-line);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+}
+.ad-pending-queue summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ad-purple);
+}
+.ad-pending-queue p {
+  margin: 12px 0;
+}
+.ad-pending-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+}
+.ad-pending-items button {
+  white-space: normal;
+  text-align: left;
+}
+.ad-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  padding: 14px;
+  background: #fff;
+  border-top: 1px solid var(--ad-line);
+}
+.ad-back-to-list {
+  margin-bottom: 12px;
+}
+@media (max-width: 760px) {
+  .ad-sidebar nav .ad-sidebar-label {
+    display: none;
+  }
+  .ad-nav-item {
+    flex: none;
+  }
+  .ad-pending-items {
+    flex-direction: column;
+  }
+}

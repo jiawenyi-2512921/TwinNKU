@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { get } from "../../shared/api/client";
+import { get, type Campus } from "../../shared/api/client";
 import { notifyCatalogPublished } from "../../shared/catalogSync";
 import {
   experienceNames,
@@ -26,12 +26,20 @@ const newStop = (point_id: string): ExperienceStop => ({
   video_id: null,
   prompt_timing: "on_arrival",
 });
-function newContent(kind: ExperienceKind, point_id: string): ExperienceContent {
-  const base = { point_id, title: "", description: "", source_note: "" };
+function newContent(kind: ExperienceKind, campus_id = ""): ExperienceContent {
+  const base = { title: "", description: "", source_note: "" };
+  const point_id = "";
   if (kind === "media")
-    return { ...base, kind, media_type: "video", upload_id: null, url: null };
-  if (kind === "checkin") return { ...base, kind, image_id: null };
-  return { ...base, kind, stops: [newStop(point_id)] };
+    return {
+      ...base,
+      point_id,
+      kind,
+      media_type: "video",
+      upload_id: null,
+      url: null,
+    };
+  if (kind === "checkin") return { ...base, point_id, kind, image_id: null };
+  return { ...base, campus_id, kind, stops: [newStop("")] };
 }
 
 export function ExperienceWorkspace({
@@ -39,17 +47,24 @@ export function ExperienceWorkspace({
   onDirty,
   onUpdate,
   initialId,
+  kindScope = "all",
 }: {
   session: StaffSession;
   onDirty: (dirty: boolean, busy?: boolean) => void;
   onUpdate?: () => void;
   initialId?: string;
+  kindScope?: "all" | "places" | "tours";
 }) {
-  const [kind, setKind] = useState<ExperienceKind | "">("");
+  const [kind, setKind] = useState<ExperienceKind | "">(
+    kindScope === "tours" ? "tour" : "",
+  );
   const [state, setState] = useState("");
   const [query, setQuery] = useState("");
   const [revision, setRevision] = useState(0);
   const [points, setPoints] = useState<AdminPoint[]>([]);
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [activeStop, setActiveStop] = useState(0);
+  const [stationQuery, setStationQuery] = useState("");
   const [pointsError, setPointsError] = useState("");
   const [selected, setSelected] = useState<AdminExperience | null>(null);
   const [content, setContent] = useState<ExperienceContent | null>(null);
@@ -61,7 +76,7 @@ export function ExperienceWorkspace({
   const [note, setNote] = useState("");
   const [detailRetry, setDetailRetry] = useState(0);
   const rows = useResource<AdminExperience[]>(
-    `/experiences?${new URLSearchParams({ ...(kind ? { kind } : {}), ...(state ? { state } : {}), ...(query.trim() ? { q: query.trim() } : {}) })}`,
+    `/experiences?${new URLSearchParams({ ...((kindScope === "tours" ? "tour" : kind) ? { kind: kindScope === "tours" ? "tour" : kind } : {}), ...(state ? { state } : {}), ...(query.trim() ? { q: query.trim() } : {}) })}`,
     revision,
   );
   const allMedia = useResource<AdminExperience[]>(
@@ -109,7 +124,12 @@ export function ExperienceWorkspace({
       }
       if (!controller.signal.aborted) setPoints(collected);
     }
-    void loadPoints().catch((e) => {
+    void Promise.all([
+      loadPoints(),
+      get<Campus[]>("/campuses", controller.signal).then((result) => {
+        if (!controller.signal.aborted) setCampuses(result.data);
+      }),
+    ]).catch((e) => {
       if (!controller.signal.aborted) setPointsError(message(e));
     });
     return () => controller.abort();
@@ -143,6 +163,8 @@ export function ExperienceWorkspace({
         ? (item.content ?? item.published_content)
         : (item.published_content ?? item.content),
     );
+    setActiveStop(0);
+    setStationQuery("");
     setPreview(item.media_url ?? null);
     setDirty(false);
     setNote("");
@@ -174,42 +196,85 @@ export function ExperienceWorkspace({
   function create(value: ExperienceKind) {
     if (!canLeave()) return;
     setSelected(null);
-    setContent(newContent(value, ""));
+    const available = campuses.filter((campus) =>
+      points.some((point) => point.point.campus_id === campus.id),
+    );
+    setContent(
+      newContent(value, available.length === 1 ? available[0].id : ""),
+    );
+    setActiveStop(0);
+    setStationQuery("");
     setPreview(null);
     setDirty(true);
     setError("");
     setNotice("");
     setNote("");
   }
-  async function save() {
+  async function save(submit = false) {
     if (!content || !editable || busy) return;
-    if (
-      !content.point_id ||
-      !content.title.trim() ||
-      !content.source_note.trim()
-    ) {
-      setError("请选择归属地点，并填写标题与来源/公开依据。");
+    if (!content.title.trim() || !content.source_note.trim()) {
+      setError("请填写标题与来源/公开依据。");
+      return;
+    }
+    if (content.kind === "tour") {
+      const authorized = new Set(
+        points
+          .filter((point) => point.point.campus_id === content.campus_id)
+          .map((point) => point.point.id),
+      );
+      if (
+        !content.campus_id ||
+        !content.stops.length ||
+        content.stops.some((stop) => !authorized.has(stop.point_id))
+      ) {
+        setError("请选择校区，并为每一站选择该校区内有权限管理的地点。");
+        return;
+      }
+    } else if (!content.point_id) {
+      setError("请选择归属地点。");
       return;
     }
     setBusy(true);
     setError("");
     setNotice("");
+    let saved = selected;
+    let draftSaved = false;
+    const submissionNote =
+      note.trim() || `提交${experienceNames[content.kind]}审核`;
     try {
-      const result = await request<AdminExperience>(
-        selected ? `/experiences/${selected.id}` : "/experiences",
-        selected ? "PUT" : "POST",
-        {
-          expected_revision: selected?.revision ?? 0,
-          expected_published_revision: selected?.published_revision ?? 0,
-          content,
-        },
-      );
-      load(result.data);
-      setRevision((n) => n + 1);
-      onUpdate?.();
-      setNotice("草稿已保存，预览无误后提交独立审核。");
+      if (dirty || !selected) {
+        const result = await request<AdminExperience>(
+          selected ? `/experiences/${selected.id}` : "/experiences",
+          selected ? "PUT" : "POST",
+          {
+            expected_revision: selected?.revision ?? 0,
+            expected_published_revision: selected?.published_revision ?? 0,
+            content,
+          },
+        );
+        saved = result.data;
+        draftSaved = true;
+        load(saved);
+        setRevision((n) => n + 1);
+        onUpdate?.();
+      }
+      if (submit && saved) {
+        const result = await request<AdminExperience>(
+          `/experiences/${saved.id}/review/submit`,
+          "POST",
+          { expected_revision: saved.revision, note: submissionNote },
+        );
+        load(result.data);
+        setRevision((n) => n + 1);
+        onUpdate?.();
+        setNotice("草稿已保存并提交审核，请另一位审核人员核对后发布。");
+      } else setNotice("草稿已保存，可以继续编排或提交审核。");
     } catch (e) {
-      setError(message(e));
+      setError(
+        (submit && draftSaved
+          ? "草稿已保存，但提交审核未完成。可稍后重试提交："
+          : "") + message(e),
+      );
     } finally {
       setBusy(false);
     }
@@ -320,14 +385,42 @@ export function ExperienceWorkspace({
     "当前引用的媒体（请核实其公开状态）";
   const pointName = (id: string) =>
     points.find((point) => point.point.id === id)?.point.name ?? "所选地点";
-  function pointOptions(current: string) {
+  const campusName = (id: string) =>
+    campuses.find((campus) => campus.id === id)?.name ?? "校区资料待加载";
+  const availableCampuses = campuses.filter((campus) =>
+    points.some((point) => point.point.campus_id === campus.id),
+  );
+  const allowedKinds: ExperienceKind[] =
+    kindScope === "tours"
+      ? ["tour"]
+      : kindScope === "places"
+        ? ["media", "checkin"]
+        : ["media", "checkin", "tour"];
+  const visibleRows = (rows.data?.data ?? []).filter((row) =>
+    allowedKinds.includes((row.content ?? row.published_content)!.kind),
+  );
+  const routePoints =
+    content?.kind === "tour"
+      ? points.filter((point) => point.point.campus_id === content.campus_id)
+      : points;
+  const stationMatches = routePoints.filter(
+    (point) =>
+      !stationQuery.trim() ||
+      [point.point.name, ...(point.point.aliases ?? [])].some((name) =>
+        name
+          .normalize("NFKC")
+          .toLocaleLowerCase()
+          .includes(stationQuery.trim().normalize("NFKC").toLocaleLowerCase()),
+      ),
+  );
+  function pointOptions(current: string, options = points) {
     return (
       <>
         <option value="">请选择地点</option>
-        {current && !points.some((p) => p.point.id === current) && (
+        {current && !options.some((p) => p.point.id === current) && (
           <option value={current}>{pointName(current)}</option>
         )}
-        {points.map((point) => (
+        {options.map((point) => (
           <option key={point.point.id} value={point.point.id}>
             {point.point.name}
           </option>
@@ -355,7 +448,9 @@ export function ExperienceWorkspace({
         {available.map((row) => (
           <option key={row.id} value={row.id}>
             {row.published_content?.title} ·{" "}
-            {pointName(row.published_content!.point_id)}
+            {row.published_content?.kind === "media"
+              ? pointName(row.published_content.point_id)
+              : ""}
           </option>
         ))}
       </>
@@ -377,8 +472,18 @@ export function ExperienceWorkspace({
       <div className="ad-section-heading">
         <div>
           <div className="ad-eyebrow">CAMPUS EXPERIENCE</div>
-          <h1>媒体、打卡与路线</h1>
-          <p>整理地点影像与打卡参考，安排路线讲解和视频展示时机。</p>
+          <h1>
+            {kindScope === "tours"
+              ? "校园导览路线"
+              : kindScope === "places"
+                ? "地点影像与打卡"
+                : "校园内容工作台"}
+          </h1>
+          <p>
+            {kindScope === "tours"
+              ? "从校区出发，串联多个地点，统一安排讲解、视频和参观顺序。"
+              : "整理地点影像与打卡参考，保存后交由另一位成员审核。"}
+          </p>
         </div>
       </div>
       <ErrorBox
@@ -398,7 +503,7 @@ export function ExperienceWorkspace({
       <div className="ad-experience-layout">
         <aside className="ad-card ad-experience-list">
           <label>
-            搜索体验
+            {kindScope === "tours" ? "搜索校园路线" : "搜索体验"}
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -406,20 +511,24 @@ export function ExperienceWorkspace({
             />
           </label>
           <div className="ad-experience-filters">
-            <label>
-              类型
-              <select
-                value={kind}
-                onChange={(e) => setKind(e.target.value as ExperienceKind | "")}
-              >
-                <option value="">所有类型</option>
-                {Object.entries(experienceNames).map(([value, name]) => (
-                  <option key={value} value={value}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {kindScope !== "tours" && (
+              <label>
+                类型
+                <select
+                  value={kind}
+                  onChange={(e) =>
+                    setKind(e.target.value as ExperienceKind | "")
+                  }
+                >
+                  <option value="">所有类型</option>
+                  {allowedKinds.map((value) => (
+                    <option key={value} value={value}>
+                      {experienceNames[value]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               审核状态
               <select value={state} onChange={(e) => setState(e.target.value)}>
@@ -440,7 +549,7 @@ export function ExperienceWorkspace({
           </div>
           {session.permissions.includes("points.edit") && (
             <div className="ad-experience-create">
-              {(["media", "checkin", "tour"] as const).map((value) => (
+              {allowedKinds.map((value) => (
                 <button
                   key={value}
                   disabled={busy}
@@ -456,7 +565,7 @@ export function ExperienceWorkspace({
             onRetry={() => setRevision((n) => n + 1)}
           />
           {rows.loading && <p role="status">正在读取…</p>}
-          {rows.data?.data.map((row) => (
+          {visibleRows.map((row) => (
             <button
               key={row.id}
               className={`ad-experience-row${selected?.id === row.id ? " is-active" : ""}`}
@@ -475,19 +584,36 @@ export function ExperienceWorkspace({
                 {row.status === "retired" ? " · 已下架" : ""}
               </span>
               <small>
-                {pointName((row.content ?? row.published_content)!.point_id)}
+                {(row.content ?? row.published_content)?.kind === "tour"
+                  ? `${campusName(row.campus_id)} · ${((row.content ?? row.published_content) as Extract<ExperienceContent, { kind: "tour" }>).stops.length} 站`
+                  : pointName(
+                      (
+                        (row.content ?? row.published_content) as Exclude<
+                          ExperienceContent,
+                          { kind: "tour" }
+                        >
+                      ).point_id,
+                    )}
               </small>
             </button>
           ))}
-          {rows.data && !rows.data.data.length && (
+          {rows.data && !visibleRows.length && (
             <p className="ad-muted">暂无符合筛选的体验。</p>
           )}
         </aside>
         <div className="ad-card ad-experience-editor">
           {!content ? (
             <Empty
-              title="选择一项体验，或新建内容"
-              detail="先整理图片/视频并发布，再在打卡点和路线中关联它们。"
+              title={
+                kindScope === "tours"
+                  ? "开始编排一条校园路线"
+                  : "选择一项体验，或新建内容"
+              }
+              detail={
+                kindScope === "tours"
+                  ? "选择校区 → 添加校园站点 → 配置讲解与视频 → 保存并提交审核。"
+                  : "先整理图片/视频并发布，再将它们关联到打卡点。"
+              }
             />
           ) : (
             <>
@@ -495,7 +621,13 @@ export function ExperienceWorkspace({
                 <span className="ad-eyebrow">
                   {experienceNames[content.kind]}
                 </span>
-                <h2>{selected ? content.title : "新建体验"}</h2>
+                <h2>
+                  {selected
+                    ? content.title
+                    : content.kind === "tour"
+                      ? "新建校园导览路线"
+                      : "新建体验"}
+                </h2>
                 {selected && (
                   <p>
                     {selected.operation === "retire" ? "下架申请 · " : ""}
@@ -509,32 +641,67 @@ export function ExperienceWorkspace({
                 className="ad-experience-fields"
               >
                 <legend className="sr-only">体验内容</legend>
-                <label>
-                  归属地点
-                  <select
-                    value={content.point_id}
-                    disabled={!!selected}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      if (content.kind === "media") {
-                        edit({ ...content, point_id: id, upload_id: null });
-                        setPreview(null);
-                      } else if (content.kind === "tour")
+                {content.kind === "tour" ? (
+                  <label>
+                    路线所属校区
+                    <select
+                      value={content.campus_id}
+                      disabled={!!selected}
+                      onChange={(e) => {
+                        if (
+                          content.stops.some((stop) => stop.point_id) &&
+                          !window.confirm(
+                            "切换校区将清空当前站点编排，确定继续吗？",
+                          )
+                        )
+                          return;
                         edit({
                           ...content,
-                          point_id: id,
-                          stops: content.stops.map((stop, i) =>
-                            i === 0 && !stop.point_id
-                              ? { ...stop, point_id: id }
-                              : stop,
-                          ),
+                          campus_id: e.target.value,
+                          stops: [newStop("")],
                         });
-                      else edit({ ...content, point_id: id, image_id: null });
-                    }}
-                  >
-                    {pointOptions(content.point_id)}
-                  </select>
-                </label>
+                        setActiveStop(0);
+                        setStationQuery("");
+                      }}
+                    >
+                      <option value="">请选择校区</option>
+                      {content.campus_id &&
+                        !availableCampuses.some(
+                          (campus) => campus.id === content.campus_id,
+                        ) && (
+                          <option value={content.campus_id}>
+                            {campusName(content.campus_id)}
+                          </option>
+                        )}
+                      {availableCampuses.map((campus) => (
+                        <option key={campus.id} value={campus.id}>
+                          {campus.name}
+                        </option>
+                      ))}
+                    </select>
+                    <small>
+                      路线属于整个校区，可以串联校门、建筑、景观和文化点位。
+                    </small>
+                  </label>
+                ) : (
+                  <label>
+                    归属地点
+                    <select
+                      value={content.point_id}
+                      disabled={!!selected}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        if (content.kind === "media") {
+                          edit({ ...content, point_id: id, upload_id: null });
+                          setPreview(null);
+                        } else
+                          edit({ ...content, point_id: id, image_id: null });
+                      }}
+                    >
+                      {pointOptions(content.point_id)}
+                    </select>
+                  </label>
+                )}
                 <label>
                   标题
                   <input
@@ -646,129 +813,244 @@ export function ExperienceWorkspace({
                 )}
                 {content.kind === "tour" && (
                   <div className="ad-tour-builder">
-                    <h3>路线站点</h3>
+                    <header className="ad-tour-builder-heading">
+                      <div>
+                        <h3>校园站点编排</h3>
+                        <p>
+                          {content.stops.filter((stop) => stop.point_id).length}{" "}
+                          个已选站点 ·{" "}
+                          {content.stops.filter((stop) => stop.video_id).length}{" "}
+                          段关联视频
+                        </p>
+                      </div>
+                      <span>最多 50 站</span>
+                    </header>
                     <p className="ad-muted">
-                      依次安排地点、讲解文案和视频。真实步行路径由已审核路网计算，站点之间不会用直线替代。
+                      路线连接校区内多个地点。步行路径由已审核路网计算；此处安排参观顺序和各站内容。
                     </p>
-                    {content.stops.map((stop, index) => (
-                      <fieldset className="ad-tour-stop" key={index}>
-                        <legend>第 {index + 1} 站</legend>
-                        <div className="ad-tour-order">
-                          <button
-                            type="button"
-                            aria-label={`第 ${index + 1} 站上移`}
-                            disabled={index === 0}
-                            onClick={() =>
-                              edit({
-                                ...content,
-                                stops: moveStop(content.stops, index, -1),
-                              })
-                            }
-                          >
-                            ↑ 上移
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`第 ${index + 1} 站下移`}
-                            disabled={index === content.stops.length - 1}
-                            onClick={() =>
-                              edit({
-                                ...content,
-                                stops: moveStop(content.stops, index, 1),
-                              })
-                            }
-                          >
-                            ↓ 下移
-                          </button>
-                          <button
-                            type="button"
-                            disabled={content.stops.length <= 1}
-                            onClick={() =>
-                              edit({
-                                ...content,
-                                stops: content.stops.filter(
-                                  (_, i) => i !== index,
-                                ),
-                              })
-                            }
-                          >
-                            移除此站
-                          </button>
-                        </div>
+                    <div className="ad-tour-canvas">
+                      <section
+                        className="ad-tour-picker"
+                        aria-label="添加校园站点"
+                      >
                         <label>
-                          地点
-                          <select
-                            value={stop.point_id}
-                            onChange={(e) =>
-                              changeStop(index, {
-                                point_id: e.target.value,
-                                video_id: null,
-                              })
-                            }
-                          >
-                            {pointOptions(stop.point_id)}
-                          </select>
-                        </label>
-                        <label>
-                          本站讲解
-                          <textarea
-                            rows={4}
-                            value={stop.narrative}
-                            maxLength={8000}
-                            onChange={(e) =>
-                              changeStop(index, { narrative: e.target.value })
-                            }
+                          搜索校园地点
+                          <input
+                            value={stationQuery}
+                            onChange={(e) => setStationQuery(e.target.value)}
+                            placeholder="建筑、校门、景观名称"
+                            disabled={!content.campus_id}
                           />
                         </label>
-                        <label>
-                          关联视频
-                          <select
-                            value={stop.video_id ?? ""}
-                            onChange={(e) =>
-                              changeStop(index, {
-                                video_id: e.target.value || null,
-                              })
-                            }
-                          >
-                            {mediaOptions(
-                              "video",
-                              stop.video_id,
-                              stop.point_id,
+                        {!content.campus_id ? (
+                          <p>先选择路线所属校区。</p>
+                        ) : (
+                          <div className="ad-tour-candidates">
+                            {stationMatches.map((point) => (
+                              <button
+                                type="button"
+                                key={point.point.id}
+                                disabled={
+                                  content.stops.filter((stop) => stop.point_id)
+                                    .length >= 50
+                                }
+                                onClick={() => {
+                                  const blank = content.stops.findIndex(
+                                    (stop) => !stop.point_id,
+                                  );
+                                  const next =
+                                    blank >= 0
+                                      ? content.stops.map((stop, index) =>
+                                          index === blank
+                                            ? newStop(point.point.id)
+                                            : stop,
+                                        )
+                                      : [
+                                          ...content.stops,
+                                          newStop(point.point.id),
+                                        ];
+                                  edit({ ...content, stops: next });
+                                  setActiveStop(
+                                    blank >= 0 ? blank : next.length - 1,
+                                  );
+                                }}
+                              >
+                                <span>{point.point.name}</span>
+                                <small>
+                                  {content.stops.some(
+                                    (stop) => stop.point_id === point.point.id,
+                                  )
+                                    ? "再次加入"
+                                    : "＋ 加入路线"}
+                                </small>
+                              </button>
+                            ))}
+                            {!stationMatches.length && (
+                              <p>没有匹配的可管理地点。</p>
                             )}
-                          </select>
-                        </label>
-                        <label>
-                          何时询问观看
-                          <select
-                            value={stop.prompt_timing}
-                            onChange={(e) =>
-                              changeStop(index, {
-                                prompt_timing: e.target
-                                  .value as ExperienceStop["prompt_timing"],
-                              })
-                            }
-                          >
-                            <option value="on_arrival">打开本站时</option>
-                            <option value="after_intro">
-                              访客确认读完介绍后
-                            </option>
-                            <option value="manual">访客主动选择视频时</option>
-                          </select>
-                        </label>
-                      </fieldset>
-                    ))}
-                    <button
-                      type="button"
-                      disabled={content.stops.length >= 50}
-                      onClick={() =>
-                        edit({
-                          ...content,
-                          stops: [...content.stops, newStop("")],
-                        })
-                      }
-                    >
-                      ＋ 添加一站
-                    </button>
+                          </div>
+                        )}
+                      </section>
+                      <section
+                        className="ad-tour-itinerary"
+                        aria-label="校园路线顺序"
+                      >
+                        <ol>
+                          {content.stops.map((stop, index) => (
+                            <li key={index}>
+                              <button
+                                type="button"
+                                aria-current={
+                                  activeStop === index ? "step" : undefined
+                                }
+                                onClick={() => setActiveStop(index)}
+                              >
+                                <span>{index + 1}</span>
+                                <div>
+                                  <strong>
+                                    {stop.point_id
+                                      ? pointName(stop.point_id)
+                                      : "待添加站点"}
+                                  </strong>
+                                  <small>
+                                    {stop.video_id ? "含视频" : "未关联视频"} ·{" "}
+                                    {stop.narrative.trim()
+                                      ? "已填写讲解"
+                                      : "待填写讲解"}
+                                  </small>
+                                </div>
+                              </button>
+                            </li>
+                          ))}
+                        </ol>
+                      </section>
+                    </div>
+                    {content.stops.map((stop, index) =>
+                      index !== activeStop ? null : (
+                        <fieldset className="ad-tour-stop" key={index}>
+                          <legend>
+                            第 {index + 1} 站 ·{" "}
+                            {stop.point_id
+                              ? pointName(stop.point_id)
+                              : "待添加"}
+                          </legend>
+                          <div className="ad-tour-order">
+                            <button
+                              type="button"
+                              aria-label={`第 ${index + 1} 站上移`}
+                              disabled={index === 0}
+                              onClick={() => {
+                                edit({
+                                  ...content,
+                                  stops: moveStop(content.stops, index, -1),
+                                });
+                                setActiveStop(index - 1);
+                              }}
+                            >
+                              ↑ 上移
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`第 ${index + 1} 站下移`}
+                              disabled={index === content.stops.length - 1}
+                              onClick={() => {
+                                edit({
+                                  ...content,
+                                  stops: moveStop(content.stops, index, 1),
+                                });
+                                setActiveStop(index + 1);
+                              }}
+                            >
+                              ↓ 下移
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = content.stops.filter(
+                                  (_, i) => i !== index,
+                                );
+                                edit({
+                                  ...content,
+                                  stops: next.length ? next : [newStop("")],
+                                });
+                                setActiveStop(Math.max(0, index - 1));
+                              }}
+                            >
+                              移除此站
+                            </button>
+                          </div>
+                          <label>
+                            本站地点
+                            <select
+                              value={stop.point_id}
+                              disabled={!content.campus_id}
+                              onChange={(e) =>
+                                changeStop(index, {
+                                  point_id: e.target.value,
+                                  video_id: null,
+                                })
+                              }
+                            >
+                              {pointOptions(stop.point_id, routePoints)}
+                            </select>
+                          </label>
+                          <label>
+                            本站讲解
+                            <textarea
+                              rows={5}
+                              value={stop.narrative}
+                              maxLength={8000}
+                              onChange={(e) =>
+                                changeStop(index, { narrative: e.target.value })
+                              }
+                              placeholder="访客在本站看到的讲解；请依据已核实资料填写"
+                            />
+                          </label>
+                          <div className="ad-tour-media-settings">
+                            <label>
+                              本站视频
+                              <select
+                                value={stop.video_id ?? ""}
+                                onChange={(e) =>
+                                  changeStop(index, {
+                                    video_id: e.target.value || null,
+                                  })
+                                }
+                              >
+                                {mediaOptions(
+                                  "video",
+                                  stop.video_id,
+                                  stop.point_id,
+                                )}
+                              </select>
+                              <small>
+                                这里只显示本站已发布视频，可先在地点影像中上传并审核。
+                              </small>
+                            </label>
+                            <label>
+                              何时询问观看
+                              <select
+                                value={stop.prompt_timing}
+                                onChange={(e) =>
+                                  changeStop(index, {
+                                    prompt_timing: e.target
+                                      .value as ExperienceStop["prompt_timing"],
+                                  })
+                                }
+                              >
+                                <option value="on_arrival">打开本站时</option>
+                                <option value="after_intro">
+                                  访客确认读完介绍后
+                                </option>
+                                <option value="manual">
+                                  访客主动选择视频时
+                                </option>
+                              </select>
+                            </label>
+                          </div>
+                        </fieldset>
+                      ),
+                    )}
                   </div>
                 )}
                 <label>
@@ -821,13 +1103,32 @@ export function ExperienceWorkspace({
                 onRetry={() => setRevision((n) => n + 1)}
               />
               {editable && (
-                <button
-                  className="ad-primary"
-                  disabled={busy || !dirty}
-                  onClick={() => void save()}
-                >
-                  {busy ? "正在处理…" : "保存草稿"}
-                </button>
+                <div className="ad-experience-savebar">
+                  <span>
+                    {dirty
+                      ? "有未保存修改"
+                      : selected?.state === "published"
+                        ? "当前为公开版本"
+                        : selected?.state === "discarded"
+                          ? "草稿已撤回"
+                          : "草稿已保存"}
+                  </span>
+                  <button disabled={busy || !dirty} onClick={() => void save()}>
+                    {busy ? "正在处理…" : "保存草稿"}
+                  </button>
+                  <button
+                    className="ad-primary"
+                    disabled={
+                      busy ||
+                      (!dirty &&
+                        !["draft", "rejected"].includes(selected?.state ?? ""))
+                    }
+                    onClick={() => void save(true)}
+                  >
+                    保存并提交审核
+                  </button>
+                  <small>提交后由另一位成员审核，不会自动公开。</small>
+                </div>
               )}
               {selected?.published_content && (
                 <details className="ad-experience-published">
@@ -835,6 +1136,7 @@ export function ExperienceWorkspace({
                   <PublishedContent
                     content={selected.published_content}
                     pointName={pointName}
+                    campusName={campusName}
                     mediaTitle={publicMediaTitle}
                   />
                 </details>
@@ -926,16 +1228,22 @@ export function ExperienceWorkspace({
 function PublishedContent({
   content,
   pointName,
+  campusName,
   mediaTitle,
 }: {
   content: ExperienceContent;
   pointName: (id: string) => string;
+  campusName: (id: string) => string;
   mediaTitle: (id: string) => string;
 }) {
   return (
     <div>
       <h3>{content.title}</h3>
-      <p>地点：{pointName(content.point_id)}</p>
+      <p>
+        {content.kind === "tour"
+          ? `校区：${campusName(content.campus_id)} · ${content.stops.length} 站校园导览`
+          : `地点：${pointName(content.point_id)}`}
+      </p>
       <p className="experience-prose">{content.description}</p>
       {content.kind === "media" && (
         <p>

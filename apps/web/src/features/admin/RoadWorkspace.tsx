@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { components } from "../../shared/api/schema";
 import {
@@ -17,6 +17,7 @@ import {
 import { request, message, type StaffSession } from "./api";
 import { ErrorBox } from "./ui";
 import "../map/navigation.css";
+import "./road-workspace.css";
 
 type Graph = components["schemas"]["RoadGraph"];
 type Node = components["schemas"]["RoadNode"];
@@ -39,6 +40,145 @@ const states: Record<string, string> = {
   rejected: "已退回",
   published: "已发布",
 };
+
+const modeLabels: Record<Mode, string> = {
+  select: "选择 / 拖动",
+  node: "添加路口或入口",
+  road: "沿道路连续绘制",
+  curve: "绘制弧线",
+  freehand: "自由描线",
+  split: "拆分路口",
+};
+
+/** Primary tools stay visible; occasional geometry/backup tools open on demand. */
+export function RoadDrawingTools({
+  mode,
+  editable,
+  busy,
+  dirty,
+  canUndo,
+  canRedo,
+  sketchCount,
+  onMode,
+  onSave,
+  onUndo,
+  onRedo,
+  onFinish,
+  onCancel,
+  onCheck,
+  children,
+}: {
+  mode: Mode;
+  editable: boolean;
+  busy: boolean;
+  dirty: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  sketchCount: number;
+  onMode: (mode: Mode) => void;
+  onSave: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onFinish: () => void;
+  onCancel: () => void;
+  onCheck: () => void;
+  children: ReactNode;
+}) {
+  const special = (["curve", "freehand", "split"] as const).find(
+    (value) => value === mode,
+  );
+  const modes = (values: Mode[]) =>
+    values.map((id) => (
+      <button
+        key={id}
+        type="button"
+        aria-pressed={mode === id}
+        disabled={!editable && id !== "select"}
+        onClick={() => onMode(id)}
+      >
+        {modeLabels[id]}
+      </button>
+    ));
+  return (
+    <div className="road-drawing-tools">
+      <div className="road-command-bar">
+        <div className="road-toolbar" role="group" aria-label="常用绘图工具">
+          {modes(["select", "node", "road"])}
+        </div>
+        <div
+          className="road-toolbar road-draft-actions"
+          role="group"
+          aria-label="草稿操作"
+        >
+          <button
+            type="button"
+            disabled={!editable || !canUndo}
+            onClick={onUndo}
+          >
+            撤销
+          </button>
+          <button
+            type="button"
+            disabled={!editable || !canRedo}
+            onClick={onRedo}
+          >
+            重做
+          </button>
+          <button
+            type="button"
+            disabled={busy || sketchCount > 0}
+            onClick={onCheck}
+          >
+            检查连通与缺口
+          </button>
+          <button
+            type="button"
+            className="ad-primary"
+            disabled={!editable || !dirty || sketchCount > 0}
+            onClick={onSave}
+          >
+            保存草稿
+          </button>
+        </div>
+      </div>
+      {sketchCount > 0 && (
+        <div
+          className="road-sketch-actions road-toolbar"
+          role="group"
+          aria-label="当前绘制"
+        >
+          <span role="status">已绘制 {sketchCount} 个点</span>
+          {mode === "road" && (
+            <button
+              type="button"
+              disabled={!editable || sketchCount < 2}
+              onClick={onFinish}
+            >
+              完成道路
+            </button>
+          )}
+          <button type="button" onClick={onCancel}>
+            取消绘制
+          </button>
+        </div>
+      )}
+      <details className="road-advanced-tools">
+        <summary>
+          更多绘图与备份{" "}
+          <small>
+            {special
+              ? `当前：${modeLabels[special]}`
+              : "弧线、描线、拆路与备份"}
+          </small>
+        </summary>
+        <div className="road-toolbar" role="group" aria-label="特殊绘图工具">
+          {modes(["curve", "freehand", "split"])}
+        </div>
+        {children}
+      </details>
+    </div>
+  );
+}
 
 export function RoadWorkspace({
   maps,
@@ -529,65 +669,61 @@ export function RoadWorkspace({
               </button>
             </p>
           )}
-          <div className="road-toolbar">
-            {(
-              [
-                ["select", "选择 / 拖动"],
-                ["node", "添加路口或入口"],
-                ["road", "沿道路连续绘制"],
-                ["curve", "绘制弧线"],
-                ["freehand", "自由描线"],
-                ["split", "拆分路口"],
-              ] as const
-            ).map(([id, title]) => (
-              <button
-                key={id}
-                aria-pressed={mode === id}
-                disabled={!editable && id !== "select"}
-                onClick={() => setMode(id)}
-              >
-                {title}
+          <RoadDrawingTools
+            mode={mode}
+            editable={editable}
+            busy={busy}
+            dirty={dirty}
+            canUndo={history.current.canUndo}
+            canRedo={history.current.canRedo}
+            sketchCount={sketchCount}
+            onMode={setMode}
+            onSave={() => void save()}
+            onUndo={() => travel("undo")}
+            onRedo={() => travel("redo")}
+            onFinish={() =>
+              setDrawCommand((v) => ({ id: v.id + 1, action: "finish" }))
+            }
+            onCancel={() =>
+              setDrawCommand((v) => ({ id: v.id + 1, action: "cancel" }))
+            }
+            onCheck={() => void checkGraph()}
+          >
+            <div className="road-toolbar road-secondary">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={snapping}
+                  onChange={(e) => setSnapping(e.target.checked)}
+                />{" "}
+                吸附路口与道路
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showLabels}
+                  onChange={(e) => setShowLabels(e.target.checked)}
+                />{" "}
+                显示节点名称
+              </label>
+              <button disabled={busy} onClick={exportGraph}>
+                导出草稿备份
               </button>
-            ))}
-            <button
-              disabled={!editable || !dirty || sketchCount > 0}
-              onClick={() => void save()}
-            >
-              保存草稿
-            </button>
-            <button
-              disabled={!editable || !history.current.canUndo}
-              onClick={() => travel("undo")}
-            >
-              撤销
-            </button>
-            <button
-              disabled={!editable || !history.current.canRedo}
-              onClick={() => travel("redo")}
-            >
-              重做
-            </button>
-            <button
-              disabled={!editable || mode !== "road" || sketchCount < 2}
-              onClick={() =>
-                setDrawCommand((v) => ({ id: v.id + 1, action: "finish" }))
-              }
-            >
-              完成道路
-            </button>
-            <button
-              disabled={!sketchCount}
-              onClick={() =>
-                setDrawCommand((v) => ({ id: v.id + 1, action: "cancel" }))
-              }
-            >
-              取消绘制
-            </button>
-            <span>
-              {nodes.length} 个节点 · {edges.length} 条道路 ·{" "}
-              {nodes.filter((n) => n.kind === "entrance").length} 个入口
-            </span>
-          </div>
+              <label className="road-file">
+                导入草稿备份
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  disabled={!editable}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void importGraph(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+          </RoadDrawingTools>
           <p className="road-info">
             {mode === "road"
               ? "逐点描出弯道，点击已有路口或“完成道路”结束。中间点仅控制形状；端点会吸附并接入道路。"
@@ -599,46 +735,6 @@ export function RoadWorkspace({
                     ? "点击道路，在准确位置拆成共用路口。保持原有形状与方向，长度和核验状态重新确认。"
                     : "选择道路可拖动实心形状点；拖动半透明中点可增加形状点，双击实心形状点删除。拖动路口到道路或另一节点可连接。"}
           </p>
-          <div className="road-toolbar road-secondary">
-            <label>
-              <input
-                type="checkbox"
-                checked={snapping}
-                onChange={(e) => setSnapping(e.target.checked)}
-              />{" "}
-              吸附路口与道路
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={showLabels}
-                onChange={(e) => setShowLabels(e.target.checked)}
-              />{" "}
-              显示节点名称
-            </label>
-            <button
-              disabled={busy || sketchCount > 0}
-              onClick={() => void checkGraph()}
-            >
-              检查连通与缺口
-            </button>
-            <button disabled={busy} onClick={exportGraph}>
-              导出草稿备份
-            </button>
-            <label className="road-file">
-              导入草稿备份
-              <input
-                type="file"
-                accept=".json,application/json"
-                disabled={!editable}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void importGraph(f);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          </div>
           <div className="road-layout">
             <div>
               <RoadCanvas

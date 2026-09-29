@@ -1,0 +1,149 @@
+.ad-point-studio .ad-editor-layout {
+  grid-template-columns: minmax(320px, 1fr) 360px;
+  height: calc(100dvh - 230px);
+  min-height: 650px;
+}
+.ad-point-studio:not(.is-list-open) .ad-point-list {
+  display: none;
+}
+.ad-point-studio.is-list-open:not(.ad-focused-point) .ad-editor-layout {
+  grid-template-columns: 210px minmax(320px, 1fr) 360px;
+}
+.ad-point-studio .ad-detail-panel {
+  padding: 20px;
+}
+.ad-point-studio .ad-detail-head h2 {
+  font-size: 19px;
+}
+.ad-root .ad-point-studio .ad-detail-panel label {
+  font-size: 13px;
+}
+.ad-point-studio .ad-detail-panel .ad-hint {
+  font-size: 12px;
+}
+.ad-point-extra {
+  border: 1px solid #e5dfeb;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 14px 0;
+}
+.ad-point-extra summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: #70547c;
+  font-weight: 600;
+  min-height: 24px;
+}
+.ad-point-extra[open] summary {
+  margin-bottom: 14px;
+}
+.ad-point-studio .ad-point-savebar {
+  position: sticky;
+  z-index: 5;
+  bottom: -20px;
+  background: #fffc;
+  backdrop-filter: blur(14px);
+  border-top: 1px solid #e6dfed;
+  padding: 14px 0 18px;
+  margin: 12px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+}
+.ad-point-save-state {
+  flex-basis: 100%;
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #756180;
+}
+.ad-point-studio .ad-point-savebar button {
+  flex: 1 1 auto;
+  min-height: 44px;
+}
+.ad-point-review-status {
+  background: #f7f2fc;
+  border: 1px solid #dfd0ec;
+  padding: 14px;
+  border-radius: 12px;
+  margin: 15px 0;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.ad-point-review-status p {
+  margin: 8px 0;
+  color: #786683;
+}
+.ad-point-review-status button {
+  width: 100%;
+}
+.ad-point-studio .ad-map-toolbar {
+  padding: 12px;
+  gap: 8px;
+}
+.ad-root .ad-point-studio .ad-map-toolbar button {
+  min-height: 40px;
+  font-size: 12px;
+  border: 1px solid #e5dce9;
+}
+.ad-point-shape-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f4ecfa;
+  border-bottom: 1px solid #ded0e8;
+}
+.ad-point-shape-tools strong {
+  font-size: 12px;
+  color: #745580;
+}
+.ad-point-shape-tools button {
+  font-size: 12px;
+}
+.ad-point-shape-tools button.active {
+  background: #72457f;
+  color: white;
+}
+@media (max-width: 1250px) {
+  .ad-point-studio.is-list-open:not(.ad-focused-point) .ad-editor-layout {
+    grid-template-columns: minmax(300px, 1fr) 340px;
+  }
+  .ad-point-studio.is-list-open .ad-point-list {
+    grid-column: 1 / -1;
+    max-height: 200px;
+    border-bottom: 1px solid #e5dfeb;
+  }
+  .ad-point-studio .ad-editor-layout {
+    height: auto;
+    grid-template-columns: minmax(300px, 1fr) 340px;
+  }
+  .ad-point-studio .ad-map-column {
+    min-height: 650px;
+  }
+  .ad-point-studio .ad-detail-panel {
+    max-height: 850px;
+  }
+}
+@media (max-width: 900px) {
+  .ad-point-studio .ad-editor-layout,
+  .ad-point-studio.is-list-open:not(.ad-focused-point) .ad-editor-layout {
+    display: flex;
+    flex-direction: column;
+  }
+  .ad-point-studio .ad-point-list {
+    order: 0;
+  }
+  .ad-point-studio .ad-map-column {
+    min-height: 440px;
+    height: 55dvh;
+    order: 1;
+  }
+  .ad-point-studio .ad-detail-panel {
+    order: 2;
+    max-height: none;
+    border-left: 0;
+  }
+  .ad-point-studio .ad-point-savebar {
+    bottom: 0;
+  }
+}

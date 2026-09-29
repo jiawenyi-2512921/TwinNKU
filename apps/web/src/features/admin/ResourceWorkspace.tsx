@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { components } from "../../shared/api/schema";
 import { get, type FloorImage } from "../../shared/api/client";
 import { FloorViewer } from "../floors/FloorViewer";
@@ -65,6 +65,28 @@ export function ResourceWorkspace({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const writing = useRef(false);
+  const editorHeading = useRef<HTMLHeadingElement>(null);
+  const listHeading = useRef<HTMLHeadingElement>(null);
+  const [focusRequest, setFocusRequest] = useState<{
+    target: "editor" | "list";
+    sequence: number;
+  } | null>(null);
+  function focusSection(target: "editor" | "list") {
+    setFocusRequest((previous) => ({
+      target,
+      sequence: (previous?.sequence ?? 0) + 1,
+    }));
+  }
+  useEffect(() => {
+    if (!focusRequest) return;
+    const heading =
+      focusRequest.target === "editor"
+        ? editorHeading.current
+        : listHeading.current;
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [focusRequest]);
   const points = useResource<AdminPoint[]>(
     focused
       ? null
@@ -101,7 +123,10 @@ export function ResourceWorkspace({
     setError("");
     request<Resource>(`/resources/${initialId}`, "GET", undefined, abort.signal)
       .then((r) => {
-        if (!abort.signal.aborted) load(r.data);
+        if (!abort.signal.aborted) {
+          load(r.data);
+          focusSection("editor");
+        }
       })
       .catch((e) => {
         if (!abort.signal.aborted) setError(message(e));
@@ -124,7 +149,9 @@ export function ResourceWorkspace({
   }, [dirty, busy]);
   function canLeave() {
     return (
-      !busy && (!dirty || window.confirm("当前资料尚未保存，确定放弃修改吗？"))
+      !busy &&
+      !writing.current &&
+      (!dirty || window.confirm("当前资料尚未保存，确定放弃修改吗？"))
     );
   }
   function clear() {
@@ -135,6 +162,11 @@ export function ResourceWorkspace({
     setError("");
     setNotice("");
     setReviewNote("");
+  }
+  function returnToList() {
+    if (!canLeave()) return;
+    clear();
+    focusSection("list");
   }
   function choosePoint(p: AdminPoint) {
     if (!canLeave()) return;
@@ -172,6 +204,7 @@ export function ResourceWorkspace({
     setNotice("");
     try {
       load((await request<Resource>(`/resources/${r.id}`)).data);
+      focusSection("editor");
     } catch (e) {
       setError(message(e));
     } finally {
@@ -194,6 +227,7 @@ export function ResourceWorkspace({
         : { kind, title: "", url: "", description: "" },
     );
     setDirty(true);
+    focusSection("editor");
   }
   function edit(next: Content) {
     setContent(next);
@@ -247,36 +281,84 @@ export function ResourceWorkspace({
       setBusy(false);
     }
   }
-  async function save() {
-    if (!content) return;
+  const canSubmitSaved =
+    !!selected?.draft &&
+    selected.draft.operation !== "retire" &&
+    ["draft", "rejected"].includes(selected.draft.state);
+  async function save(submit = true) {
+    if (
+      !content ||
+      !canEdit ||
+      busy ||
+      writing.current ||
+      (!dirty && (!submit || !canSubmitSaved))
+    )
+      return;
+    const note = sourceNote.trim();
+    if (!note) {
+      setError("请填写本次资料依据，提交时会沿用这份说明。");
+      return;
+    }
+    writing.current = true;
     setBusy(true);
     setError("");
     setNotice("");
+    let saved = selected;
+    let savedThisTime = false;
+    let changed = false;
     try {
-      const result = await request<Resource>(
-        selected ? `/resources/${selected.id}` : `/points/${pointId}/resources`,
-        selected ? "PUT" : "POST",
-        {
-          content,
-          source_note: sourceNote,
-          expected_revision: selected?.draft?.revision ?? 0,
-          expected_published_revision: selected?.published_revision ?? 0,
-        },
-      );
-      load(result.data);
-      setRevision((v) => v + 1);
-      onUpdate?.();
-      setNotice("草稿已保存，尚未公开。预览无误后提交审核。");
+      if (dirty || !saved) {
+        saved = (
+          await request<Resource>(
+            saved ? `/resources/${saved.id}` : `/points/${pointId}/resources`,
+            saved ? "PUT" : "POST",
+            {
+              content,
+              source_note: note,
+              expected_revision: saved?.draft?.revision ?? 0,
+              expected_published_revision: saved?.published_revision ?? 0,
+            },
+          )
+        ).data;
+        load(saved);
+        savedThisTime = true;
+        changed = true;
+      }
+      if (submit) {
+        if (!saved?.draft || !["draft", "rejected"].includes(saved.draft.state))
+          throw new Error("资料状态已变化，请核对草稿后再提交。");
+        const submitted = await request<Resource>(
+          `/resources/${saved.id}/review/submit`,
+          "POST",
+          {
+            expected_revision: saved.draft.revision,
+            // The full source note remains in the draft; review's summary has a 1000-char limit.
+            note: note.slice(0, 1000),
+          },
+        );
+        load(submitted.data);
+        changed = true;
+        setNotice("已提交审核，请由另一名审核人员核对；审核通过前不会公开。");
+      } else setNotice("草稿已保存，尚未提交审核或公开。");
     } catch (e) {
-      setError(message(e));
+      setError(
+        (savedThisTime ? "草稿已保存，提交审核未完成：" : "") + message(e),
+      );
+      if (savedThisTime)
+        setNotice("已保留刚保存的草稿。请核对状态后再次点击提交审核。");
     } finally {
+      if (changed) {
+        setRevision((v) => v + 1);
+        onUpdate?.();
+      }
+      writing.current = false;
       setBusy(false);
     }
   }
   async function operate(
     action: "submit" | "publish" | "reject" | "discard" | "retire",
   ) {
-    if (!selected || dirty || busy) return;
+    if (!selected || dirty || busy || writing.current) return;
     if (!reviewNote.trim()) {
       setError("请填写本次操作说明。");
       return;
@@ -430,7 +512,7 @@ export function ResourceWorkspace({
           {!focused && (
             <div className="ad-card">
               <div className="ad-card-heading">
-                <h2>
+                <h2 ref={listHeading} tabIndex={-1}>
                   {globalView ? "全部地点资料" : pointName || "请选择建筑"}
                 </h2>
                 {pointId &&
@@ -554,7 +636,7 @@ export function ResourceWorkspace({
             <div className="ad-card ad-resource-editor" aria-busy={busy}>
               <div className="ad-card-heading">
                 <div>
-                  <h2>
+                  <h2 ref={editorHeading} tabIndex={-1}>
                     {content.kind === "floor" ? "楼层资料" : "VR 全景资料"}
                   </h2>
                   <p>
@@ -564,6 +646,16 @@ export function ResourceWorkspace({
                       : " · 新资料"}
                   </p>
                 </div>
+                {!focused && (
+                  <button
+                    type="button"
+                    className="ad-back-to-list"
+                    disabled={busy}
+                    onClick={returnToList}
+                  >
+                    返回资料列表
+                  </button>
+                )}
                 {dirty && <span className="ad-badge draft">未保存</span>}
                 {!dirty && selected && (
                   <span
@@ -662,7 +754,7 @@ export function ResourceWorkspace({
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  save();
+                  void save(true);
                 }}
               >
                 <fieldset disabled={busy || !canEdit}>
@@ -860,13 +952,29 @@ export function ResourceWorkspace({
                     />
                   </label>
                   {canEdit && (
-                    <button
-                      className="ad-primary"
-                      type="submit"
-                      disabled={!dirty}
-                    >
-                      {busy ? "正在保存…" : "保存草稿"}
-                    </button>
+                    <div className="ad-action-wrap ad-editor-actions">
+                      <button
+                        className="ad-primary"
+                        type="submit"
+                        disabled={!dirty && !canSubmitSaved}
+                      >
+                        {busy
+                          ? "正在处理…"
+                          : dirty
+                            ? "保存并提交审核"
+                            : "提交审核"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!dirty}
+                        onClick={() => void save(false)}
+                      >
+                        仅保存草稿
+                      </button>
+                      <small>
+                        沿用上方资料依据提交，由另一名审核人员确认后公开。
+                      </small>
+                    </div>
                   )}
                 </fieldset>
               </form>
@@ -927,8 +1035,15 @@ export function ResourceWorkspace({
                   </a>
                 )}
               {selected && (
-                <div className="ad-resource-review">
-                  <h3>审核与发布</h3>
+                <details
+                  className="ad-resource-review"
+                  open={selected.draft?.state === "in_review"}
+                >
+                  <summary>
+                    {selected.draft?.state === "in_review"
+                      ? "审核与发布"
+                      : "其他操作：撤回或申请下架"}
+                  </summary>
                   {dirty ? (
                     <p>请先保存当前修改，再提交或审核。</p>
                   ) : (
@@ -945,7 +1060,7 @@ export function ResourceWorkspace({
                       </label>
                       <div className="ad-action-wrap">
                         {session.permissions.includes("points.edit") &&
-                          selected.draft &&
+                          selected.draft?.operation === "retire" &&
                           ["draft", "rejected"].includes(
                             selected.draft.state,
                           ) && (
@@ -1016,7 +1131,7 @@ export function ResourceWorkspace({
                       )}
                     </>
                   )}
-                </div>
+                </details>
               )}
             </div>
           )}

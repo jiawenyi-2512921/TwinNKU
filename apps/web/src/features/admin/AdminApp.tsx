@@ -24,6 +24,7 @@ import "./admin.css";
 import "./workbench.css";
 type Tab =
   | "experiences"
+  | "tours"
   | "guide-settings"
   | "roads"
   | "overview"
@@ -313,6 +314,12 @@ export default function AdminApp() {
       : null,
     revision,
   );
+  const tourPendingCount =
+    experiencePending.data?.data.filter(
+      (item) => (item.content?.kind ?? item.published_content?.kind) === "tour",
+    ).length ?? 0;
+  const placePendingCount =
+    (experiencePending.data?.data.length ?? 0) - tourPendingCount;
   const workbench = useResource<Workbench>(
     session && !locked && !session.user.must_change_password
       ? "/workbench"
@@ -430,37 +437,40 @@ export default function AdminApp() {
         )}
       </div>
     );
-  const navs: { id: Tab; title: string; icon: string; permission?: string }[] =
-    [
-      { id: "overview", title: "工作台", icon: "focus" },
-      { id: "points", title: "地图点位", icon: "pin" },
-      { id: "resources", title: "资料中心", icon: "layers" },
-      { id: "experiences", title: "影像、打卡与导览", icon: "bookmark" },
-      { id: "roads", title: "道路与导航", icon: "pin" },
-      {
-        id: "guide-settings",
-        title: "智能导览设置",
-        icon: "chat",
-        permission: "users.manage",
-      },
-      {
-        id: "review",
-        title: "审核中心",
-        icon: "check",
-      },
-      {
-        id: "audit",
-        title: "操作记录",
-        icon: "clock",
-        permission: "audit.read",
-      },
-      {
-        id: "accounts",
-        title: "账号权限",
-        icon: "users",
-        permission: "users.manage",
-      },
-    ];
+  const navs: {
+    id: Tab;
+    title: string;
+    icon: string;
+    permission?: string;
+    group?: string;
+  }[] = [
+    { id: "overview", title: "工作台", icon: "focus" },
+    { id: "points", title: "地图点位", icon: "pin", group: "编辑校园内容" },
+    { id: "resources", title: "资料中心", icon: "layers" },
+    { id: "experiences", title: "视频与打卡", icon: "panorama" },
+    { id: "tours", title: "校园导览路线", icon: "bookmark" },
+    { id: "roads", title: "道路与导航", icon: "pin" },
+    { id: "review", title: "审核中心", icon: "check", group: "审核与协作" },
+    {
+      id: "guide-settings",
+      title: "智能导览设置",
+      group: "设置与记录",
+      icon: "chat",
+      permission: "users.manage",
+    },
+    {
+      id: "audit",
+      title: "操作记录",
+      icon: "clock",
+      permission: "audit.read",
+    },
+    {
+      id: "accounts",
+      title: "账号权限",
+      icon: "users",
+      permission: "users.manage",
+    },
+  ];
   return (
     <div className="ad-root ad-shell">
       {locked && (
@@ -490,7 +500,7 @@ export default function AdminApp() {
             TwinNKU<small>校园导览管理后台</small>
           </span>
         </a>
-        <div className="ad-sidebar-label">内容与协作</div>
+        <div className="ad-sidebar-label">工作空间</div>
         <nav aria-label="后台导航">
           {navs
             .filter(
@@ -498,34 +508,36 @@ export default function AdminApp() {
                 !n.permission || session.permissions.includes(n.permission),
             )
             .map((n) => (
-              <button
-                key={n.id}
-                aria-current={tab === n.id ? "page" : undefined}
-                className={tab === n.id ? "active" : ""}
-                onClick={() =>
-                  n.id === "review" ? openReview() : navigate(n.id)
-                }
-              >
-                <Icon name={n.icon} />
-                {n.title}
-                <span>
-                  {n.id === "experiences" &&
-                  experiencePending.data?.data.length ? (
-                    <b className="ad-nav-count">
-                      {experiencePending.data.data.length}
-                    </b>
-                  ) : n.id === "roads" && roadPending.length ? (
-                    <b className="ad-nav-count">{roadPending.length}</b>
-                  ) : n.id === "review" &&
-                    workbench.data?.data.pending_count ? (
-                    <b className="ad-nav-count">
-                      {workbench.data.data.pending_count}
-                    </b>
-                  ) : (
-                    "›"
-                  )}
-                </span>
-              </button>
+              <div className="ad-nav-item" key={n.id}>
+                {n.group && <div className="ad-sidebar-label">{n.group}</div>}
+                <button
+                  aria-current={tab === n.id ? "page" : undefined}
+                  className={tab === n.id ? "active" : ""}
+                  onClick={() => {
+                    if (n.id === "review") openReview();
+                    else if (navigate(n.id)) setExperienceId(undefined);
+                  }}
+                >
+                  <Icon name={n.icon} />
+                  {n.title}
+                  <span>
+                    {n.id === "tours" && tourPendingCount ? (
+                      <b className="ad-nav-count">{tourPendingCount}</b>
+                    ) : n.id === "experiences" && placePendingCount ? (
+                      <b className="ad-nav-count">{placePendingCount}</b>
+                    ) : n.id === "roads" && roadPending.length ? (
+                      <b className="ad-nav-count">{roadPending.length}</b>
+                    ) : n.id === "review" &&
+                      workbench.data?.data.pending_count ? (
+                      <b className="ad-nav-count">
+                        {workbench.data.data.pending_count}
+                      </b>
+                    ) : (
+                      "›"
+                    )}
+                  </span>
+                </button>
+              </div>
             ))}
         </nav>
         <div className="ad-sidebar-bottom">
@@ -581,37 +593,47 @@ export default function AdminApp() {
                 onRetry={() => setRevision((v) => v + 1)}
               />
               {!!experiencePending.data?.data.length && (
-                <div className="road-summary">
-                  <strong>
-                    影像、打卡与导览待审核 ·{" "}
+                <details className="ad-pending-queue">
+                  <summary>
+                    视频、打卡与校园导览待审核 ·{" "}
                     {experiencePending.data.data.length}
-                  </strong>
-                  {experiencePending.data.data.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        if (navigate("experiences")) setExperienceId(item.id);
-                      }}
-                    >
-                      {item.content?.title ??
-                        item.published_content?.title ??
-                        "待审核内容"}{" "}
-                      →
-                    </button>
-                  ))}
-                </div>
+                  </summary>
+                  <div className="ad-pending-items">
+                    {experiencePending.data.data.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          if (
+                            navigate(
+                              (item.content?.kind ??
+                                item.published_content?.kind) === "tour"
+                                ? "tours"
+                                : "experiences",
+                            )
+                          )
+                            setExperienceId(item.id);
+                        }}
+                      >
+                        {item.content?.title ??
+                          item.published_content?.title ??
+                          "待审核内容"}{" "}
+                        →
+                      </button>
+                    ))}
+                  </div>
+                </details>
               )}
             </>
           )}
           {(tab === "review" || tab === "overview") &&
             roadPending.length > 0 && (
-              <div className="road-summary">
-                <strong>道路路网待审核 · {roadPending.length}</strong>
+              <details className="ad-pending-queue">
+                <summary>道路路网待审核 · {roadPending.length}</summary>
                 <p>{roadPending.map((r) => r.title).join("、")}</p>
                 <button onClick={() => navigate("roads")}>
                   进入路网审核与地图核对 →
                 </button>
-              </div>
+              </details>
             )}
           {tab === "overview" && (
             <Overview
@@ -669,8 +691,10 @@ export default function AdminApp() {
           {tab === "guide-settings" && session.user.role === "admin" && (
             <GuideSettings onDirty={onDirty} />
           )}
-          {tab === "experiences" && (
+          {(tab === "experiences" || tab === "tours") && (
             <ExperienceWorkspace
+              key={tab}
+              kindScope={tab === "tours" ? "tours" : "places"}
               session={session}
               onDirty={onDirty}
               onUpdate={() => setRevision((v) => v + 1)}

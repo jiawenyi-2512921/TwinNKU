@@ -24,7 +24,7 @@ type Props = {
   onUndo: () => void;
   canUndo: boolean;
 };
-type Mode = "pan" | "move" | "label" | "polygon" | "rectangle";
+type Mode = "pan" | "move" | "label" | "reshape" | "polygon" | "rectangle";
 export function MapEditor(props: Props) {
   const { info, points, selectedId, value, name, editable } = props;
   const node = useRef<HTMLDivElement>(null),
@@ -154,6 +154,17 @@ export function MapEditor(props: Props) {
       title.textContent = p.name;
       shape.bindTooltip(title, { sticky: true });
       shape.on("click", () => latest.current.onSelect(p.id));
+      const path = shape.getElement();
+      if (path && mode === "pan") {
+        path.setAttribute("tabindex", "0");
+        path.setAttribute("role", "button");
+        path.setAttribute("aria-label", `编辑${p.name}`);
+        path.addEventListener("keydown", (event) => {
+          if (!["Enter", " "].includes((event as KeyboardEvent).key)) return;
+          event.preventDefault();
+          latest.current.onSelect(p.id);
+        });
+      }
     }
     if (value) {
       const published = points.find((p) => p.id === selectedId)?.geometry;
@@ -188,8 +199,9 @@ export function MapEditor(props: Props) {
           iconSize: [18, 18],
           iconAnchor: [9, 9],
         }),
-        draggable: editable && mode === "pan",
-        title: "拖动点位，同时移动点击范围",
+        draggable: editable && mode === "move",
+        title:
+          mode === "move" ? "拖动定位点，同时移动点击范围" : "当前地点定位点",
         keyboard: true,
       }).addTo(group);
       anchor.on("dragend", () => {
@@ -210,7 +222,7 @@ export function MapEditor(props: Props) {
           setError((e as Error).message);
         }
       });
-      if (editable && mode === "pan")
+      if (editable && mode === "reshape")
         value.polygon.forEach((p, i) => {
           const marker = L.marker(toMapPoint(p, z), {
             icon: L.divIcon({
@@ -225,7 +237,7 @@ export function MapEditor(props: Props) {
           marker.on("click", () => setVertex(i));
           marker.on("dragend", () => {
             const v = latest.current.value;
-            if (!v) return;
+            if (!v || !latest.current.editable) return;
             const polygon = v.polygon.map((p, j) =>
               j === i
                 ? clampPoint(
@@ -297,6 +309,22 @@ export function MapEditor(props: Props) {
       );
     else m.fitBounds(imageBounds(info), { padding: [24, 24] });
   };
+  useEffect(() => {
+    if (selectedId && value) focus();
+  }, [selectedId, info]);
+  useEffect(() => {
+    if (mode === "pan") return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setMode("pan");
+      setDrawing([]);
+      setVertex(null);
+      setError("");
+    };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, [mode]);
   const choose = (next: Mode) => {
     setMode(next);
     setDrawing([]);
@@ -304,7 +332,7 @@ export function MapEditor(props: Props) {
     setError("");
   };
   const complete = () => {
-    if (!value) return;
+    if (!value || !editable) return;
     const invalid = validPolygon(drawing, info.width_px, info.height_px);
     if (invalid) {
       setError(invalid);
@@ -314,7 +342,7 @@ export function MapEditor(props: Props) {
     choose("pan");
   };
   const removeVertex = () => {
-    if (!value || vertex === null) return;
+    if (!value || !editable || vertex === null) return;
     const p = value.polygon.filter((_, i) => i !== vertex);
     const invalid = validPolygon(p, info.width_px, info.height_px);
     if (invalid) {
@@ -329,37 +357,37 @@ export function MapEditor(props: Props) {
       <div className="ad-map-toolbar" aria-label="地图编辑工具">
         <button
           className={mode === "pan" ? "active" : ""}
+          aria-pressed={mode === "pan"}
           onClick={() => choose("pan")}
         >
-          浏览 / 拖动
+          选择地点
         </button>
         {editable && value && (
           <>
             <button
               className={mode === "move" ? "active" : ""}
+              aria-pressed={mode === "move"}
               onClick={() => choose("move")}
             >
-              移动整个点位
+              移动位置
             </button>
             {value.label_on_map && (
               <button
                 className={mode === "label" ? "active" : ""}
                 onClick={() => choose("label")}
               >
-                只移新增文字
+                移动新增文字
               </button>
             )}
             <button
-              className={mode === "rectangle" ? "active" : ""}
-              onClick={() => choose("rectangle")}
+              className={
+                ["reshape", "rectangle", "polygon"].includes(mode)
+                  ? "active"
+                  : ""
+              }
+              onClick={() => choose("reshape")}
             >
-              矩形范围
-            </button>
-            <button
-              className={mode === "polygon" ? "active" : ""}
-              onClick={() => choose("polygon")}
-            >
-              多边形范围
+              调整点击范围
             </button>
             <button
               disabled={!props.canUndo}
@@ -372,7 +400,9 @@ export function MapEditor(props: Props) {
             </button>
           </>
         )}
-        <button onClick={focus}>定位选中点</button>
+        <button onClick={focus} disabled={!value}>
+          查看选中地点
+        </button>
         <button
           onClick={() =>
             mapRef.current?.fitBounds(imageBounds(info), { padding: [24, 24] })
@@ -381,6 +411,31 @@ export function MapEditor(props: Props) {
           全图
         </button>
       </div>
+      {editable &&
+        value &&
+        ["reshape", "rectangle", "polygon"].includes(mode) && (
+          <div className="ad-point-shape-tools" aria-label="点击范围工具">
+            <strong>调整点击范围</strong>
+            <button
+              className={mode === "reshape" ? "active" : ""}
+              onClick={() => choose("reshape")}
+            >
+              拖动边界角点
+            </button>
+            <button
+              className={mode === "rectangle" ? "active" : ""}
+              onClick={() => choose("rectangle")}
+            >
+              重新画矩形
+            </button>
+            <button
+              className={mode === "polygon" ? "active" : ""}
+              onClick={() => choose("polygon")}
+            >
+              重新画多边形
+            </button>
+          </div>
+        )}
       <div
         className={`ad-map-surface ${mode !== "pan" ? "is-drawing" : ""}`}
         ref={node}
@@ -402,13 +457,15 @@ export function MapEditor(props: Props) {
           ? "点击新位置：定位点和整个点击范围一起移动"
           : mode === "label"
             ? "点击新的文字位置；点击范围保持原位，底图内的字不变"
-            : mode === "rectangle"
-              ? `点击矩形的${drawing.length ? "另一个" : "第一个"}对角`
-              : mode === "polygon"
-                ? `依次点击边界 · 已选 ${drawing.length} 个顶点`
-                : editable && value
-                  ? "拖动紫色圆点会连同点击范围一起移动；白色方点调整边界"
-                  : "点击轮廓选中地点；滚轮或双指缩放"}
+            : mode === "reshape"
+              ? "拖动白色角点调整边界；选中角点后可删除。灰色虚线是原有范围。"
+              : mode === "rectangle"
+                ? `点击矩形的${drawing.length ? "另一个" : "第一个"}对角`
+                : mode === "polygon"
+                  ? `依次点击边界 · 已选 ${drawing.length} 个顶点`
+                  : editable && value
+                    ? "已选中地点。可直接修改右侧资料；需要改位置或范围时，点击上方对应按钮。"
+                    : "点击轮廓选中地点；滚轮或双指缩放"}
         {mode === "polygon" && (
           <>
             <button disabled={drawing.length < 3} onClick={complete}>
@@ -423,9 +480,11 @@ export function MapEditor(props: Props) {
           </>
         )}
         {mode !== "pan" && (
-          <button onClick={() => choose("pan")}>取消绘制</button>
+          <button onClick={() => choose("pan")}>
+            {mode === "reshape" ? "完成范围调整" : "取消调整"}
+          </button>
         )}
-        {editable && mode === "pan" && vertex !== null && (
+        {editable && mode === "reshape" && vertex !== null && (
           <button
             onClick={removeVertex}
             disabled={(value?.polygon.length ?? 0) <= 3}

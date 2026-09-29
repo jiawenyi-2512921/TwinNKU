@@ -18,6 +18,7 @@ import { notifyCatalogPublished } from "../../shared/catalogSync";
 import { verifyPublication, type PublicationCheck } from "./publication";
 import { moveGeometry, rectangle, validPolygon } from "./geometry";
 import { ChangeDiff } from "./ChangeDiff";
+import "./point-workspace.css";
 type Props = {
   session: StaffSession;
   maps: MapInfo[];
@@ -54,6 +55,8 @@ export function PointWorkspace({
     [reason, setReason] = useState(""),
     [history, setHistory] = useState<GeometryInput[]>([]);
   const loadId = useRef(0);
+  const operationLock = useRef(false);
+  const [showList, setShowList] = useState(review);
   const map = maps.find((m) => m.id === mapId) ?? maps[0];
   const allowedEdit = session.permissions.includes("points.edit"),
     allowedReview = session.permissions.includes("points.review");
@@ -153,7 +156,7 @@ export function PointWorkspace({
     } else setInput(null);
   }
   async function open(id: string, force = false) {
-    if (busy || (!force && !guard())) return;
+    if (busy || operationLock.current || (!force && !guard())) return;
     const seq = ++loadId.current;
     setLoading(true);
     setError("");
@@ -173,7 +176,7 @@ export function PointWorkspace({
     }
   }
   function startNew() {
-    if (!map || !guard()) return;
+    if (!map || busy || operationLock.current || !guard()) return;
     loadId.current++;
     setLoading(false);
     setSelected(null);
@@ -245,8 +248,12 @@ export function PointWorkspace({
     setRevision((v) => v + 1);
     onUpdate();
   }
-  async function save() {
-    if (!input || !map) return;
+  async function save(submitAfter = false) {
+    if (!input || !map || !writable || operationLock.current) return;
+    if (!input.name.trim() || !input.source_note.trim()) {
+      setError("请填写地点名称和资料依据 / 修改说明。");
+      return;
+    }
     const invalid = validPolygon(
       input.geometry.polygon,
       map.width_px,
@@ -256,36 +263,95 @@ export function PointWorkspace({
       setError(invalid);
       return;
     }
+    operationLock.current = true;
     setBusy(true);
     setError("");
     setNotice("");
     setPublicationCheck(null);
+    const submissionNote = (reason.trim() || input.source_note.trim()).slice(
+      0,
+      1000,
+    );
+    let saved = false;
+    try {
+      let current = selected;
+      if (dirty || !current || !activeDraft(current)) {
+        const result = await request<AdminPoint>(
+          selected ? `/points/${selected.point.id}` : "/points",
+          selected ? "PUT" : "POST",
+          {
+            ...input,
+            aliases: (input.aliases ?? []).map((v) => v.trim()).filter(Boolean),
+            ...(selected
+              ? {
+                  expected_revision: selected.draft?.revision ?? 0,
+                  expected_point_revision: selected.point.revision,
+                }
+              : {}),
+          },
+        );
+        current = result.data;
+        accept(current);
+        saved = true;
+        refresh();
+      }
+      if (submitAfter && current) {
+        const submitted = await request<AdminPoint>(
+          `/points/${current.point.id}/submit`,
+          "POST",
+          {
+            expected_revision: current.draft?.revision ?? 0,
+            note: submissionNote,
+          },
+        );
+        accept(submitted.data);
+        refresh();
+        setNotice("已保存并提交审核。另一位审核人员通过后，公开地图才会更新。");
+      } else setNotice("草稿已保存，可稍后继续修改或提交审核。");
+    } catch (e) {
+      if (saved)
+        setNotice(
+          "草稿已保存，但尚未确认提审成功。你的修改已保留，可核对状态后再次提交。",
+        );
+      setError(message(e));
+    } finally {
+      operationLock.current = false;
+      setBusy(false);
+    }
+  }
+  async function resumeEditing() {
+    if (!selected || !input || busy || operationLock.current || !canWithdraw)
+      return;
+    const content = input;
+    operationLock.current = true;
+    setBusy(true);
+    setError("");
+    setNotice("");
     try {
       const result = await request<AdminPoint>(
-        selected ? `/points/${selected.point.id}` : "/points",
-        selected ? "PUT" : "POST",
+        `/points/${selected.point.id}/discard`,
+        "POST",
         {
-          ...input,
-          aliases: (input.aliases ?? []).map((v) => v.trim()).filter(Boolean),
-          ...(selected
-            ? {
-                expected_revision: selected.draft?.revision ?? 0,
-                expected_point_revision: selected.point.revision,
-              }
-            : {}),
+          expected_revision: selected.draft?.revision ?? 0,
+          note: "撤回待审版本，保留内容继续修改",
         },
       );
       accept(result.data);
+      setInput(content);
+      setDirty(true);
+      setNotice(
+        "已撤回待审版本，原修改内容已保留。修改完成后再次保存并提交审核。",
+      );
       refresh();
-      setNotice("草稿已保存。公开地图仍显示上一次发布的版本。");
     } catch (e) {
       setError(message(e));
     } finally {
+      operationLock.current = false;
       setBusy(false);
     }
   }
   async function operate(action: string) {
-    if (!selected || busy) return;
+    if (!selected || busy || operationLock.current) return;
     if (dirty) {
       setError("请先保存或放弃当前修改，再进行审核操作。");
       return;
@@ -308,6 +374,7 @@ export function PointWorkspace({
       )
     )
       return;
+    operationLock.current = true;
     setBusy(true);
     setError("");
     setNotice("");
@@ -347,6 +414,7 @@ export function PointWorkspace({
     } catch (e) {
       setError(message(e));
     } finally {
+      operationLock.current = false;
       setBusy(false);
     }
   }
@@ -355,6 +423,11 @@ export function PointWorkspace({
     (selected.draft.contributor_ids.includes(session.user.id) ||
       selected.draft.submitted_by === session.user.id);
   const pending = !!selected && activeDraft(selected);
+  const canWithdraw =
+    allowedEdit &&
+    !!selected?.draft &&
+    (session.user.role === "admin" ||
+      selected.draft.contributor_ids.includes(session.user.id));
   const publishedGeometry = selected?.geometries.find(
     (g) => g.map_id === input?.geometry.map_id,
   );
@@ -366,7 +439,9 @@ export function PointWorkspace({
       />
     );
   return (
-    <div className={`ad-workspace${initialId ? " ad-focused-point" : ""}`}>
+    <div
+      className={`ad-workspace ad-point-studio${showList ? " is-list-open" : ""}${initialId ? " ad-focused-point" : ""}`}
+    >
       <div className="ad-section-heading">
         <div>
           <div className="ad-eyebrow">
@@ -376,10 +451,19 @@ export function PointWorkspace({
           <p>
             {review
               ? "核对地点、位置和资料，再决定是否公开。"
-              : "在原图上维护地点，让每次更新都有依据。"}
+              : "点选地图上的地点 → 修改资料或位置 → 保存并提交审核。"}
           </p>
         </div>
         <div className="ad-heading-actions">
+          {!initialId && (
+            <button
+              type="button"
+              aria-expanded={showList}
+              onClick={() => setShowList((value) => !value)}
+            >
+              {showList ? "收起地点列表" : "搜索 / 地点列表"}
+            </button>
+          )}
           <select
             aria-label="校园底图"
             value={map.id}
@@ -603,6 +687,25 @@ export function PointWorkspace({
                   {busy ? "正在处理…" : "核对公开端"}
                 </button>
               )}
+              {selected?.draft?.state === "in_review" && !review && (
+                <div className="ad-point-review-status" role="status">
+                  <strong>已提交，等待审核</strong>
+                  <p>
+                    {canWithdraw
+                      ? "还要修改？撤回后会保留当前内容，修改完成再提交。"
+                      : "当前版本正在审核，由原编辑人员或管理员撤回后可继续修改。"}
+                  </p>
+                  {canWithdraw && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={resumeEditing}
+                    >
+                      撤回并继续修改
+                    </button>
+                  )}
+                </div>
+              )}
               {selected?.status === "retired" && (
                 <p className="ad-callout">
                   此点位已下架。保存新草稿并通过审核后，可恢复公开展示。
@@ -622,7 +725,7 @@ export function PointWorkspace({
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  save();
+                  void save(true);
                 }}
               >
                 <fieldset disabled={!writable}>
@@ -636,60 +739,64 @@ export function PointWorkspace({
                       placeholder="填写已确认的名称"
                     />
                   </label>
-                  <div className="ad-form-pair">
+                  <details className="ad-point-extra">
+                    <summary>类别、别名与可见范围</summary>
+                    <div className="ad-form-pair">
+                      <label>
+                        地点类别
+                        <select
+                          value={input.category}
+                          onChange={(e) =>
+                            edit({
+                              category: e.target
+                                .value as PointInput["category"],
+                            })
+                          }
+                        >
+                          {Object.entries(categories).map(([k, v]) => (
+                            <option key={k} value={k}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        可见范围
+                        <select
+                          value={input.visibility}
+                          onChange={(e) =>
+                            edit({
+                              visibility: e.target
+                                .value as PointInput["visibility"],
+                            })
+                          }
+                        >
+                          <option value="public">公开</option>
+                          <option value="internal">内部</option>
+                          <option value="restricted">受限</option>
+                        </select>
+                      </label>
+                    </div>
                     <label>
-                      地点类别
-                      <select
-                        value={input.category}
+                      别名
+                      <input
+                        value={(input.aliases ?? []).join("，")}
                         onChange={(e) =>
                           edit({
-                            category: e.target.value as PointInput["category"],
+                            aliases: e.target.value.split(/[，,]/).slice(0, 20),
                           })
                         }
-                      >
-                        {Object.entries(categories).map(([k, v]) => (
-                          <option key={k} value={k}>
-                            {v}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      可见范围
-                      <select
-                        value={input.visibility}
-                        onChange={(e) =>
+                        onBlur={() =>
                           edit({
-                            visibility: e.target
-                              .value as PointInput["visibility"],
+                            aliases: (input.aliases ?? [])
+                              .map((v) => v.trim())
+                              .filter(Boolean),
                           })
                         }
-                      >
-                        <option value="public">公开</option>
-                        <option value="internal">内部</option>
-                        <option value="restricted">受限</option>
-                      </select>
+                        placeholder="多个别名用逗号分隔"
+                      />
                     </label>
-                  </div>
-                  <label>
-                    别名
-                    <input
-                      value={(input.aliases ?? []).join("，")}
-                      onChange={(e) =>
-                        edit({
-                          aliases: e.target.value.split(/[，,]/).slice(0, 20),
-                        })
-                      }
-                      onBlur={() =>
-                        edit({
-                          aliases: (input.aliases ?? [])
-                            .map((v) => v.trim())
-                            .filter(Boolean),
-                        })
-                      }
-                      placeholder="多个别名用逗号分隔"
-                    />
-                  </label>
+                  </details>
                   <label>
                     地点介绍
                     <textarea
@@ -712,46 +819,49 @@ export function PointWorkspace({
                     />
                   </label>
                   <p className="ad-hint">
-                    修改定位坐标会一起移动点击范围。底图中原有文字不会随点位移动。
+                    位置和点击范围可直接在左侧地图调整。地图中已经印上的文字不随定位点移动。
                   </p>
-                  <div className="ad-form-pair">
-                    <label>
-                      定位坐标 X
-                      <input
-                        type="number"
-                        required
-                        step=".001"
-                        min={0}
-                        max={map.width_px}
-                        value={input.geometry.anchor.x}
-                        onChange={(e) => {
-                          if (e.target.value)
-                            moveAnchor({
-                              ...input.geometry.anchor,
-                              x: Number(e.target.value),
-                            });
-                        }}
-                      />
-                    </label>
-                    <label>
-                      定位坐标 Y
-                      <input
-                        type="number"
-                        required
-                        step=".001"
-                        min={0}
-                        max={map.height_px}
-                        value={input.geometry.anchor.y}
-                        onChange={(e) => {
-                          if (e.target.value)
-                            moveAnchor({
-                              ...input.geometry.anchor,
-                              y: Number(e.target.value),
-                            });
-                        }}
-                      />
-                    </label>
-                  </div>
+                  <details className="ad-point-extra">
+                    <summary>精确坐标（高级调整）</summary>
+                    <div className="ad-form-pair">
+                      <label>
+                        定位坐标 X
+                        <input
+                          type="number"
+                          required
+                          step=".001"
+                          min={0}
+                          max={map.width_px}
+                          value={input.geometry.anchor.x}
+                          onChange={(e) => {
+                            if (e.target.value)
+                              moveAnchor({
+                                ...input.geometry.anchor,
+                                x: Number(e.target.value),
+                              });
+                          }}
+                        />
+                      </label>
+                      <label>
+                        定位坐标 Y
+                        <input
+                          type="number"
+                          required
+                          step=".001"
+                          min={0}
+                          max={map.height_px}
+                          value={input.geometry.anchor.y}
+                          onChange={(e) => {
+                            if (e.target.value)
+                              moveAnchor({
+                                ...input.geometry.anchor,
+                                y: Number(e.target.value),
+                              });
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </details>
                   <label className="ad-check">
                     <input
                       type="checkbox"
@@ -771,31 +881,55 @@ export function PointWorkspace({
                     底图已经印有的名称无需重复显示。关闭此项只影响新增文字，不能擦除底图原有文字。
                   </p>
                 </fieldset>
-                {writable && (
-                  <div className="ad-sticky-actions">
-                    <button
-                      type="submit"
-                      className="ad-primary"
-                      disabled={!dirty || busy}
-                    >
-                      {busy ? "正在保存…" : "保存草稿"}
-                    </button>
-                    {selected && dirty && (
+                {allowedEdit &&
+                  !review &&
+                  selected?.draft?.state !== "in_review" && (
+                    <div className="ad-sticky-actions ad-point-savebar">
+                      <p className="ad-point-save-state" role="status">
+                        {busy
+                          ? "正在处理，请稍候…"
+                          : dirty
+                            ? "有未保存修改"
+                            : pending
+                              ? "草稿已保存，可直接提交"
+                              : "修改后保存或提交审核"}
+                      </p>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (guard()) accept(selected);
-                        }}
+                        disabled={!dirty || busy}
+                        onClick={() => void save(false)}
                       >
-                        放弃修改
+                        保存草稿
                       </button>
-                    )}
-                  </div>
-                )}
+                      <button
+                        type="submit"
+                        className="ad-primary"
+                        disabled={busy || (!dirty && !pending)}
+                      >
+                        保存并提交审核
+                      </button>
+                      {selected && dirty && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            if (guard()) accept(selected);
+                          }}
+                        >
+                          放弃修改
+                        </button>
+                      )}
+                    </div>
+                  )}
               </form>
               {selected && (
-                <div className="ad-review-box">
-                  <h3>审核与变更</h3>
+                <details
+                  className="ad-review-box ad-point-extra"
+                  open={review || selected.draft?.state === "in_review"}
+                >
+                  <summary>
+                    {review ? "审核与发布" : "变更对比与其他操作"}
+                  </summary>
                   {pending && selected.draft?.payload && (
                     <ChangeDiff
                       rows={[
@@ -855,7 +989,8 @@ export function PointWorkspace({
                         />
                       </label>
                       <div className="ad-action-wrap">
-                        {allowedEdit &&
+                        {review &&
+                          allowedEdit &&
                           pending &&
                           selected.draft?.state !== "in_review" && (
                             <button
@@ -920,7 +1055,7 @@ export function PointWorkspace({
                   {!allowedEdit && !allowedReview && (
                     <p className="ad-hint">当前账号拥有查看权限。</p>
                   )}
-                </div>
+                </details>
               )}
             </>
           )}
