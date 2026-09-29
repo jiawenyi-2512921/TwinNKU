@@ -20,7 +20,18 @@ const ExperienceActions = createContext<{
   pointNames?: Record<string, string>;
 }>({ active: true });
 
+// Created only by a resolved explicit assistant action, never by a shared URL.
+export type VideoPlaybackRequest = {
+  id: number;
+  resourceId: string;
+  revision: number;
+  pointId: string;
+  pointRevision: number;
+  signal: AbortSignal;
+};
+
 export type ExperiencePanelProps = {
+  playbackRequest?: VideoPlaybackRequest | null;
   pointNames?: Record<string, string>;
   active?: boolean;
   onMediaActiveChange?: (active: boolean) => void;
@@ -48,6 +59,7 @@ export function ExperiencePanel({
   onNavigateStop,
   onExperienceChange,
   pointNames,
+  playbackRequest,
 }: ExperiencePanelProps) {
   const [items, setItems] = useState<Experience[]>([]);
   const [kind, setKind] = useState<ExperienceKind | "">(
@@ -56,6 +68,20 @@ export function ExperiencePanel({
   const [selectedId, setSelectedId] = useState(initialExperienceId ?? "");
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [retry, setRetry] = useState(0);
+  const rejectedPlayback = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      playbackRequest &&
+      (state === "error" ||
+        (state === "ready" &&
+          !items.some(
+            (item) =>
+              item.id === playbackRequest.resourceId &&
+              item.revision === playbackRequest.revision,
+          )))
+    )
+      rejectedPlayback.current = playbackRequest.id;
+  }, [playbackRequest, items, state]);
   useEffect(() => {
     setSelectedId(initialExperienceId ?? "");
   }, [initialExperienceId, pointId]);
@@ -185,6 +211,11 @@ export function ExperiencePanel({
                   item={selected}
                   items={items}
                   onSelectPoint={onSelectPoint}
+                  playbackRequest={
+                    playbackRequest?.id === rejectedPlayback.current
+                      ? null
+                      : playbackRequest
+                  }
                 />
               </>
             ) : (
@@ -248,10 +279,12 @@ function ExperienceDetail({
   item,
   items,
   onSelectPoint,
+  playbackRequest,
 }: {
   item: Experience;
   items: Experience[];
   onSelectPoint: (id: string) => void;
+  playbackRequest?: VideoPlaybackRequest | null;
 }) {
   if (item.content.kind === "tour")
     return (
@@ -263,7 +296,7 @@ function ExperienceDetail({
       <h3>{item.content.title}</h3>
       <p className="experience-prose">{item.content.description}</p>
       {item.content.kind === "media" ? (
-        <MediaView item={item} />
+        <MediaView item={item} playbackRequest={playbackRequest} />
       ) : (
         <CheckinCard item={item} items={items} />
       )}
@@ -276,24 +309,79 @@ function ExperienceDetail({
   );
 }
 
-export function MediaView({ item }: { item: Experience }) {
+export function MediaView({
+  item,
+  playbackRequest,
+}: {
+  item: Experience;
+  playbackRequest?: VideoPlaybackRequest | null;
+}) {
   const { active, onMediaActiveChange } = useContext(ExperienceActions);
   const callback = useRef(onMediaActiveChange);
   callback.current = onMediaActiveChange;
   const [consented, setConsented] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [playbackMessage, setPlaybackMessage] = useState("");
+  const [dismissedRequest, setDismissedRequest] = useState<number | null>(null);
+  const player = useRef<HTMLVideoElement>(null);
+  const playGeneration = useRef(0);
   const url = safeMediaUrl(item.media_url);
+  const directPlayback =
+    active &&
+    playbackRequest?.resourceId === item.id &&
+    playbackRequest.revision === item.revision &&
+    playbackRequest.id !== dismissedRequest &&
+    !playbackRequest.signal.aborted;
+  async function playVideo(video: HTMLVideoElement) {
+    const generation = ++playGeneration.current;
+    setPlaybackMessage("");
+    try {
+      await video.play();
+    } catch (error) {
+      if (generation !== playGeneration.current || player.current !== video)
+        return;
+      callback.current?.(false);
+      setPlaybackMessage(
+        error &&
+          typeof error === "object" &&
+          "name" in error &&
+          error.name === "NotAllowedError"
+          ? "浏览器阻止了自动播放，请点击下方按钮播放。"
+          : "视频尚未开始播放，请点击重试；若仍失败，请检查网络或打开原视频。",
+      );
+    }
+  }
   useEffect(() => {
     setConsented(false);
     setFailed(false);
+    setPlaybackMessage("");
   }, [item.id, item.revision, item.media_url]);
   useEffect(() => {
     if (!active) {
       setConsented(false);
+      if (playbackRequest) setDismissedRequest(playbackRequest.id);
       callback.current?.(false);
     }
     return () => callback.current?.(false);
-  }, [active, item.id, item.revision, item.media_url]);
+  }, [active, item.id, item.revision, item.media_url, playbackRequest]);
+  useEffect(() => {
+    const video = player.current;
+    if (!directPlayback || !video || !playbackRequest || failed) return;
+    const cancel = () => {
+      playGeneration.current++;
+      video.pause();
+      setDismissedRequest(playbackRequest.id);
+      callback.current?.(false);
+    };
+    playbackRequest.signal.addEventListener("abort", cancel, { once: true });
+    void playVideo(video);
+    return () => {
+      playbackRequest.signal.removeEventListener("abort", cancel);
+      playGeneration.current++;
+      video.pause();
+      callback.current?.(false);
+    };
+  }, [directPlayback, playbackRequest, item.id, item.revision, url, failed]);
   if (item.content.kind !== "media" || !url) return <p>该媒体目前不可播放。</p>;
   if (item.content.media_type === "image")
     return failed ? (
@@ -314,14 +402,18 @@ export function MediaView({ item }: { item: Experience }) {
   if (!inlineVideo(url, !!item.content.upload_id))
     return (
       <div className="experience-video-consent">
-        <p>想观看《{item.content.title}》吗？</p>
+        <p>
+          {directPlayback
+            ? `《${item.content.title}》的视频链接已准备好。`
+            : `想观看《${item.content.title}》吗？`}
+        </p>
         <a href={url} target="_blank" rel="noopener noreferrer">
           在新窗口观看视频
         </a>
         <small>将在提供方网站打开，当前导览保留。</small>
       </div>
     );
-  if (!consented || !active)
+  if ((!consented && !directPlayback) || !active)
     return (
       <div className="experience-video-consent">
         <p>想观看《{item.content.title}》吗？</p>
@@ -338,6 +430,18 @@ export function MediaView({ item }: { item: Experience }) {
     );
   return (
     <div className="experience-video">
+      {playbackMessage && !failed && (
+        <div role="status">
+          <p>{playbackMessage}</p>
+          <button
+            onClick={() => {
+              if (player.current) void playVideo(player.current);
+            }}
+          >
+            点击播放
+          </button>
+        </div>
+      )}
       {failed ? (
         <div role="alert">
           <p>视频未能播放，可能是文件格式或网络问题。</p>
@@ -356,11 +460,19 @@ export function MediaView({ item }: { item: Experience }) {
       ) : (
         <video
           key={`${item.id}:${item.revision}`}
+          ref={player}
           src={url}
           controls
           playsInline
           preload="metadata"
-          onPlay={() => callback.current?.(true)}
+          onPlay={() => {
+            if (directPlayback && playbackRequest?.signal.aborted) {
+              player.current?.pause();
+              return;
+            }
+            setPlaybackMessage("");
+            callback.current?.(true);
+          }}
           onPause={() => callback.current?.(false)}
           onEnded={() => callback.current?.(false)}
           onError={() => {
@@ -372,6 +484,9 @@ export function MediaView({ item }: { item: Experience }) {
       )}
       <button
         onClick={() => {
+          playGeneration.current++;
+          player.current?.pause();
+          if (playbackRequest) setDismissedRequest(playbackRequest.id);
           setConsented(false);
           callback.current?.(false);
         }}
