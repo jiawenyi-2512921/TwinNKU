@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 
 from app.api import as_point, require_campus
 from app.contracts import AdminMapPoint, AdminPoint, PointChange, PointDraftInput, PointGeometry
@@ -383,9 +383,18 @@ def request_retire(db, actor, point_id, payload):
 def scoped_audit_query(user, point_id=None):
     query = select(AdminAuditRecord)
     if user.role != "admin":
-        query = query.where(
-            AdminAuditRecord.point_id.in_(select(PointRecord.id).where(point_scope(user)))
-        )
+        visible = AdminAuditRecord.point_id.in_(select(PointRecord.id).where(point_scope(user)))
+        # Campus-owned tours have no building anchor. Only members authorized for
+        # the whole campus may see campus-wide payloads in their audit history.
+        if not user.point_ids:
+            visible = or_(
+                visible,
+                and_(
+                    AdminAuditRecord.point_id.is_(None),
+                    AdminAuditRecord.campus_id.in_(user.campus_ids),
+                ),
+            )
+        query = query.where(visible)
     if point_id:
         query = query.where(AdminAuditRecord.point_id == str(point_id))
     return query
