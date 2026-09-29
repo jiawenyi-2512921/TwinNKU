@@ -2,24 +2,34 @@ import { useEffect, useState } from "react";
 import { api, type Panorama } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import { watchCatalogChanges } from "../../shared/catalogSync";
+import { LOCATION_CHANGE_EVENT, writeLocation } from "../../shared/navigation";
+import {
+  externalPanoramaUrl,
+  panoramaLocation,
+  requestedPanorama,
+} from "./panorama";
+import "./panorama.css";
 
 export function PanoramaPanel({ pointId }: { pointId: string }) {
-  const requested = new URLSearchParams(window.location.search).get("panorama");
   const [items, setItems] = useState<Panorama[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
   const [retry, setRetry] = useState(0);
+  const [requested, setRequested] = useState(() =>
+    requestedPanorama(window.location.href, pointId),
+  );
   useEffect(() => {
-    if (
-      status === "ready" &&
-      requested &&
-      items.some((item) => item.id === requested)
-    )
-      document
-        .getElementById(`panorama-${requested}`)
-        ?.scrollIntoView({ block: "nearest" });
-  }, [status, requested, items]);
+    const synchronize = () =>
+      setRequested(requestedPanorama(window.location.href, pointId));
+    synchronize();
+    window.addEventListener("popstate", synchronize);
+    window.addEventListener(LOCATION_CHANGE_EVENT, synchronize);
+    return () => {
+      window.removeEventListener("popstate", synchronize);
+      window.removeEventListener(LOCATION_CHANGE_EVENT, synchronize);
+    };
+  }, [pointId]);
   useEffect(() => {
     let pending: AbortController | null = null;
     let disposed = false;
@@ -33,7 +43,6 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
         const { data } = await api.panoramas(pointId, controller.signal);
         if (controller.signal.aborted || disposed) return;
         const next = data.filter((item) => item.point_id === pointId);
-        // An unchanged poll must not scroll a shared VR card back into view.
         setItems((previous) =>
           JSON.stringify(previous) === JSON.stringify(next) ? previous : next,
         );
@@ -53,6 +62,14 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
       stopWatching();
     };
   }, [pointId, retry]);
+  function open(item: Panorama) {
+    writeLocation(panoramaLocation(window.location.href, pointId, item.id));
+    setRequested(requestedPanorama(window.location.href, pointId));
+  }
+  const active =
+    status === "ready"
+      ? items.find((item) => item.id === requested && item.point_id === pointId)
+      : undefined;
   if (status === "loading")
     return (
       <p className="content-status" role="status">
@@ -75,7 +92,7 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
   return (
     <section className="panorama-panel" aria-label="VR 全景">
       <h3>VR 全景</h3>
-      {requested && !items.some((item) => item.id === requested) && (
+      {requested && !active && (
         <p className="content-status">
           指定的全景目前不可用，以下是该地点现有的公开全景。
         </p>
@@ -88,11 +105,25 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
         >
           <strong>{item.title}</strong>
           {item.description && <p>{item.description}</p>}
-          <a href={item.url} target="_blank" rel="noopener noreferrer">
+          <button
+            type="button"
+            className="panorama-open"
+            onClick={() => open(item)}
+            aria-haspopup="dialog"
+          >
             <Icon name="arrow" size={17} />
-            进入全景
-            <small>新窗口打开 · {new URL(item.url).hostname}</small>
-          </a>
+            进入全景<small>保留地图和小开对话</small>
+          </button>
+          {externalPanoramaUrl(item.url) && (
+            <a
+              className="panorama-original"
+              href={externalPanoramaUrl(item.url)!}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              在原网站打开<span className="sr-only">（新窗口）</span>
+            </a>
+          )}
         </article>
       ))}
     </section>

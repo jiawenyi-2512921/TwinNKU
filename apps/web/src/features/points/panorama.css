@@ -1,0 +1,191 @@
+.panorama-card .panorama-open {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+  border: 1px solid #d9c7df;
+  border-radius: 12px;
+  background: #f6eff9;
+  color: #69346d;
+  text-align: left;
+  font: inherit;
+}
+.panorama-card .panorama-open small {
+  width: 100%;
+  margin-left: 25px;
+  font-size: 11px;
+  color: #786b7d;
+}
+.panorama-card .panorama-original {
+  margin-top: 6px;
+  padding: 5px 0;
+  background: transparent;
+  border: 0;
+  color: #75657c;
+  font-size: 11px;
+}
+.panorama-viewer {
+  position: fixed;
+  inset: 80px 20px 18px;
+  z-index: 1045;
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+  width: auto;
+  max-width: 1200px;
+  max-height: 880px;
+  border: 1px solid #d7ccdd;
+  border-radius: 20px;
+  background: #fff;
+  color: #362b3d;
+  box-shadow: 0 18px 70px #2d133b40;
+  overflow: hidden;
+}
+.panorama-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9e1ed;
+  background: #faf7fc;
+}
+.panorama-viewer-header > div {
+  min-width: 0;
+}
+.panorama-viewer-header small {
+  color: #817288;
+  font-size: 11px;
+}
+.panorama-viewer-header h2 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.panorama-viewer-header h2:focus {
+  outline: none;
+}
+.panorama-viewer-header h2:focus-visible {
+  outline: 2px solid #81428c;
+}
+.panorama-frame-wrap {
+  flex: 1;
+  min-height: 0;
+  background: #eae7eb;
+  position: relative;
+}
+.panorama-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+.panorama-unavailable {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  text-align: center;
+  line-height: 1.7;
+}
+.panorama-unavailable h3 {
+  margin-bottom: 0;
+}
+.panorama-unavailable p {
+  color: #7b6c82;
+  max-width: 420px;
+}
+.panorama-viewer-footer {
+  padding: 8px 14px;
+  border-top: 1px solid #e9e1ed;
+  flex: none;
+}
+.panorama-viewer-footer p {
+  margin: 0 0 5px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #77657e;
+}
+.panorama-viewer-footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.panorama-viewer-footer button,
+.panorama-viewer-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  border: 1px solid #ded3e3;
+  background: #f8f4fa;
+  border-radius: 9px;
+  padding: 8px 12px;
+  color: #68376f;
+  font: inherit;
+  font-size: 12px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.panorama-viewer button:focus-visible,
+.panorama-viewer a:focus-visible,
+.panorama-open:focus-visible {
+  outline: 3px solid #9861a3;
+  outline-offset: 2px;
+}
+@media (min-width: 1000px) {
+  body:has(.native-agent) .panorama-viewer {
+    right: 382px;
+    width: auto;
+    margin: 0;
+  }
+}
+@media (max-width: 760px) {
+  .panorama-viewer {
+    inset: 130px 8px max(10px, env(safe-area-inset-bottom));
+    width: auto;
+    border-radius: 14px;
+  }
+  .panorama-viewer-header {
+    padding: 8px 12px;
+  }
+  .panorama-viewer-header h2 {
+    font-size: 15px;
+  }
+  .panorama-viewer-footer {
+    padding: 6px 10px;
+  }
+  body:has(.panorama-viewer) .agent-dock.native-dock .native-agent {
+    position: fixed;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    top: auto;
+    max-height: 35dvh;
+  }
+  body:has(.panorama-viewer)
+    .agent-dock.native-dock
+    .native-agent:not(.is-expanded) {
+    top: auto;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    max-height: 35dvh;
+  }
+  body:has(.panorama-viewer) .native-agent .native-voice-hint {
+    display: none;
+  }
+  body:has(.panorama-viewer) .native-agent .native-subtitles {
+    max-height: 55px;
+  }
+}
+@media (orientation: landscape) and (max-height: 600px) and (min-width: 640px) {
+  body:has(.panorama-viewer) .agent-dock.native-dock .native-agent,
+  body:has(.panorama-viewer)
+    .agent-dock.native-dock
+    .native-agent:not(.is-expanded) {
+    max-height: calc(100dvh - 130px);
+  }
+}
