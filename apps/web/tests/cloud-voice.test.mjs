@@ -18,13 +18,24 @@ function makeAudioFactory(behaviour = "ok") {
     const audio = {
       src: "",
       dataset: {},
+      muted: false,
       onended: null,
       onerror: null,
       played: 0,
-      pause() {},
+      paused: true,
+      currentTime: 0,
+      pause() {
+        audio.paused = true;
+      },
       async play() {
         audio.played++;
         if (behaviour === "blocked") throw new Error("autoplay blocked");
+        if (behaviour === "deferred") {
+          // The browser's silent refusal: the promise resolves but the
+          // element never advances and never ends.
+          return;
+        }
+        audio.paused = false;
         // Resolve asynchronously so the awaited path is exercised.
         queueMicrotask(() => {
           if (behaviour === "error") audio.onerror?.();
@@ -172,6 +183,87 @@ test("autoplay being blocked also triggers the browser fallback", async () => {
   await speaker.speak("津南校区");
 
   assert.deepEqual(spoken, ["津南校区"]);
+});
+
+test("a play() that resolves without starting is caught and falls back", async () => {
+  // The real-world case: Chrome resolves play() but the element never
+  // advances, so without a liveness check the reply would be silent.
+  const { impl, calls } = makeFetch([1024]);
+  const { create } = makeAudioFactory("deferred");
+  const spoken = [];
+
+  const speaker = createCloudSpeaker({
+    fetchImpl: impl,
+    createAudio: create,
+    fallbackSpeak: (text, done) => {
+      spoken.push(text);
+      done();
+    },
+  });
+
+  await speaker.speak("马蹄湖在哪儿");
+
+  assert.deepEqual(calls, ["马蹄湖在哪儿"], "the clip was fetched");
+  assert.deepEqual(spoken, ["马蹄湖在哪儿"], "and the browser spoke it");
+});
+
+test("a deferred cloud is retried after a user gesture", async () => {
+  const { impl, calls } = makeFetch([1024]);
+  const { create, created } = makeAudioFactory("deferred");
+  const spoken = [];
+
+  const speaker = createCloudSpeaker({
+    fetchImpl: impl,
+    createAudio: create,
+    fallbackSpeak: (text, done) => {
+      spoken.push(text);
+      done();
+    },
+  });
+
+  await speaker.speak("第一句");
+  assert.equal(speaker.supported, false, "cloud stands down after a deferral");
+
+  assert.equal(speaker.unlock(), true, "a gesture is accepted");
+  await new Promise((r) => setTimeout(r, 0));
+
+  await speaker.speak("第二句");
+  assert.equal(calls.length, 2, "the cloud gets another chance");
+  assert.equal(created.length >= 2, true);
+});
+
+test("a service failure is not retried even after a gesture", async () => {
+  const { impl, calls } = makeFetch("fail");
+  const { create } = makeAudioFactory("ok");
+  const speaker = createCloudSpeaker({
+    fetchImpl: impl,
+    createAudio: create,
+    fallbackSpeak: (_t, done) => done(),
+  });
+
+  await speaker.speak("第一句");
+  await speaker.speak("第二句");
+  assert.equal(calls.length, 1);
+  assert.equal(speaker.unlock(), false, "a dead service stays dead");
+});
+
+test("silence through both paths is reported to the visitor", async () => {
+  const { impl } = makeFetch([1024]);
+  const { create } = makeAudioFactory("deferred");
+  const silent = [];
+
+  const speaker = createCloudSpeaker({
+    fetchImpl: impl,
+    createAudio: create,
+    // Browser speech exists but produces no sound.
+    fallbackSpeak: () => false,
+    onSilent: (m) => silent.push(m),
+  });
+
+  await speaker.speak("马蹄湖");
+
+  assert.equal(silent.length, 1, "the visitor is told, not left guessing");
+  assert.match(silent[0], /朗读|声音/);
 });
 
 test("cloud is not retried once it has been marked unavailable", async () => {

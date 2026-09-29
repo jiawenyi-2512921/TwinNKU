@@ -95,6 +95,7 @@ export function NativeAgentDock({
   const muted = useRef(false);
   const [muteNotice, setMuteNotice] = useState("");
   const [voiceFallbackNotice, setVoiceFallbackNotice] = useState("");
+  const [voiceUnlockNotice, setVoiceUnlockNotice] = useState("");
   const authIntent = useRef<"voice" | "text" | null>(null);
   const mediaPlaying = useRef(mediaActive);
   const position = useCompanionPosition();
@@ -148,7 +149,20 @@ export function NativeAgentDock({
       onFallback: (reason) => {
         if (mounted.current) setVoiceFallbackNotice(reason);
       },
+      onSilent: (message) => {
+        if (mounted.current) setVoiceUnlockNotice(message);
+      },
     });
+    // Browsers only permit audio playback inside a user gesture, and a reply
+    // that arrives seconds after a typed question is well outside that
+    // window. Priming playback on the first interaction keeps the cloud
+    // voice available for every later reply.
+    const primeAudio = () => {
+      if (speaker.current?.unlock()) setVoiceUnlockNotice("");
+    };
+    for (const gesture of ["pointerdown", "touchstart", "keydown"] as const) {
+      document.addEventListener(gesture, primeAudio, { passive: true });
+    }
     const visibility = () => {
       if (document.visibilityState === "hidden")
         voice.current?.stop("页面已切到后台，语音已暂停。");
@@ -164,6 +178,9 @@ export function NativeAgentDock({
       actionAbort.current?.abort();
       closePendingVr();
       document.removeEventListener("visibilitychange", visibility);
+      for (const gesture of ["pointerdown", "touchstart", "keydown"] as const) {
+        document.removeEventListener(gesture, primeAudio);
+      }
     };
   }, []);
   useEffect(() => {
@@ -671,6 +688,7 @@ export function NativeAgentDock({
       /^[\s\S]{1,150}?[。！？!?](?:\s|$)?|^[\s\S]{1,150}/,
     )?.[0] ||
     last?.error ||
+    voiceUnlockNotice ||
     voiceFallbackNotice ||
     "";
   const verifiedLink =
