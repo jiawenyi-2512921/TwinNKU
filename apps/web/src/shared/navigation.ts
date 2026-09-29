@@ -190,3 +190,21 @@ export function reconcileFloorView<
     ),
   };
 }
+
+// A VR layer may target a different building without discarding the active
+// route or tour. Other query changes remain normal browser navigation.
+export function panoramaOnlyTransition(before: string, after: string): boolean {
+  const previous = new URL(before),
+    next = new URL(after);
+  if (
+    !previous.searchParams.has("panorama") &&
+    !next.searchParams.has("panorama")
+  )
+    return false;
+  for (const url of [previous, next]) {
+    url.searchParams.delete("panorama");
+    url.searchParams.delete("point");
+    url.searchParams.sort();
+  }
+  return previous.href === next.href;
+}
