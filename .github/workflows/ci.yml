@@ -67,6 +67,7 @@ jobs:
           Path('.env').chmod(0o600)
           PY
       - run: bash scripts/deploy.sh
+      - run: python3 scripts/check_map_delivery.py --base-url http://127.0.0.1:8080 --strict --json-out /tmp/map-delivery.json
       - run: python3 scripts/check_nk_genios.py --base-url http://127.0.0.1:8080 --campus-id nku-jinnan
       - if: failure()
         run: docker compose logs --tail=100
