@@ -9957,7 +9957,10 @@ export interface operations {
     };
     listMaps: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only return maps of this kind; omit to include all public maps. */
+                kind?: ("campus" | "floor") | null;
+            };
             header?: never;
             path: {
                 campus_id: string;
@@ -11702,6 +11705,13 @@ export interface operations {
                 content: {
                     "image/png": string;
                 };
+            };
+            /** @description The tile is still public and current; reuse the privately cached bytes. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not Found */
             404: {

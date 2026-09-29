@@ -81,8 +81,11 @@ export const api = {
       `/campuses/${encodeURIComponent(campus)}/points?${new URLSearchParams({ q: query, page_size: "100", page: String(page) })}`,
       signal,
     ),
-  maps: (campus: string, signal?: AbortSignal) =>
-    get<MapInfo[]>(`/campuses/${encodeURIComponent(campus)}/maps`, signal),
+  maps: (campus: string, signal?: AbortSignal, kind?: MapInfo["kind"]) =>
+    get<MapInfo[]>(
+      `/campuses/${encodeURIComponent(campus)}/maps${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`,
+      signal,
+    ),
   mapFeatures: (id: string, signal?: AbortSignal) =>
     get<MapFeatures>(`/maps/${encodeURIComponent(id)}/features`, signal),
   panoramas: (pointId: string, signal?: AbortSignal) =>
