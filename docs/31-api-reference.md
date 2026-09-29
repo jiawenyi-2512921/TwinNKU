@@ -6,7 +6,7 @@
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
 接口操作数：110；状态统计：{"implemented": 74, "planned": 36}。
-契约SHA256：`0127bd493b59376dbaa62380678e6e82a0a3e1c496976e1e468cb4907df2ecdf`。
+契约SHA256：`2b21dd8b870d25338b801359ce4eb266f9a89e4aec8195fa72df35855dbd0687`。
 
 ## 1. 全部端点
 
@@ -831,6 +831,7 @@
 
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
+| campus_id | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
 | content | 是 | ExperienceMediaContent / ExperienceCheckinContent / ExperienceTourContent / null | —; —; —; — |
 | contributor_ids | 是 | array<string (uuid)> | — |
 | id | 是 | string (uuid) | — |
@@ -1749,9 +1750,9 @@
 
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
+| campus_id | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
 | description | 否 | string | 最长: 8000; 默认: "" |
 | kind | 否 | 'tour' | 默认: "tour" |
-| point_id | 是 | string (uuid) | — |
 | source_note | 是 | string | 最短: 1; 最长: 2000 |
 | stops | 是 | array<ExperienceStop> | 至少项数: 1; 最多项数: 50 |
 | title | 是 | string | 最短: 1; 最长: 120 |
@@ -2354,6 +2355,7 @@
 
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
+| campus_id | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
 | content | 是 | ExperienceMediaContent / ExperienceCheckinContent / ExperienceTourContent | —; —; — |
 | id | 是 | string (uuid) | — |
 | media_url | 否 | string / null | —; — |
