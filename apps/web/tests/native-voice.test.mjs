@@ -204,11 +204,29 @@ test("failed question pauses; stop cancels existing speech and recognizer callba
   assert.equal(h.phases.at(-1), "idle");
 });
 
-test("external VR, video playback and unknown actions cannot auto-execute", () => {
+test("all media still needs explicit server intent and unknown action types remain blocked", () => {
   for (const type of ["open_vr", "play_video", "play_audio", "future_action"])
     assert.equal(canAutoApply({ type, context_revision: 9 }, 9, 9), false);
-  for (const type of ["show_checkin", "show_tour", "focus_point"])
-    assert.equal(canAutoApply({ type, context_revision: 9 }, 9, 9), true);
+  for (const type of [
+    "show_checkin",
+    "show_tour",
+    "focus_point",
+    "open_vr",
+    "play_video",
+  ])
+    assert.equal(
+      canAutoApply({ type, action_id: "a", context_revision: 9 }, 9, 9, "a"),
+      true,
+    );
+  assert.equal(
+    canAutoApply(
+      { type: "play_audio", action_id: "a", context_revision: 9 },
+      9,
+      9,
+      "a",
+    ),
+    false,
+  );
   assert.equal(
     canAutoApply({ type: "show_tour", context_revision: 9 }, 9, 10),
     false,

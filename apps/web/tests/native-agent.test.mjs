@@ -24,18 +24,16 @@ test("guide actions ignore model URLs and construct internal resource selection"
   assert.equal(url.searchParams.get("experience_point"), "stop-1");
 });
 
-test("manual context changes and external VR require explicit user action", () => {
-  assert.ok(canAutoApply({ type: "show_route", context_revision: 3 }, 3, 3));
+test("automatic actions require the server's matching explicit intent and unchanged context", () => {
+  const action = { type: "show_route", action_id: "one", context_revision: 3 };
+  assert.ok(canAutoApply(action, 3, 3, "one"));
+  assert.equal(canAutoApply(action, 3, 3), false);
+  assert.equal(canAutoApply(action, 3, 3, null), false);
+  assert.equal(canAutoApply(action, 3, 3, "other"), false);
+  assert.equal(canAutoApply(action, 3, 4, "one"), false);
   assert.equal(
-    canAutoApply({ type: "show_route", context_revision: 3 }, 3, 4),
+    canAutoApply({ ...action, context_revision: 2 }, 3, 3, "one"),
     false,
   );
-  assert.equal(
-    canAutoApply({ type: "show_route", context_revision: 2 }, 3, 3),
-    false,
-  );
-  assert.equal(
-    canAutoApply({ type: "open_vr", context_revision: 3 }, 3, 3),
-    false,
-  );
+  assert.equal(canAutoApply({ ...action, type: "open_vr" }, 3, 3), false);
 });

@@ -189,6 +189,114 @@ const media = {
     url: null,
   },
 };
+const playbackRequest = (controller = new AbortController(), revision = 3) => ({
+  id: 1,
+  resourceId: "video",
+  revision,
+  pointId: "p1",
+  pointRevision: 1,
+  signal: controller.signal,
+});
+
+function attachPlayer(h, props, player) {
+  const tree = h.render("MediaView", props);
+  const video = find(tree, (node) => node.type === "video")[0];
+  if (video) video.props.ref.current = player;
+  h.flushEffects();
+  return tree;
+}
+
+test("a resolved explicit video request opens and attempts playback once without claiming success", async () => {
+  let attempts = 0;
+  const playback = [];
+  const h = harness(publicCode, {
+    onMediaActiveChange: (value) => playback.push(value),
+  });
+  const props = { item: media, playbackRequest: playbackRequest() };
+  const player = { play: async () => attempts++, pause() {} };
+  let tree = attachPlayer(h, props, player);
+  assert.equal(button(tree, "打开视频播放器"), undefined);
+  assert.equal(attempts, 1);
+  assert.deepEqual(playback, []);
+  tree = attachPlayer(h, props, player);
+  assert.equal(attempts, 1);
+  find(tree, (node) => node.type === "video")[0].props.onPlay();
+  assert.deepEqual(playback, [true]);
+  button(tree, "收起视频").props.onClick();
+  tree = attachPlayer(h, props, player);
+  assert.equal(find(tree, (node) => node.type === "video").length, 0);
+  assert.equal(attempts, 1);
+});
+
+test("browser autoplay denial gives a truthful click-to-play fallback using the mounted player", async () => {
+  let attempts = 0;
+  const h = harness(publicCode);
+  const props = { item: media, playbackRequest: playbackRequest() };
+  const player = {
+    play() {
+      attempts++;
+      return attempts === 1
+        ? Promise.reject({ name: "NotAllowedError" })
+        : Promise.resolve();
+    },
+    pause() {},
+  };
+  attachPlayer(h, props, player);
+  await new Promise((resolve) => setImmediate(resolve));
+  let tree = h.render("MediaView", props);
+  assert.match(labelText(tree), /浏览器阻止了自动播放/);
+  button(tree, "点击播放").props.onClick();
+  assert.equal(attempts, 2);
+  await new Promise((resolve) => setImmediate(resolve));
+  tree = h.render("MediaView", props);
+  assert.equal(button(tree, "点击播放"), undefined);
+});
+
+test("cancelled playback suppresses a late rejection and leaves normal manual consent available", async () => {
+  const controller = new AbortController();
+  const h = harness(publicCode);
+  const props = { item: media, playbackRequest: playbackRequest(controller) };
+  let reject,
+    pauses = 0;
+  const player = {
+    play: () =>
+      new Promise((_, no) => {
+        reject = no;
+      }),
+    pause: () => pauses++,
+  };
+  attachPlayer(h, props, player);
+  controller.abort();
+  assert.ok(pauses > 0);
+  reject({ name: "NotAllowedError" });
+  await new Promise((resolve) => setImmediate(resolve));
+  let tree = h.render("MediaView", props);
+  assert.equal(find(tree, (node) => node.type === "video").length, 0);
+  assert.doesNotMatch(labelText(tree), /浏览器阻止/);
+  button(tree, "打开视频播放器").props.onClick();
+  tree = h.render("MediaView", props);
+  assert.equal(find(tree, (node) => node.type === "video").length, 1);
+});
+
+test("explicit playback cannot cross a resource revision or resume after the panel was hidden", () => {
+  const context = { active: true };
+  const h = harness(publicCode, context);
+  const props = { item: media, playbackRequest: playbackRequest(undefined, 2) };
+  let attempts = 0;
+  const player = { play: async () => attempts++, pause() {} };
+  let tree = attachPlayer(h, props, player);
+  assert.equal(find(tree, (node) => node.type === "video").length, 0);
+  assert.equal(attempts, 0);
+  props.playbackRequest = playbackRequest();
+  attachPlayer(h, props, player);
+  assert.equal(attempts, 1);
+  context.active = false;
+  attachPlayer(h, props, player);
+  context.active = true;
+  tree = attachPlayer(h, props, player);
+  assert.equal(find(tree, (node) => node.type === "video").length, 0);
+  assert.equal(attempts, 1);
+});
 const tour = {
   id: "tour",
   revision: 2,

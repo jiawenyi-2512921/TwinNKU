@@ -75,6 +75,7 @@ function harness() {
     resourceReads = [];
   let index = 0,
     navigation = 0,
+    cancelledActions = 0,
     resolver,
     response = reply,
     resourceResolver,
@@ -146,7 +147,11 @@ function harness() {
     request: null,
     pointName: "图书馆",
     autoActions: false,
-    onAction: (action) => actions.push(action),
+    onAction: (action, options) => {
+      actions.push({ ...action, options });
+      return true;
+    },
+    onCancelAction: () => cancelledActions++,
     onNavigate: () => navigation++,
   };
   const exports = {};
@@ -164,6 +169,7 @@ function harness() {
       if (name === "react") return react;
       if (name === "react/jsx-runtime") return jsx;
       if (name.endsWith("/Icon")) return { Icon: () => null };
+      if (name === "./Companion") return { Companion: "companion" };
       if (name.endsWith("/client"))
         return {
           get: async () => ({ data: { csrf_token: "csrf" } }),
@@ -218,8 +224,10 @@ function harness() {
     const result = find(
       render(),
       (node) =>
-        node.type === "button" &&
-        (node.props["aria-label"] === label || words(node).includes(label)),
+        (node.type === "button" || node.type === "companion") &&
+        (node.props["aria-label"] === label ||
+          node.props.label?.includes(label) ||
+          words(node).includes(label)),
     );
     assert.ok(result.length, `button ${label}`);
     return result[0];
@@ -252,16 +260,19 @@ function harness() {
     get navigation() {
       return navigation;
     },
+    get cancelledActions() {
+      return cancelledActions;
+    },
     async open() {
       button("问小开").props.onClick();
       render();
       await settle();
       render();
     },
-    async ask() {
+    async ask(question = "从这里到图书馆怎么走") {
       button("文字交流与记录").props.onClick();
       find(render(), (node) => node.type === "textarea")[0].props.onChange({
-        target: { value: "从这里到图书馆怎么走" },
+        target: { value: question },
       });
       find(
         render(),
@@ -276,23 +287,27 @@ function harness() {
   };
 }
 
-test("navigation shrinks to a nonmodal voice card and reopening preserves conversation", async () => {
+test("navigation leaves the companion with short captions and reopening preserves conversation", async () => {
   const h = harness();
   await h.open();
   await h.ask();
   h.button("前往图书馆").props.onClick();
   await settle();
-  let dialog = find(h.render(), (node) => node.props?.role === "dialog")[0];
+  let dialog = find(
+    h.render(),
+    (node) => node.props?.id === "native-agent-panel",
+  )[0];
   assert.ok(dialog);
-  assert.equal(dialog.props["aria-modal"], "false");
+  assert.equal(dialog.props.role, "region");
+  assert.equal(dialog.props["aria-modal"], undefined);
   assert.equal(dialog.props.className.includes("is-expanded"), false);
   assert.match(words(dialog), /已经找到可用路线/);
   assert.equal(h.actions.length, 1);
   h.button("文字交流与记录").props.onClick();
   assert.match(words(h.render()), /从这里到图书馆怎么走/);
-  h.button("关闭浮窗并暂停语音").props.onClick();
+  h.button("收起小开并暂停语音").props.onClick();
   assert.equal(
-    find(h.render(), (node) => node.props?.role === "dialog").length,
+    find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
     0,
   );
   await h.open();
@@ -312,7 +327,9 @@ test("material selection resolves an internal action without a full page link", 
   assert.equal(request.body.action.type, "focus_point");
   assert.equal(request.body.action.point_revision, 3);
   assert.equal(h.actions[0].point_id, "point-2");
-  assert.ok(find(h.render(), (node) => node.props?.role === "dialog").length);
+  assert.ok(
+    find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
+  );
   h.unmount();
 });
 
@@ -348,7 +365,9 @@ test("map navigation remains available beside unsupported voice with typed fallb
   assert.equal(h.button("开启语音交流").props.disabled, true);
   h.button("地图选点导航").props.onClick();
   assert.equal(h.navigation, 1);
-  assert.ok(find(h.render(), (node) => node.props?.role === "dialog").length);
+  assert.ok(
+    find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
+  );
   h.button("文字交流与记录").props.onClick();
   assert.equal(find(h.render(), (node) => node.type === "textarea").length, 1);
   h.unmount();
@@ -366,7 +385,7 @@ test("closing during a selected action does not reopen the floating card on comp
       }),
   );
   h.button("前往图书馆").props.onClick();
-  h.button("关闭浮窗并暂停语音").props.onClick();
+  h.button("收起小开并暂停语音").props.onClick();
   h.render();
   complete();
   await settle();
@@ -376,7 +395,7 @@ test("closing during a selected action does not reopen the floating card on comp
     "the explicitly requested action may complete",
   );
   assert.equal(
-    find(h.render(), (node) => node.props?.role === "dialog").length,
+    find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
     0,
   );
   h.unmount();
@@ -411,7 +430,7 @@ async function vrHarness() {
   return h;
 }
 
-test("VR answers never create automatic popups, even when automatic map actions are enabled", async () => {
+test("legacy or suggested VR answers never create automatic popups", async () => {
   const h = await vrHarness();
   assert.equal(h.tabs.length, 0);
   assert.equal(h.resourceReads.length, 0);
@@ -535,7 +554,7 @@ test("unmount and explicit floating-card close immediately dispose a pending bla
     );
     h.button("打开全景").props.onClick();
     if (action === "unmount") h.unmount();
-    else h.button("关闭浮窗并暂停语音").props.onClick();
+    else h.button("收起小开并暂停语音").props.onClick();
     assert.equal(h.tabs[0].closed, true);
     complete();
     await settle();
@@ -585,4 +604,291 @@ test("publication or resume invalidates blocked-popup fallback while preserving 
   );
   assert.equal(find(h.render(), (node) => node.type === "a").length, 1);
   h.unmount();
+});
+
+test("authenticated companion stays present with compact captions and optional text drawer", async () => {
+  const h = harness();
+  assert.equal(find(h.render(), (node) => node.type === "companion").length, 1);
+  await h.open();
+  const compact = find(
+    h.render(),
+    (node) => node.props?.id === "native-agent-panel",
+  )[0];
+  assert.equal(compact.props.role, "region");
+  assert.equal(find(h.render(), (node) => node.type === "textarea").length, 0);
+  h.button("文字交流与记录").props.onClick();
+  assert.equal(
+    find(h.render(), (node) => node.props?.role === "dialog").length,
+    1,
+  );
+  h.button("收起文字抽屉").props.onClick();
+  assert.equal(find(h.render(), (node) => node.type === "companion").length, 1);
+  assert.equal(find(h.render(), (node) => node.type === "textarea").length, 0);
+  h.unmount();
+});
+
+test("only one matching server-marked action executes automatically", async () => {
+  for (const configuration of [
+    { automatic_action_id: route.action_id, actions: [route], accepted: true },
+    { actions: [route], accepted: false },
+    { automatic_action_id: null, actions: [route], accepted: false },
+    { automatic_action_id: "other", actions: [route], accepted: false },
+    {
+      automatic_action_id: route.action_id,
+      actions: [route, { ...route, action_id: "other" }],
+      accepted: false,
+    },
+  ]) {
+    const h = harness();
+    h.props.autoActions = true;
+    h.setReply({ ...reply, ...configuration });
+    await h.open();
+    await h.ask();
+    assert.equal(h.actions.length, configuration.accepted ? 1 : 0);
+    if (configuration.accepted) {
+      assert.equal(h.actions[0].type, "show_route");
+      assert.match(words(h.render()), /已打开路线规划/);
+      assert.equal(
+        find(h.render(), (node) => node.props?.role === "region").length,
+        1,
+      );
+    }
+    h.unmount();
+  }
+});
+
+test("disabled automation and changed context prevent a marked action from starting", async () => {
+  for (const kind of ["disabled", "context"]) {
+    const h = harness();
+    h.props.autoActions = kind !== "disabled";
+    let finish;
+    h.setReply(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await h.open();
+    await h.ask();
+    if (kind === "context") {
+      h.props.current = { ...h.props.current, revision: 2 };
+      h.render();
+    }
+    finish({ ...reply, automatic_action_id: route.action_id });
+    await settle();
+    assert.equal(h.actions.length, 0);
+    assert.equal(
+      h.posts.some((p) => p.path === "/agent/actions/resolve"),
+      false,
+    );
+    h.unmount();
+  }
+});
+
+test("an explicit VR command attempts a popup only after both checks and never changes the current page", async () => {
+  for (const blocked of [false, true]) {
+    const h = harness();
+    h.props.autoActions = true;
+    h.setBlocked(blocked);
+    h.setReply({
+      ...reply,
+      actions: [vrAction],
+      automatic_action_id: vrAction.action_id,
+    });
+    let finish;
+    h.setResourceResolver(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const original = h.browser.location.href;
+    await h.open();
+    await h.ask("打开全景地图");
+    assert.equal(h.resourceReads.length, 1);
+    assert.equal(
+      h.events.some((event) => event[0] === "open"),
+      false,
+    );
+    finish({ data: [publishedVr] });
+    await settle();
+    assert.equal(h.events.filter((event) => event[0] === "open").length, 1);
+    assert.equal(h.browser.location.href, original);
+    assert.equal(h.actions.length, 0);
+    if (blocked) {
+      assert.match(words(h.render()), /全景未在新窗口打开/);
+      assert.equal(
+        find(h.render(), (node) => node.type === "a")[0].props.href,
+        publishedVr.url,
+      );
+    } else {
+      assert.equal(h.tabs[0].url, publishedVr.url);
+      assert.equal(h.tabs[0].opener, null);
+    }
+    h.unmount();
+  }
+});
+
+test("invalid explicit VR resources do not create even a temporary popup", async () => {
+  const h = harness();
+  h.props.autoActions = true;
+  h.setReply({
+    ...reply,
+    actions: [vrAction],
+    automatic_action_id: vrAction.action_id,
+  });
+  h.setResourceResolver(async () => ({
+    data: [{ ...publishedVr, revision: 8 }],
+  }));
+  await h.open();
+  await h.ask("打开全景地图");
+  assert.equal(
+    h.events.some((event) => event[0] === "open"),
+    false,
+  );
+  assert.equal(find(h.render(), (node) => node.type === "a").length, 0);
+  assert.match(words(h.render()), /全景资料已更新/);
+  h.unmount();
+});
+
+test("only an explicitly marked video request passes one-shot playback consent to the app", async () => {
+  const video = {
+    ...route,
+    type: "play_video",
+    resource_id: "video",
+    resource_revision: 2,
+  };
+  for (const explicit of [true, false]) {
+    const h = harness();
+    h.props.autoActions = true;
+    h.setReply({
+      ...reply,
+      actions: [video],
+      automatic_action_id: explicit ? video.action_id : null,
+    });
+    await h.open();
+    await h.ask("播放校园视频");
+    if (!explicit) {
+      assert.equal(h.actions.length, 0);
+      h.button("观看视频").props.onClick();
+      await settle();
+    }
+    assert.equal(h.actions.length, 1);
+    assert.equal(h.actions[0].options.requestedPlayback, explicit);
+    h.button("收起小开并暂停语音").props.onClick();
+    assert.equal(h.cancelledActions, 1);
+    h.unmount();
+  }
+});
+
+test("closing while an automatic action resolves cancels execution without reopening the companion", async () => {
+  const h = harness();
+  h.props.autoActions = true;
+  h.setReply({ ...reply, automatic_action_id: route.action_id });
+  let finish;
+  h.setResolver(
+    (body) =>
+      new Promise((resolve) => {
+        finish = () => resolve(body.action);
+      }),
+  );
+  await h.open();
+  await h.ask();
+  assert.equal(
+    find(h.render(), (node) => node.type === "companion")[0].props.phase,
+    "acting",
+  );
+  h.button("收起小开并暂停语音").props.onClick();
+  finish();
+  await settle();
+  assert.equal(h.actions.length, 0);
+  assert.equal(
+    find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
+    0,
+  );
+  assert.equal(h.cancelledActions, 1);
+  h.unmount();
+});
+
+test("app rejection and mismatched resolver results show failure instead of completion", async () => {
+  for (const mismatch of [true, false]) {
+    const h = harness();
+    h.props.autoActions = true;
+    h.setReply({ ...reply, automatic_action_id: route.action_id });
+    h.props.onAction = () => false;
+    if (mismatch)
+      h.setResolver(async (body) => ({ ...body.action, type: "play_video" }));
+    await h.open();
+    await h.ask();
+    assert.equal(h.actions.length, 0);
+    assert.match(
+      words(h.render()),
+      mismatch ? /核验结果与请求不符/ : /地点资料已变化/,
+    );
+    assert.doesNotMatch(words(h.render()), /已打开路线规划/);
+    h.unmount();
+  }
+});
+
+test("an aborted automatic request does not turn a deliberately closed companion into an error", async () => {
+  const h = harness();
+  h.props.autoActions = true;
+  h.setReply({ ...reply, automatic_action_id: route.action_id });
+  let reject;
+  h.setResolver(
+    () =>
+      new Promise((_, fail) => {
+        reject = fail;
+      }),
+  );
+  await h.open();
+  await h.ask();
+  h.button("收起小开并暂停语音").props.onClick();
+  reject(new Error("请求已中止"));
+  await settle();
+  assert.equal(h.actions.length, 0);
+  assert.equal(
+    find(h.render(), (node) => node.type === "companion")[0].props.phase,
+    "idle",
+  );
+  await h.open();
+  assert.doesNotMatch(words(h.render()), /请求已中止/);
+  h.unmount();
+});
+
+test("closing and reopening while chat waits cannot revive the old automatic command", async () => {
+  for (const action of [
+    route,
+    vrAction,
+    { ...route, type: "play_video", resource_id: "video" },
+  ]) {
+    const h = harness();
+    h.props.autoActions = true;
+    let finish;
+    h.setReply(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    h.setResourceResolver(async () => ({ data: [publishedVr] }));
+    await h.open();
+    await h.ask();
+    h.button("收起小开并暂停语音").props.onClick();
+    await h.open();
+    finish({
+      ...reply,
+      actions: [action],
+      automatic_action_id: action.action_id,
+    });
+    await settle();
+    assert.equal(h.actions.length, 0);
+    assert.equal(h.tabs.length, 0);
+    assert.equal(h.resourceReads.length, 0);
+    assert.equal(
+      h.posts.some((post) => post.path === "/agent/actions/resolve"),
+      false,
+    );
+    assert.match(words(h.render()), /已经找到可用路线/);
+    assert.equal(h.cancelledActions, 1);
+    h.unmount();
+  }
 });

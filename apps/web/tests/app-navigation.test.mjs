@@ -77,8 +77,9 @@ const components = Object.fromEntries(
 
 // Controlled hooks execute the actual root component and event/effect wiring.
 // These checks do not assert browser layout, media playback, or microphone support.
-function app(initialHref) {
+function app(initialHref, options = {}) {
   let href = initialHref;
+  const catalogWatchers = new Set();
   const events = new EventTarget();
   const entries = [{ href, state: null }];
   let position = 0;
@@ -222,7 +223,10 @@ function app(initialHref) {
       return { usePlaceMemory: () => memory };
     if (name.endsWith("/search")) return { findPlaces: (p) => p };
     if (name.endsWith("/client"))
-      return { api: {}, get: async () => ({ data: [] }) };
+      return {
+        api: {},
+        get: async () => ({ data: options.experiences ?? [] }),
+      };
     if (name.endsWith("/catalog"))
       return {
         reconcileCatalog: (_, next) => next,
@@ -232,7 +236,10 @@ function app(initialHref) {
       };
     if (name.endsWith("/catalogSync"))
       return {
-        watchCatalogChanges: () => () => {},
+        watchCatalogChanges: (callback) => {
+          catalogWatchers.add(callback);
+          return () => catalogWatchers.delete(callback);
+        },
         createCatalogRefresh: ({ apply }) => ({
           refresh: () => apply(catalog),
           dispose() {},
@@ -247,6 +254,9 @@ function app(initialHref) {
   return {
     browser,
     nav,
+    refreshCatalogs() {
+      catalogWatchers.forEach((callback) => callback());
+    },
     escapeFromDock() {
       const event = new Event("keydown", { cancelable: true });
       const input = new Element("TEXTAREA");
@@ -278,6 +288,97 @@ function app(initialHref) {
   };
 }
 const baseHref = `https://guide.example/?point=${pointA}&channel=official#map`;
+const video = {
+  id: experienceId,
+  revision: 3,
+  campus_id: "nku-jinnan",
+  media_url: `/api/v1/experiences/${experienceId}/media`,
+  content: {
+    kind: "media",
+    point_id: pointA,
+    media_type: "video",
+    title: "测试视频",
+    upload_id: "upload",
+  },
+};
+const videoAction = {
+  type: "play_video",
+  point_id: pointA,
+  point_revision: 1,
+  resource_id: experienceId,
+  resource_revision: 3,
+};
+
+test("only a resolved explicit video action creates a cancellable playback request; URLs and browsing do not", async () => {
+  const testApp = app(
+    baseHref.replace("#map", `&experience=${experienceId}&play=1#map`),
+    { experiences: [video] },
+  );
+  testApp.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  testApp.render();
+  assert.equal(testApp.node("ExperiencePanel").props.playbackRequest, null);
+  const apply = (...args) =>
+    testApp.node("NativeAgentDock").props.onAction(...args);
+  assert.equal(apply(videoAction), true);
+  testApp.render();
+  assert.equal(testApp.node("ExperiencePanel").props.playbackRequest, null);
+  assert.equal(apply(videoAction, { requestedPlayback: true }), true);
+  testApp.render();
+  const first = testApp.node("ExperiencePanel").props.playbackRequest;
+  assert.equal(first.resourceId, experienceId);
+  assert.equal(first.revision, 3);
+  assert.equal(first.signal.aborted, false);
+  apply(videoAction, { requestedPlayback: true });
+  testApp.render();
+  const second = testApp.node("ExperiencePanel").props.playbackRequest;
+  assert.ok(second.id > first.id);
+  assert.equal(first.signal.aborted, true);
+  testApp.node("NativeAgentDock").props.onCancelAction();
+  testApp.render();
+  assert.equal(second.signal.aborted, true);
+  assert.equal(testApp.node("ExperiencePanel").props.playbackRequest, null);
+  testApp.dispose();
+});
+
+test("outdated video actions are rejected and a changed public revision cancels pending playback", async () => {
+  const options = { experiences: [video] };
+  const testApp = app(baseHref, options);
+  testApp.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  testApp.render();
+  assert.equal(
+    testApp
+      .node("NativeAgentDock")
+      .props.onAction(
+        { ...videoAction, resource_revision: 2 },
+        { requestedPlayback: true },
+      ),
+    false,
+  );
+  assert.equal(testApp.node("ExperiencePanel"), undefined);
+  assert.equal(
+    testApp
+      .node("NativeAgentDock")
+      .props.onAction(videoAction, { requestedPlayback: true }),
+    true,
+  );
+  testApp.render();
+  const pending = testApp.node("ExperiencePanel").props.playbackRequest;
+  const previousRenderAction = testApp.node("NativeAgentDock").props.onAction;
+  options.experiences = [{ ...video, revision: 4 }];
+  testApp.refreshCatalogs();
+  await new Promise((resolve) => setImmediate(resolve));
+  testApp.render();
+  assert.equal(pending.signal.aborted, true);
+  assert.equal(testApp.node("ExperiencePanel").props.playbackRequest, null);
+  assert.equal(
+    previousRenderAction(videoAction, { requestedPlayback: true }),
+    false,
+    "a resolver started before refresh must use the latest public catalog",
+  );
+  testApp.dispose();
+});
 
 test("unrelated root renders keep the empty route identity stable for the map", () => {
   const testApp = app(baseHref);
