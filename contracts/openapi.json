@@ -172,6 +172,11 @@
       "AdminExperience": {
         "additionalProperties": false,
         "properties": {
+          "campus_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+            "title": "Campus Id",
+            "type": "string"
+          },
           "content": {
             "anyOf": [
               {
@@ -308,6 +313,7 @@
           }
         },
         "required": [
+          "campus_id",
           "id",
           "revision",
           "published_revision",
@@ -2526,9 +2532,9 @@
           }
         },
         "required": [
-          "point_id",
           "title",
-          "source_note"
+          "source_note",
+          "point_id"
         ],
         "title": "ExperienceCheckinContent",
         "type": "object"
@@ -2599,9 +2605,9 @@
           }
         },
         "required": [
-          "point_id",
           "title",
           "source_note",
+          "point_id",
           "media_type"
         ],
         "title": "ExperienceMediaContent",
@@ -2697,6 +2703,11 @@
       "ExperienceTourContent": {
         "additionalProperties": false,
         "properties": {
+          "campus_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+            "title": "Campus Id",
+            "type": "string"
+          },
           "description": {
             "default": "",
             "maxLength": 8000,
@@ -2707,11 +2718,6 @@
             "const": "tour",
             "default": "tour",
             "title": "Kind",
-            "type": "string"
-          },
-          "point_id": {
-            "format": "uuid",
-            "title": "Point Id",
             "type": "string"
           },
           "source_note": {
@@ -2737,9 +2743,9 @@
           }
         },
         "required": [
-          "point_id",
           "title",
           "source_note",
+          "campus_id",
           "stops"
         ],
         "title": "ExperienceTourContent",
@@ -5008,6 +5014,11 @@
       "PublicExperience": {
         "additionalProperties": false,
         "properties": {
+          "campus_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+            "title": "Campus Id",
+            "type": "string"
+          },
           "content": {
             "discriminator": {
               "mapping": {
@@ -5052,6 +5063,7 @@
           }
         },
         "required": [
+          "campus_id",
           "id",
           "revision",
           "content"
