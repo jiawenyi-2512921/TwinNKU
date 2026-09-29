@@ -15324,6 +15324,28 @@
               "title": "Campus Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Only return maps of this kind; omit to include all public maps.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "campus",
+                    "floor"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only return maps of this kind; omit to include all public maps.",
+              "title": "Kind"
+            }
           }
         ],
         "responses": {
@@ -17739,6 +17761,9 @@
               }
             },
             "description": "An authorized PNG tile from the current map revision"
+          },
+          "304": {
+            "description": "The tile is still public and current; reuse the privately cached bytes."
           },
           "404": {
             "content": {
