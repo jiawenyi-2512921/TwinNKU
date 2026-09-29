@@ -1,6 +1,4 @@
-// Only the verified school portal may be embedded. Other published HTTPS
-// destinations remain explicit external links, even if their hostname is similar.
-export const OFFICIAL_PANORAMA_ORIGIN = "https://stjgpt.nankai.edu.cn";
+// VR is opened on its original website, never inside an iframe.
 export function externalPanoramaUrl(value: string): string | null {
   try {
     const url = new URL(value);
@@ -10,15 +8,6 @@ export function externalPanoramaUrl(value: string): string | null {
   } catch {
     return null;
   }
-}
-export function embeddedPanoramaUrl(value: string): string | null {
-  const safe = externalPanoramaUrl(value);
-  if (!safe) return null;
-  const url = new URL(safe);
-  return url.origin === OFFICIAL_PANORAMA_ORIGIN &&
-    url.pathname === "/index-jn.php"
-    ? url.href
-    : null;
 }
 export function requestedPanorama(
   href: string,

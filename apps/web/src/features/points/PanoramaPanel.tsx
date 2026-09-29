@@ -2,12 +2,8 @@ import { useEffect, useState } from "react";
 import { api, type Panorama } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import { watchCatalogChanges } from "../../shared/catalogSync";
-import { LOCATION_CHANGE_EVENT, writeLocation } from "../../shared/navigation";
-import {
-  externalPanoramaUrl,
-  panoramaLocation,
-  requestedPanorama,
-} from "./panorama";
+import { LOCATION_CHANGE_EVENT } from "../../shared/navigation";
+import { externalPanoramaUrl, requestedPanorama } from "./panorama";
 import "./panorama.css";
 
 export function PanoramaPanel({ pointId }: { pointId: string }) {
@@ -62,10 +58,6 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
       stopWatching();
     };
   }, [pointId, retry]);
-  function open(item: Panorama) {
-    writeLocation(panoramaLocation(window.location.href, pointId, item.id));
-    setRequested(requestedPanorama(window.location.href, pointId));
-  }
   const active =
     status === "ready"
       ? items.find((item) => item.id === requested && item.point_id === pointId)
@@ -105,24 +97,19 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
         >
           <strong>{item.title}</strong>
           {item.description && <p>{item.description}</p>}
-          <button
-            type="button"
-            className="panorama-open"
-            onClick={() => open(item)}
-            aria-haspopup="dialog"
-          >
-            <Icon name="arrow" size={17} />
-            进入全景<small>保留地图和小开对话</small>
-          </button>
-          {externalPanoramaUrl(item.url) && (
+          {externalPanoramaUrl(item.url) ? (
             <a
-              className="panorama-original"
+              className="panorama-open"
               href={externalPanoramaUrl(item.url)!}
               target="_blank"
               rel="noopener noreferrer"
             >
-              在原网站打开<span className="sr-only">（新窗口）</span>
+              <Icon name="arrow" size={17} />
+              在原网站打开 VR
+              <small>新标签页打开，返回后继续校园导览</small>
             </a>
+          ) : (
+            <p className="content-status">全景链接暂不可用。</p>
           )}
         </article>
       ))}
