@@ -3534,6 +3534,18 @@
             "title": "Answer",
             "type": "string"
           },
+          "automatic_action_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automatic Action Id"
+          },
           "context_revision": {
             "title": "Context Revision",
             "type": "integer"
