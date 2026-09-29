@@ -7,6 +7,7 @@ import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
 import { canAutoApply, NativeError } from "../src/features/agent/native.ts";
 import { createVoiceConversation } from "../src/features/agent/voice.ts";
+import { createCloudSpeaker } from "../src/features/agent/cloudVoice.ts";
 import { externalPanoramaUrl } from "../src/features/points/panorama.ts";
 
 // Controlled React hooks check the component's actual event handlers and state,
@@ -227,6 +228,16 @@ function harness({ voiceEnvironment = {}, sessionError } = {}) {
             return createVoiceConversation(environment, callbacks);
           },
           browserVoiceEnvironment: () => voiceEnvironment,
+        };
+      if (name === "./cloudVoice")
+        return {
+          createCloudSpeaker: (options = {}) =>
+            createCloudSpeaker({
+              ...options,
+              // Tests must never reach the network; failing here also
+              // proves the browser fallback still runs.
+              fetchImpl: async () => ({ ok: false, blob: async () => new Blob([]) }),
+            }),
         };
       if (name === "./native.css") return {};
       if (name === "./native")

@@ -21,6 +21,7 @@ import {
   createVoiceConversation,
   type VoicePhase,
 } from "./voice";
+import { createCloudSpeaker } from "./cloudVoice";
 import "./native.css";
 
 type Turn = {
@@ -89,6 +90,11 @@ export function NativeAgentDock({
   const automaticPending = useRef(false);
   const panelOpen = useRef(open);
   const voice = useRef<ReturnType<typeof createVoiceConversation> | null>(null);
+  const speaker = useRef<ReturnType<typeof createCloudSpeaker> | null>(null);
+  const voicePhaseRef = useRef<VoicePhase>("idle");
+  const muted = useRef(false);
+  const [muteNotice, setMuteNotice] = useState("");
+  const [voiceFallbackNotice, setVoiceFallbackNotice] = useState("");
   const authIntent = useRef<"voice" | "text" | null>(null);
   const mediaPlaying = useRef(mediaActive);
   const position = useCompanionPosition();
@@ -96,6 +102,7 @@ export function NativeAgentDock({
     async () => null,
   );
   latest.current = current;
+  voicePhaseRef.current = voicePhase;
   panelOpen.current = open;
   mediaPlaying.current = mediaActive;
 
@@ -120,6 +127,28 @@ export function NativeAgentDock({
       },
     });
     setVoiceSupported(voice.current.supported);
+    speaker.current = createCloudSpeaker({
+      fallbackSpeak: (text, done) => {
+        // Browser voice is the safety net when the cloud cannot serve audio.
+        const environment = browserVoiceEnvironment();
+        const utterance = environment.utterance?.(text);
+        if (!utterance || !environment.speak) {
+          done();
+          return;
+        }
+        const spoken = utterance as SpeechSynthesisUtterance;
+        spoken.lang = "zh-CN";
+        spoken.onend = () => done();
+        spoken.onerror = () => done();
+        environment.speak(utterance);
+        // Some engines never fire a completion event.
+        setTimeout(done, Math.max(8000, Math.min(120000, text.length * 250 + 4000)));
+      },
+      fallbackCancel: () => browserVoiceEnvironment().cancel?.(),
+      onFallback: (reason) => {
+        if (mounted.current) setVoiceFallbackNotice(reason);
+      },
+    });
     const visibility = () => {
       if (document.visibilityState === "hidden")
         voice.current?.stop("页面已切到后台，语音已暂停。");
@@ -129,6 +158,8 @@ export function NativeAgentDock({
       mounted.current = false;
       voice.current?.stop();
       voice.current = null;
+      speaker.current?.cancel();
+      speaker.current = null;
       chatAbort.current?.abort();
       actionAbort.current?.abort();
       closePendingVr();
@@ -532,6 +563,8 @@ export function NativeAgentDock({
     setActionStatus("");
     setVoiceNotice("");
     setVoiceCaption("");
+    setMuteNotice("");
+    setVoiceFallbackNotice("");
     setVerifiedVr(null);
     setQuery("");
     const id = crypto.randomUUID(),
@@ -564,8 +597,10 @@ export function NativeAgentDock({
           context.revision,
           reply.automatic_action_id,
         );
+        announce(reply.answer);
         return outcome ? `${reply.answer}\n${outcome}` : null;
       }
+      announce(reply.answer);
       return reply.answer;
     } catch (e) {
       if (!mounted.current) return null;
@@ -583,6 +618,17 @@ export function NativeAgentDock({
     }
   }
   submit.current = send;
+  /**
+   * Read an answer aloud. Runs for every reply, typed or dictated.
+   *
+   * The voice-conversation loop already speaks its own replies, so this
+   * stands down while that loop is active to avoid reading twice.
+   */
+  function announce(answer: string) {
+    if (muted.current || !answer.trim()) return;
+    if (voicePhaseRef.current !== "idle") return;
+    void speaker.current?.speak(answer);
+  }
   const last = turns.at(-1);
   const activeVoice = voicePhase !== "idle";
   function actionButtons(reply?: GuideReply) {
@@ -617,13 +663,15 @@ export function NativeAgentDock({
     transcript ||
     (voicePhase === "speaking" ? voiceCaption : "") ||
     actionStatus ||
-    voiceNotice ||
     (busy ? "正在查阅校园资料…" : "") ||
+    voiceNotice ||
+    muteNotice ||
     voiceCaption ||
     last?.reply?.answer?.match(
       /^[\s\S]{1,150}?[。！？!?](?:\s|$)?|^[\s\S]{1,150}/,
     )?.[0] ||
     last?.error ||
+    voiceFallbackNotice ||
     "";
   const verifiedLink =
     csrf && verifiedVr && verifiedVr.contextRevision === current?.revision
@@ -721,6 +769,38 @@ export function NativeAgentDock({
               {hasSuggestions && (
                 <span className="native-result-dot" aria-hidden="true" />
               )}
+            </button>
+            <button
+              type="button"
+              className={`native-orbit-button${muted.current ? " is-muted" : ""}`}
+              aria-label={muted.current ? "开启回答播报" : "关闭回答播报"}
+              aria-pressed={muted.current}
+              onClick={() => {
+                muted.current = !muted.current;
+                if (muted.current) {
+                  speaker.current?.cancel();
+                  setMuteNotice("回答播报已关闭。");
+                } else {
+                  setMuteNotice("");
+                }
+              }}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                aria-hidden="true"
+              >
+                <path d="M4 9v6h4l5 4V5L8 9H4z" />
+                {muted.current ? (
+                  <path d="M16 9l5 6M21 9l-5 6" />
+                ) : (
+                  <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />
+                )}
+              </svg>
             </button>
             <button
               type="button"
