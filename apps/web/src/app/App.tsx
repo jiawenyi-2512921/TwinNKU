@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, get } from "../shared/api/client";
+import { api, get, type RouteSegment } from "../shared/api/client";
 import {
   availableSelection,
   loadCatalog,
@@ -63,6 +63,8 @@ const categories = [
   "history",
   "patriotic",
 ] as const;
+
+const EMPTY_ROUTE_SEGMENTS: RouteSegment[] = [];
 
 export function App() {
   const agentConfig = useAgentConfig();
@@ -649,7 +651,7 @@ export function App() {
               points={points}
               selectedId={selectedId}
               onSelect={explorePoint}
-              routeSegments={route?.segments ?? []}
+              routeSegments={route?.segments ?? EMPTY_ROUTE_SEGMENTS}
               routePickMode={pickMode}
               routeStartId={navigation ? routeSelection.start : null}
               routeEndId={navigation ? routeSelection.end : null}
