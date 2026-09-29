@@ -24,7 +24,7 @@ test("guide actions ignore model URLs and construct internal resource selection"
   assert.equal(url.searchParams.get("experience_point"), "stop-1");
 });
 
-test("manual context changes prevent automatic actions; VR opens the internal viewer", () => {
+test("manual context changes and external VR require explicit user action", () => {
   assert.ok(canAutoApply({ type: "show_route", context_revision: 3 }, 3, 3));
   assert.equal(
     canAutoApply({ type: "show_route", context_revision: 3 }, 3, 4),
@@ -36,6 +36,6 @@ test("manual context changes prevent automatic actions; VR opens the internal vi
   );
   assert.equal(
     canAutoApply({ type: "open_vr", context_revision: 3 }, 3, 3),
-    true,
+    false,
   );
 });

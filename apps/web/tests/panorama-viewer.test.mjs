@@ -50,25 +50,21 @@ function compile(name) {
   ).outputText;
 }
 
-test("only the exact school origin and supported portal path are embedded", () => {
-  assert.equal(helpers.embeddedPanoramaUrl(official), official);
+test("external VR destinations preserve the scene hash and reject unsafe schemes or credentials", () => {
+  assert.equal(helpers.externalPanoramaUrl(official), official);
+  assert.equal(
+    helpers.externalPanoramaUrl("https://another.example/vr#scene-7"),
+    "https://another.example/vr#scene-7",
+  );
   for (const url of [
-    "https://stjgpt.nankai.edu.cn.evil.test/index-jn.php",
-    "https://evil.test/?host=stjgpt.nankai.edu.cn",
     "https://user:secret@stjgpt.nankai.edu.cn/index-jn.php",
     "http://stjgpt.nankai.edu.cn/index-jn.php",
-    "https://stjgpt.nankai.edu.cn:8443/index-jn.php",
-    "https://stjgpt.nankai.edu.cn/login",
     "javascript:alert(1)",
     "data:text/html,test",
     "/local",
+    "//another.example/vr",
   ])
-    assert.equal(helpers.embeddedPanoramaUrl(url), null, url);
-  assert.equal(helpers.externalPanoramaUrl("javascript:alert(1)"), null);
-  assert.equal(
-    helpers.externalPanoramaUrl("https://another.example/vr"),
-    "https://another.example/vr",
-  );
+    assert.equal(helpers.externalPanoramaUrl(url), null, url);
 });
 
 test("VR selection preserves tour/filter state and ignores stale building callbacks", () => {
@@ -97,9 +93,10 @@ test("VR selection preserves tour/filter state and ignores stale building callba
 });
 
 // Controlled component effects verify publication checks and URL/back lifecycle,
-// not third-party frame rendering or native browser focus behavior.
+// not original-site rendering or native browser focus behavior.
 function overlay(
   initial = "https://guide.test/?point=point-1&panorama=pano-1",
+  component = "PanoramaOverlay",
 ) {
   const slots = [],
     cleanups = new Map(),
@@ -145,7 +142,7 @@ function overlay(
   };
   const exports = {},
     Viewer = () => null;
-  vm.runInNewContext(compile("PanoramaOverlay"), {
+  vm.runInNewContext(compile(component), {
     exports,
     window: browser,
     AbortController,
@@ -164,6 +161,8 @@ function overlay(
           },
         };
       if (name === "./panorama") return helpers;
+      if (name.endsWith("/Icon")) return { Icon: () => null };
+      if (name.endsWith(".css")) return {};
       if (name === "./PanoramaViewer") return { PanoramaViewer: Viewer };
       if (name.endsWith("/catalogSync"))
         return {
@@ -187,7 +186,9 @@ function overlay(
   });
   function render() {
     position = 0;
-    const tree = exports.PanoramaOverlay();
+    const tree = exports[component](
+      component === "PanoramaPanel" ? { pointId: "point-1" } : undefined,
+    );
     while (pendingEffects.length) pendingEffects.shift()();
     return tree;
   }
@@ -218,7 +219,7 @@ test("global viewer validates published shared link then follows Back/Forward wh
   assert.equal(
     h.render().props.item,
     undefined,
-    "no iframe resource until a published read",
+    "no original-site destination until a published read",
   );
   await h.ready([item, { ...item, id: "foreign", point_id: "other-point" }]);
   assert.equal(h.render().props.item.id, "pano-1");
@@ -243,7 +244,7 @@ test("global viewer validates published shared link then follows Back/Forward wh
   h.dispose();
 });
 
-test("publication retirement, failure and point change remove stale iframe resources", async () => {
+test("publication retirement, failure and point change remove stale original-site resources", async () => {
   const h = overlay();
   await h.ready();
   h.refresh();
@@ -309,120 +310,108 @@ function viewer(row) {
   return exports.PanoramaViewer({ item: row, onClose() {} });
 }
 
-test("trusted viewer uses a nonmodal sandboxed iframe and always offers explicit original website", () => {
-  const tree = viewer(item);
-  assert.equal(tree.props["aria-modal"], "false");
-  const frame = find(tree, (node) => node.type === "iframe")[0];
-  assert.equal(frame.props.src, official);
-  assert.equal(frame.props.allow, "fullscreen");
-  assert.doesNotMatch(frame.props.sandbox, /allow-popups|allow-top-navigation/);
-  assert.equal(frame.props.referrerPolicy, "no-referrer");
+test("legacy VR links offer the original website for official and external sources without an iframe", () => {
+  for (const url of [official, "https://another.example/vr#scene-7"]) {
+    const tree = viewer({ ...item, url });
+    assert.equal(find(tree, (node) => node.type === "iframe").length, 0);
+    const link = find(tree, (node) => node.type === "a")[0];
+    assert.equal(link.props.href, url);
+    assert.equal(link.props.target, "_blank");
+    assert.equal(link.props.rel, "noopener noreferrer");
+    assert.match(words(tree), /原网站/);
+    assert.match(words(tree), /返回地图/);
+    assert.doesNotMatch(words(tree), /正在连接学校全景|重新载入/);
+  }
+});
+
+test("invalid legacy destinations never become clickable links or frames", () => {
+  for (const url of [
+    "javascript:alert(1)",
+    "http://another.example/vr",
+    "https://user:secret@another.example/vr",
+  ]) {
+    const tree = viewer({ ...item, url });
+    assert.equal(find(tree, (node) => node.type === "iframe").length, 0);
+    assert.equal(find(tree, (node) => node.type === "a").length, 0);
+  }
+});
+
+test("primary panorama cards link directly to the original scene without rewriting the tour URL", async () => {
+  const original = "https://guide.test/?point=point-1&experience=tour-1";
+  const h = overlay(original, "PanoramaPanel");
+  const tree = await h.ready([item]);
   const link = find(tree, (node) => node.type === "a")[0];
   assert.equal(link.props.href, official);
+  assert.equal(link.props.target, "_blank");
   assert.equal(link.props.rel, "noopener noreferrer");
-  assert.match(words(tree), /返回地图/);
-});
-
-test("unconfigured source gets explicit fallback, invalid links never become iframe or clickable script", () => {
-  const external = viewer({ ...item, url: "https://another.example/vr" });
-  assert.equal(find(external, (node) => node.type === "iframe").length, 0);
+  assert.match(words(link), /原网站/);
   assert.equal(
-    find(external, (node) => node.type === "a")[0].props.href,
-    "https://another.example/vr",
+    link.props.onClick,
+    undefined,
+    "native navigation must not be intercepted into an internal viewer",
   );
-  const invalid = viewer({ ...item, url: "javascript:alert(1)" });
-  assert.equal(find(invalid, (node) => node.type === "iframe").length, 0);
-  assert.equal(find(invalid, (node) => node.type === "a").length, 0);
+  assert.equal(find(tree, (node) => node.type === "iframe").length, 0);
+  assert.equal(
+    find(tree, (node) => node.props?.["aria-haspopup"] === "dialog").length,
+    0,
+  );
+  assert.equal(h.browser.location.href, original);
+  assert.equal(h.history.length, 0);
+  h.dispose();
 });
 
-function layoutHarness({
-  width,
-  height,
-  headerBottom,
-  dockBounds,
-  wasInert = false,
-}) {
-  const effects = [],
-    states = [],
-    resizeObservers = [];
-  let index = 0,
-    restoredFocusInert;
+test("primary panorama cards never expose invalid destination anchors", async () => {
+  const h = overlay("https://guide.test/?point=point-1", "PanoramaPanel");
+  const tree = await h.ready([
+    { ...item, url: "javascript:alert(1)" },
+    {
+      ...item,
+      id: "credentials",
+      url: "https://user:secret@another.example/vr",
+    },
+  ]);
+  assert.equal(find(tree, (node) => node.type === "a").length, 0);
+  assert.equal(find(tree, (node) => node.type === "iframe").length, 0);
+  h.dispose();
+});
+
+function focusHarness({ wasInert = false, triggerConnected = true } = {}) {
+  const effects = [];
+  let restoredFocusInert,
+    focusedTitle = false,
+    restored = false;
   class Element {
-    constructor(rect = {}) {
-      this.rect = rect;
+    constructor() {
       this.inert = false;
       this.isConnected = true;
     }
-    getBoundingClientRect() {
-      return this.rect;
-    }
     focus() {
-      restoredFocusInert = stage.inert;
+      if (this === title) focusedTitle = true;
+      if (this === trigger) {
+        restored = true;
+        restoredFocusInert = stage.inert;
+      }
     }
   }
   const stage = new Element(),
-    header = new Element({ bottom: headerBottom });
-  stage.inert = wasInert;
-  const dock = new Element(dockBounds),
-    native = new Element(),
+    dock = new Element(),
     trigger = new Element(),
     title = new Element();
-  class Resize {
-    constructor(callback) {
-      this.callback = callback;
-      resizeObservers.push(this);
-    }
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  }
-  class Mutation {
-    constructor(callback) {
-      this.callback = callback;
-    }
-    observe() {}
-    disconnect() {}
-  }
+  stage.inert = wasInert;
+  trigger.isConnected = triggerConnected;
   const exports = {};
   vm.runInNewContext(compile("PanoramaViewer"), {
     exports,
     HTMLElement: Element,
-    ResizeObserver: Resize,
-    MutationObserver: Mutation,
     document: {
       body: {},
       activeElement: trigger,
       querySelectorAll: () => [stage],
-      querySelector: (query) =>
-        query === ".app-header"
-          ? header
-          : query === ".native-dock"
-            ? native
-            : dock,
-    },
-    window: {
-      innerWidth: width,
-      innerHeight: height,
-      addEventListener() {},
-      removeEventListener() {},
-      setTimeout: () => 1,
-      clearTimeout() {},
     },
     require(name) {
       if (name === "react")
         return {
           useRef: () => ({ current: title }),
-          useState(initial) {
-            const key = index++;
-            states[key] = initial;
-            return [
-              initial,
-              (value) => {
-                states[key] =
-                  typeof value === "function" ? value(states[key]) : value;
-              },
-            ];
-          },
           useEffect: (effect) => effects.push(effect),
         };
       if (name === "react/jsx-runtime") return jsx;
@@ -433,16 +422,29 @@ function layoutHarness({
       throw new Error(name);
     },
   });
-  exports.PanoramaViewer({ item, onClose() {} });
+  let closes = 0;
+  const tree = exports.PanoramaViewer({
+    item,
+    onClose() {
+      closes++;
+    },
+  });
   const cleanups = effects.map((effect) => effect());
   return {
-    states,
     stage,
     dock,
-    header,
-    resize: () => resizeObservers[0].callback(),
+    tree,
+    get focusedTitle() {
+      return focusedTitle;
+    },
+    get restored() {
+      return restored;
+    },
     get restoredFocusInert() {
       return restoredFocusInert;
+    },
+    get closes() {
+      return closes;
     },
     dispose() {
       cleanups.forEach((cleanup) => cleanup?.());
@@ -450,65 +452,27 @@ function layoutHarness({
   };
 }
 
-test("viewer reserves actual wrapped header and mobile voice dock instead of overlaying their controls", () => {
-  const h = layoutHarness({
-    width: 390,
-    height: 800,
-    headerBottom: 122,
-    dockBounds: { left: 60, top: 545 },
-  });
-  assert.deepEqual({ ...h.states[2] }, { top: 130, right: 8, bottom: 265 });
-  h.header.rect.bottom = 150;
-  h.dock.rect.top = 510;
-  h.resize();
-  assert.deepEqual({ ...h.states[2] }, { top: 158, right: 8, bottom: 300 });
-  h.dispose();
-});
-
-test("desktop and short landscape keep VR and microphone beside each other", () => {
-  const desktop = layoutHarness({
-    width: 1280,
-    height: 800,
-    headerBottom: 74,
-    dockBounds: { left: 912, top: 420 },
-  });
-  assert.deepEqual(
-    { ...desktop.states[2] },
-    { top: 82, right: 380, bottom: 12 },
-  );
-  desktop.dispose();
-  const landscape = layoutHarness({
-    width: 740,
-    height: 430,
-    headerBottom: 110,
-    dockBounds: { left: 410, top: 136 },
-  });
-  assert.deepEqual(
-    { ...landscape.states[2] },
-    { top: 118, right: 342, bottom: 12 },
-  );
-  landscape.dispose();
-});
-
-test("covered map becomes inert while assistant stays usable; close restores previous state before focus", () => {
-  const h = layoutHarness({
-    width: 1280,
-    height: 800,
-    headerBottom: 74,
-    dockBounds: { left: 912, top: 420 },
-  });
+test("legacy link dialog focuses its heading and restores covered map state before trigger focus", () => {
+  const h = focusHarness();
+  assert.equal(h.focusedTitle, true);
   assert.equal(h.stage.inert, true);
   assert.equal(h.dock.inert, false);
+  let stopped = false;
+  h.tree.props.onKeyDown({
+    key: "Escape",
+    stopPropagation() {
+      stopped = true;
+    },
+  });
+  assert.equal(stopped, true);
+  assert.equal(h.closes, 1);
   h.dispose();
   assert.equal(h.stage.inert, false);
   assert.equal(h.restoredFocusInert, false);
-  const existing = layoutHarness({
-    width: 1280,
-    height: 800,
-    headerBottom: 74,
-    dockBounds: { left: 912, top: 420 },
-    wasInert: true,
-  });
+  const existing = focusHarness({ wasInert: true });
   existing.dispose();
   assert.equal(existing.stage.inert, true);
+  const removed = focusHarness({ triggerConnected: false });
+  removed.dispose();
+  assert.equal(removed.restored, false);
 });
