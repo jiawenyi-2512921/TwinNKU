@@ -3074,6 +3074,8 @@ export interface components {
             actions: components["schemas"]["GuideAction"][];
             /** Answer */
             answer: string;
+            /** Automatic Action Id */
+            automatic_action_id?: string | null;
             /** Context Revision */
             context_revision: number;
             /** Materials */
