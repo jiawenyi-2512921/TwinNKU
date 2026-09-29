@@ -114,7 +114,7 @@ export function GuideSettings({
               [
                 ["chat_enabled", "启用小开问答"],
                 ["navigation_enabled", "启用已审核道路导航"],
-                ["auto_actions", "允许单个明确动作自动定位 / 显示路线"],
+                ["auto_actions", "允许明确指令自动打开资料 / 路线（目标须唯一）"],
               ] as const
             ).map(([key, label]) => (
               <label className="road-check" key={key}>
