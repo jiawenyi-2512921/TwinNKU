@@ -6,7 +6,7 @@
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
 接口操作数：110；状态统计：{"implemented": 74, "planned": 36}。
-契约SHA256：`2b21dd8b870d25338b801359ce4eb266f9a89e4aec8195fa72df35855dbd0687`。
+契约SHA256：`60058489ae03b5fddeca03ee5ac9fed1da41d5d200e2d790e77575ff2fd2183e`。
 
 ## 1. 全部端点
 
@@ -571,6 +571,7 @@
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
 | campus_id | path | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
+| kind | query | 否 | campus / floor / null | Only return maps of this kind; omit to include all public maps.; —; — |
 
 ### GET /api/v1/campuses/{campus_id}/points
 
