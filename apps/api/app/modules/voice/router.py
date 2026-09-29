@@ -30,6 +30,9 @@ META = {"x-implementation-status": "implemented", "x-module": "M26"}
 # deployment would move these to shared storage.
 _AUDIO_CACHE: dict[str, tuple[float, bytes]] = {}
 _RATE_WINDOWS: dict[str, deque[float]] = defaultdict(deque)
+# Process-wide window, guarding against callers that rotate addresses to
+# evade the per-visitor limit.
+_GLOBAL_WINDOW: deque[float] = deque()
 _MAX_CACHED_CLIPS = 512
 
 
@@ -44,14 +47,23 @@ def _client_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _enforce_rate(visitor: str, limit: int) -> None:
+def _enforce_rate(visitor: str, limit: int, total_limit: int) -> None:
     now = time.monotonic()
+
+    while _GLOBAL_WINDOW and now - _GLOBAL_WINDOW[0] > 3600:
+        _GLOBAL_WINDOW.popleft()
+    if len(_GLOBAL_WINDOW) >= total_limit:
+        # The service ceiling protects the account, not the individual.
+        raise DomainError(
+            "VOICE_CAPACITY_REACHED", "语音服务当前繁忙，请稍后再试或使用文字交流", 429
+        )
     window = _RATE_WINDOWS[visitor]
     while window and now - window[0] > 3600:
         window.popleft()
     if len(window) >= limit:
         raise DomainError("VOICE_RATE_LIMITED", "语音播报过于频繁，请稍后再试", 429)
     window.append(now)
+    _GLOBAL_WINDOW.append(now)
 
     # Bound memory: drop windows for visitors who have gone quiet.
     if len(_RATE_WINDOWS) > 4096:
@@ -139,7 +151,11 @@ async def create_speech(payload: SpeechRequest, request: Request):
             headers={"x-voice-cache": "hit", "x-voice-tier": primary.name},
         )
 
-    _enforce_rate(_client_key(request), config.visitor_requests_per_hour)
+    _enforce_rate(
+        _client_key(request),
+        config.visitor_requests_per_hour,
+        config.total_requests_per_hour,
+    )
 
     try:
         result = await _synthesizer_for(config).synthesize(text)

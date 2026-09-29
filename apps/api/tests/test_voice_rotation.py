@@ -231,6 +231,4 @@ def test_cache_key_differs_by_model_and_voice():
 
 def test_synthesizer_requires_at_least_one_tier():
     with pytest.raises(ValueError):
-        VoiceSynthesizer(
-            api_key="sk-ws-test", base_url="https://example.invalid", tiers=()
-        )
+        VoiceSynthesizer(api_key="sk-ws-test", base_url="https://example.invalid", tiers=())

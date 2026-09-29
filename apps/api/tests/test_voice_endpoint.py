@@ -24,9 +24,11 @@ KEY = "sk-ws-synthetic-test-key"
 def _clear_voice_state():
     voice_router_module._AUDIO_CACHE.clear()
     voice_router_module._RATE_WINDOWS.clear()
+    voice_router_module._GLOBAL_WINDOW.clear()
     yield
     voice_router_module._AUDIO_CACHE.clear()
     voice_router_module._RATE_WINDOWS.clear()
+    voice_router_module._GLOBAL_WINDOW.clear()
 
 
 def _settings(**overrides) -> Settings:
@@ -97,9 +99,7 @@ def test_speech_returns_audio(monkeypatch):
     calls: list[str] = []
     _install_transport(monkeypatch, _ok_handler(calls))
 
-    response = _client(_settings()).post(
-        "/api/v1/voice/speech", json={"text": "图书馆在正前方"}
-    )
+    response = _client(_settings()).post("/api/v1/voice/speech", json={"text": "图书馆在正前方"})
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "audio/wav"
@@ -147,9 +147,7 @@ def test_degraded_tier_is_surfaced_to_the_client(monkeypatch):
 
     _install_transport(monkeypatch, handler)
 
-    response = _client(_settings()).post(
-        "/api/v1/voice/speech", json={"text": "西南门怎么走"}
-    )
+    response = _client(_settings()).post("/api/v1/voice/speech", json={"text": "西南门怎么走"})
 
     assert response.status_code == 200
     assert response.headers["x-voice-tier"] == "backup"
@@ -163,9 +161,7 @@ def test_all_tiers_exhausted_returns_503(monkeypatch):
 
     _install_transport(monkeypatch, handler)
 
-    response = _client(_settings()).post(
-        "/api/v1/voice/speech", json={"text": "马蹄湖在哪"}
-    )
+    response = _client(_settings()).post("/api/v1/voice/speech", json={"text": "马蹄湖在哪"})
 
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "VOICE_SYNTHESIS_FAILED"
@@ -190,9 +186,7 @@ def test_rate_limit_blocks_excessive_calls(monkeypatch):
     client = _client(_settings(voice_visitor_requests_per_hour=2))
 
     texts = ["图书馆", "马蹄湖", "西南门"]
-    codes = [
-        client.post("/api/v1/voice/speech", json={"text": t}).status_code for t in texts
-    ]
+    codes = [client.post("/api/v1/voice/speech", json={"text": t}).status_code for t in texts]
 
     assert codes == [200, 200, 429]
     assert len(calls) == 2
@@ -212,3 +206,58 @@ def test_cache_hits_do_not_consume_rate_limit(monkeypatch):
     assert repeat.status_code == 200, "cache hit should bypass the limiter"
     assert repeat.headers["x-voice-cache"] == "hit"
     assert other.status_code == 429
+
+
+def test_global_limit_stops_a_caller_rotating_addresses(monkeypatch):
+    """Per-visitor limits are bypassable by changing address; the global cap is not."""
+    calls: list[str] = []
+    _install_transport(monkeypatch, _ok_handler(calls))
+    client = _client(_settings(voice_visitor_requests_per_hour=50, voice_total_requests_per_hour=3))
+
+    texts = ["图书馆", "马蹄湖", "西南门", "主楼", "学生活动中心"]
+    codes = [
+        client.post(
+            "/api/v1/voice/speech",
+            json={"text": text},
+            headers={"x-forwarded-for": f"10.0.0.{index}"},
+        ).status_code
+        for index, text in enumerate(texts)
+    ]
+
+    assert codes[:3] == [200, 200, 200]
+    assert codes[3:] == [429, 429], "global ceiling must apply across addresses"
+    assert len(calls) == 3
+
+
+def test_global_limit_message_differs_from_visitor_limit(monkeypatch):
+    calls: list[str] = []
+    _install_transport(monkeypatch, _ok_handler(calls))
+    client = _client(_settings(voice_visitor_requests_per_hour=50, voice_total_requests_per_hour=1))
+
+    client.post(
+        "/api/v1/voice/speech",
+        json={"text": "图书馆"},
+        headers={"x-forwarded-for": "10.1.1.1"},
+    )
+    blocked = client.post(
+        "/api/v1/voice/speech",
+        json={"text": "马蹄湖"},
+        headers={"x-forwarded-for": "10.1.1.2"},
+    )
+
+    assert blocked.status_code == 429
+    assert blocked.json()["error"]["code"] == "VOICE_CAPACITY_REACHED"
+
+
+def test_cache_hits_do_not_consume_the_global_budget(monkeypatch):
+    calls: list[str] = []
+    _install_transport(monkeypatch, _ok_handler(calls))
+    client = _client(_settings(voice_visitor_requests_per_hour=50, voice_total_requests_per_hour=1))
+
+    first = client.post("/api/v1/voice/speech", json={"text": "同一句话"})
+    repeat = client.post("/api/v1/voice/speech", json={"text": "同一句话"})
+
+    assert first.status_code == 200
+    assert repeat.status_code == 200
+    assert repeat.headers["x-voice-cache"] == "hit"
+    assert len(calls) == 1

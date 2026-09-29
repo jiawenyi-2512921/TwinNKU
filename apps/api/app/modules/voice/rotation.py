@@ -148,9 +148,7 @@ class VoiceSynthesizer:
                 continue
             except _TierHardFailure as exc:
                 # Not a quota problem. Surfacing it beats masking it.
-                raise VoiceSynthesisError(
-                    str(exc), attempts=attempts, last_code=exc.code
-                ) from exc
+                raise VoiceSynthesisError(str(exc), attempts=attempts, last_code=exc.code) from exc
 
             return SynthesisResult(
                 audio=audio,
@@ -161,9 +159,7 @@ class VoiceSynthesizer:
                 characters=len(text),
             )
 
-        raise VoiceSynthesisError(
-            "所有语音模型均不可用", attempts=attempts, last_code=last_code
-        )
+        raise VoiceSynthesisError("所有语音模型均不可用", attempts=attempts, last_code=last_code)
 
     async def _call_tier(self, tier: VoiceTier, text: str) -> bytes:
         url = f"{self._base_url}/api/v1/services/aigc/multimodal-generation/generation"
@@ -176,9 +172,7 @@ class VoiceSynthesizer:
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(
-            timeout=self._timeout, transport=self._transport
-        ) as client:
+        async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
             response = await client.post(url, json=payload, headers=headers)
 
             if response.status_code in TRANSIENT_HTTP_STATUS:
