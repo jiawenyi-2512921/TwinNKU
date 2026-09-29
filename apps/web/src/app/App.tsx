@@ -35,6 +35,7 @@ import { NativeAgentDock } from "../features/agent/NativeAgentDock";
 import {
   actionLocation,
   type GuideAction,
+  type GuideActionOptions,
   type GuideContext,
   type NavigationPath,
 } from "../features/agent/native";
@@ -49,7 +50,10 @@ import { panoramaLocation } from "../features/points/panorama";
 import { PanoramaOverlay } from "../features/points/PanoramaOverlay";
 import { panoramaOnlyTransition } from "../shared/navigation";
 import { PointDetails } from "../features/points/PointDetails";
-import { ExperiencePanel } from "../features/experiences/ExperiencePanel";
+import {
+  ExperiencePanel,
+  type VideoPlaybackRequest,
+} from "../features/experiences/ExperiencePanel";
 import type { Experience } from "../features/experiences/types";
 
 const categories = [
@@ -84,6 +88,17 @@ export function App() {
     () => window.location.search,
   );
   const [experienceCatalog, setExperienceCatalog] = useState<Experience[]>([]);
+  const experienceCatalogRef = useRef(experienceCatalog);
+  experienceCatalogRef.current = experienceCatalog;
+  const [playbackRequest, setPlaybackRequest] =
+    useState<VideoPlaybackRequest | null>(null);
+  const playbackController = useRef<AbortController | null>(null);
+  const playbackSequence = useRef(0);
+  const cancelPlayback = useCallback(() => {
+    playbackController.current?.abort();
+    playbackController.current = null;
+    setPlaybackRequest(null);
+  }, []);
   const [mediaActive, setMediaActive] = useState(false);
   const contextState = useRef({ key: "", revision: 0 });
   const [agentRequest, setAgentRequest] = useState<AgentRequest | null>(null);
@@ -116,6 +131,7 @@ export function App() {
       preserveExperience = false,
       mode: "push" | "replace" = "push",
     ) => {
+      cancelPlayback();
       selectedRef.current = id;
       setSelectedId(id);
       setShowList(false);
@@ -125,7 +141,7 @@ export function App() {
         mode,
       );
     },
-    [],
+    [cancelPlayback],
   );
   const selectExperiencePoint = useCallback(
     (id: string) => {
@@ -136,9 +152,10 @@ export function App() {
     [selectPoint],
   );
   const closeExperience = useCallback(() => {
+    cancelPlayback();
     setExperience(null);
     writeLocation(experienceLocation(window.location.href, null), "replace");
-  }, []);
+  }, [cancelPlayback]);
   const explorePoint = useCallback(
     (id: string | null) => {
       setExperience(null);
@@ -162,6 +179,7 @@ export function App() {
         setCatalog((previous) => reconcileCatalog(previous, next));
         const retained = availableSelection(next, selectedRef.current);
         if (retained !== selectedRef.current) {
+          cancelPlayback();
           selectedRef.current = retained;
           setSelectedId(retained);
           setExperience(null);
@@ -182,6 +200,7 @@ export function App() {
     const unwatch = watchCatalogChanges(sync.refresh);
     void sync.refresh();
     return () => {
+      playbackController.current?.abort();
       unwatch();
       sync.dispose();
     };
@@ -221,6 +240,7 @@ export function App() {
   useEffect(() => {
     let previousHref = window.location.href;
     function restoreLocation() {
+      cancelPlayback();
       const overlayOnly = panoramaOnlyTransition(
         previousHref,
         window.location.href,
@@ -401,6 +421,7 @@ export function App() {
       }
     : null;
   function openNavigation(end = selectedId ?? "", start?: string | null) {
+    cancelPlayback();
     setShowList(false);
     setShowHelp(false);
     setRoute(null);
@@ -413,6 +434,7 @@ export function App() {
     pointId?: string,
     id?: string,
   ) {
+    cancelPlayback();
     const next = { kind, pointId, id };
     setExperience(next);
     writeLocation(experienceLocation(window.location.href, next));
@@ -422,13 +444,30 @@ export function App() {
     setShowList(false);
     setShowHelp(false);
   }
-  function applyGuideAction(action: GuideAction) {
+  function applyGuideAction(
+    action: GuideAction,
+    options?: GuideActionOptions,
+  ): boolean {
     if (
-      !catalog?.points.some(
+      !catalogRef.current?.points.some(
         (p) => p.id === action.point_id && p.revision === action.point_revision,
       )
     )
-      return;
+      return false;
+    if (action.type === "play_video") {
+      const video = experienceCatalogRef.current.find(
+        (item) => item.id === action.resource_id,
+      );
+      if (
+        !video ||
+        video.revision !== action.resource_revision ||
+        video.content.kind !== "media" ||
+        video.content.media_type !== "video" ||
+        video.content.point_id !== action.point_id
+      )
+        return false;
+    }
+    cancelPlayback();
     if (action.type === "open_vr") {
       // VR is a layer above the current visit. Keep the navigation panel and
       // tour progress mounted; closing the viewer returns to the same visit.
@@ -436,12 +475,12 @@ export function App() {
       selectedRef.current = action.point_id;
       setSelectedId(action.point_id);
       writeLocation(actionLocation(window.location.href, action));
-      return;
+      return true;
     }
     if (action.type === "show_route") {
       selectPoint(action.point_id, Boolean(experience));
       openNavigation(action.point_id, action.start_point_id);
-      return;
+      return true;
     }
     if (["show_checkin", "play_video", "show_tour"].includes(action.type)) {
       selectPoint(action.point_id);
@@ -454,7 +493,19 @@ export function App() {
         action.type === "show_tour" ? undefined : action.point_id,
         action.resource_id ?? undefined,
       );
-      return;
+      if (action.type === "play_video" && options?.requestedPlayback) {
+        const controller = new AbortController();
+        playbackController.current = controller;
+        setPlaybackRequest({
+          id: ++playbackSequence.current,
+          resourceId: action.resource_id!,
+          revision: action.resource_revision!,
+          pointId: action.point_id,
+          pointRevision: action.point_revision,
+          signal: controller.signal,
+        });
+      }
+      return true;
     }
     setExperience(null);
     setPickMode(null);
@@ -467,7 +518,28 @@ export function App() {
       actionLocation(experienceLocation(window.location.href, null), action),
     );
     window.dispatchEvent(new PopStateEvent("popstate"));
+    return true;
   }
+  const playbackVideo =
+    playbackRequest &&
+    experienceCatalog.find((item) => item.id === playbackRequest.resourceId);
+  // Gate the child during rendering too: its playback effect may run before
+  // this parent's invalidation effect after a publication refresh.
+  const currentPlaybackRequest =
+    playbackRequest &&
+    !playbackRequest.signal.aborted &&
+    playbackVideo?.revision === playbackRequest.revision &&
+    playbackVideo.content.kind === "media" &&
+    catalog?.points.some(
+      (point) =>
+        point.id === playbackRequest.pointId &&
+        point.revision === playbackRequest.pointRevision,
+    )
+      ? playbackRequest
+      : null;
+  useEffect(() => {
+    if (playbackRequest && !currentPlaybackRequest) cancelPlayback();
+  }, [playbackRequest, currentPlaybackRequest, cancelPlayback]);
   useEffect(() => {
     if (
       route &&
@@ -777,6 +849,7 @@ export function App() {
                 pointId={experience.pointId}
                 initialKind={experience.kind}
                 initialExperienceId={experience.id}
+                playbackRequest={currentPlaybackRequest}
                 active={
                   !navigation &&
                   !showList &&
@@ -787,6 +860,7 @@ export function App() {
                   points.map((point) => [point.id, point.name]),
                 )}
                 onExperienceChange={(id) => {
+                  cancelPlayback();
                   if (!experience || experience.id === id) return;
                   const next = { ...experience, id };
                   setExperience(next);
@@ -820,6 +894,7 @@ export function App() {
             request={agentRequest}
             pointName={selected?.name ?? ""}
             onAction={applyGuideAction}
+            onCancelAction={cancelPlayback}
             onNavigate={() => openNavigation()}
             mediaActive={mediaActive}
           />
