@@ -45,6 +45,9 @@ import {
   type RoutePickedPoint,
   type RouteSelectionState,
 } from "../features/map/NavigationPanel";
+import { panoramaLocation } from "../features/points/panorama";
+import { PanoramaOverlay } from "../features/points/PanoramaOverlay";
+import { panoramaOnlyTransition } from "../shared/navigation";
 import { PointDetails } from "../features/points/PointDetails";
 import { ExperiencePanel } from "../features/experiences/ExperiencePanel";
 import type { Experience } from "../features/experiences/types";
@@ -214,7 +217,13 @@ export function App() {
   }, [catalog?.campus.id]);
 
   useEffect(() => {
+    let previousHref = window.location.href;
     function restoreLocation() {
+      const overlayOnly = panoramaOnlyTransition(
+        previousHref,
+        window.location.href,
+      );
+      previousHref = window.location.href;
       const requested = new URLSearchParams(window.location.search).get(
         "point",
       );
@@ -223,6 +232,7 @@ export function App() {
       selectedRef.current = id;
       setSelectedId(id);
       setLocationSearch(window.location.search);
+      if (overlayOnly) return;
       setExperience(readExperienceLocation(window.location.href));
       setNavigation(null);
       setRoute(null);
@@ -235,7 +245,10 @@ export function App() {
         writeLocation(pointLocation(window.location.href, id), "replace");
       }
     }
-    const syncLocationContext = () => setLocationSearch(window.location.search);
+    const syncLocationContext = () => {
+      previousHref = window.location.href;
+      setLocationSearch(window.location.search);
+    };
     window.addEventListener("popstate", restoreLocation);
     window.addEventListener(LOCATION_CHANGE_EVENT, syncLocationContext);
     return () => {
@@ -249,6 +262,15 @@ export function App() {
       if (event.defaultPrevented || document.querySelector("dialog[open]"))
         return;
       if (event.key === "Escape") {
+        const vr = new URL(window.location.href);
+        if (vr.searchParams.has("panorama")) {
+          event.preventDefault();
+          writeLocation(
+            panoramaLocation(vr.href, vr.searchParams.get("point") ?? "", null),
+            "replace",
+          );
+          return;
+        }
         if (pickMode) {
           event.preventDefault();
           setPickMode(null);
@@ -405,6 +427,15 @@ export function App() {
       )
     )
       return;
+    if (action.type === "open_vr") {
+      // VR is a layer above the current visit. Keep the navigation panel and
+      // tour progress mounted; closing the viewer returns to the same visit.
+      setShowHelp(false);
+      selectedRef.current = action.point_id;
+      setSelectedId(action.point_id);
+      writeLocation(actionLocation(window.location.href, action));
+      return;
+    }
     if (action.type === "show_route") {
       selectPoint(action.point_id, Boolean(experience));
       openNavigation(action.point_id, action.start_point_id);
@@ -473,19 +504,28 @@ export function App() {
             Twin NKU<small>校园文化导览</small>
           </span>
         </a>
-        <span className="header-campus">南开大学 · 津南校区</span>
+        <span className="header-campus">
+          {catalog?.campus.name ?? "南开大学"}
+        </span>
         {catalog?.map && (
-          <button className="navigation-entry" onClick={() => openNavigation()}>
-            路线导航
-          </button>
-        )}
-        {experienceCatalog.some((item) => item.content.kind === "tour") && (
-          <button
-            className="navigation-entry"
-            onClick={() => openExperience("tour")}
-          >
-            主题导览
-          </button>
+          <nav className="campus-modes" aria-label="校园探索方式">
+            <button
+              className="navigation-entry"
+              aria-pressed={!!navigation}
+              onClick={() => openNavigation()}
+            >
+              <Icon name="pin" size={17} />
+              路线导航
+            </button>
+            <button
+              className="navigation-entry"
+              aria-pressed={!!experience && !experience.pointId && !navigation}
+              onClick={() => openExperience("tour")}
+            >
+              <Icon name="bookmark" size={17} />
+              校园导览
+            </button>
+          </nav>
         )}
         <div className="explore-tools">
           <form
@@ -692,8 +732,8 @@ export function App() {
               onExperiences={
                 experienceCatalog.some(
                   (item) =>
-                    item.content.point_id === selected.id &&
-                    item.content.kind !== "tour",
+                    item.content.kind !== "tour" &&
+                    item.content.point_id === selected.id,
                 )
                   ? () => openExperience(undefined, selected.id)
                   : undefined
@@ -731,10 +771,15 @@ export function App() {
             >
               <ExperiencePanel
                 campusId={catalog?.campus.id}
+                campusName={catalog?.campus.name}
                 pointId={experience.pointId}
                 initialKind={experience.kind}
                 initialExperienceId={experience.id}
-                active={!navigation && !showList}
+                active={
+                  !navigation &&
+                  !showList &&
+                  !new URLSearchParams(locationSearch).has("panorama")
+                }
                 onSelectPoint={selectExperiencePoint}
                 pointNames={Object.fromEntries(
                   points.map((point) => [point.id, point.name]),
@@ -765,6 +810,7 @@ export function App() {
               </div>
             )}
         </section>
+        <PanoramaOverlay />
         {agentConfig?.enabled && agentConfig.provider === "nk-genios-api" ? (
           <NativeAgentDock
             autoActions={agentConfig.auto_actions ?? true}
