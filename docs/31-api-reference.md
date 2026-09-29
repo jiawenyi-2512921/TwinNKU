@@ -5,8 +5,8 @@
 业务约束见21—29；接口上线前必须先处理24中的协议缺口和旧角色命名，不能猜学校平台API。
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
-接口操作数：110；状态统计：{"implemented": 74, "planned": 36}。
-契约SHA256：`c516969336f5449a6461199215f59c22ba7ac3e6d13ca2ef2eabc8417c94f5a2`。
+接口操作数：112；状态统计：{"implemented": 76, "planned": 36}。
+契约SHA256：`b3333be8e4bc651db1e277ad866da4810b6f6884f0905e86ae9f972f21118669`。
 
 ## 1. 全部端点
 
@@ -120,6 +120,8 @@
 | POST | `/api/v1/tour-plans` | createTourPlan | planned | guest_session | application/json: TourPlanRequest | 201: application/json Envelope_TourPlan_ |
 | GET | `/api/v1/tour-plans/{plan_id}` | getTourPlan | planned | owner | — | 200: application/json Envelope_TourPlan_ |
 | PATCH | `/api/v1/tour-plans/{plan_id}` | adjustTourPlan | planned | owner | application/json: TourAdjustment | 200: application/json Envelope_TourPlan_ |
+| POST | `/api/v1/voice/speech` | createVoiceSpeech | implemented | 未标记 | application/json: SpeechRequest | 200: application/json object; 200: audio/wav object |
+| GET | `/api/v1/voice/status` | getVoiceStatus | implemented | 未标记 | — | 200: application/json object |
 | GET | `/health/live` | healthLive | implemented | 未标记 | — | 200: application/json Health |
 | GET | `/health/ready` | healthReady | implemented | 未标记 | — | 200: application/json Health |
 
@@ -2674,6 +2676,14 @@
 | revision | 是 | integer | 最小: 1 |
 | title | 是 | string | — |
 | url | 否 | string / null | 默认: null; —; — |
+
+### SpeechRequest
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| text | 是 | string | 最短: 1; 最长: 2000 |
 
 ### StaffLogin
 
