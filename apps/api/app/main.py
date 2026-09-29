@@ -76,7 +76,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response = error_response(request, 500, "INTERNAL_ERROR", "服务暂不可用，请稍后重试")
         response.headers["X-Request-ID"] = str(request.state.request_id)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Cache-Control"] = "no-store"
+        # Resource endpoints may opt in to private, revalidated byte reuse after
+        # authorization. JSON and every error response must remain uncacheable.
+        if response.status_code >= 400:
+            response.headers["Cache-Control"] = "no-store"
+        else:
+            response.headers.setdefault("Cache-Control", "no-store")
         logger.info(
             "request id=%s method=%s status=%s duration_ms=%.1f",
             request.state.request_id,
