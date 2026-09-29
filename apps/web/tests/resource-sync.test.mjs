@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 import * as navigation from "../src/shared/navigation.ts";
+import * as panorama from "../src/features/points/panorama.ts";
 import {
   watchCatalogChanges,
   CATALOG_PUBLISHED,
@@ -64,9 +65,9 @@ function mount(kind) {
         return {
           useState(initial) {
             const index = slot++;
-            state[index] = initial;
+            state[index] = typeof initial === "function" ? initial() : initial;
             return [
-              initial,
+              state[index],
               (value) => {
                 const next =
                   typeof value === "function" ? value(state[index]) : value;
@@ -79,6 +80,7 @@ function mount(kind) {
           useEffect: (effect) => effects.push(effect),
         };
       if (path === "react/jsx-runtime") return { jsx() {}, jsxs() {} };
+      if (path === "./panorama") return panorama;
       if (path === "../../shared/catalogSync")
         return {
           watchCatalogChanges: (refresh) =>

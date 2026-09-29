@@ -7,7 +7,7 @@ import * as jsx from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as progress from "../src/features/experiences/progress.ts";
 
-const names = { media: "图片与视频", checkin: "打卡点", tour: "定制路线" };
+const names = { media: "图片与视频", checkin: "打卡点", tour: "校园导览路线" };
 const compile = (path) =>
   ts.transpileModule(readFileSync(new URL(path, import.meta.url), "utf8"), {
     compilerOptions: {
@@ -87,7 +87,11 @@ function harness(code, context = {}, overrides = {}) {
     URLSearchParams,
     AbortController,
     Date,
-    window: { confirm: () => true },
+    window: {
+      confirm: () => overrides.confirm ?? true,
+      addEventListener() {},
+      removeEventListener() {},
+    },
     require(name) {
       if (name === "react") return react;
       if (name === "react/jsx-runtime") return jsx;
@@ -104,7 +108,14 @@ function harness(code, context = {}, overrides = {}) {
           },
         };
       if (name.endsWith("/client"))
-        return { get: async () => ({ data: overrides.publicRows ?? [] }) };
+        return {
+          get: async (path) => ({
+            data:
+              path === "/campuses"
+                ? (overrides.campuses ?? [])
+                : (overrides.publicRows ?? []),
+          }),
+        };
       if (name.endsWith("catalogSync"))
         return {
           notifyCatalogPublished() {},
@@ -114,7 +125,11 @@ function harness(code, context = {}, overrides = {}) {
         return {
           request: async (...args) => {
             calls.push(args);
-            return { data: overrides.record };
+            if (args[0].startsWith("/points?"))
+              return { data: overrides.points ?? [], meta: {} };
+            return overrides.request
+              ? overrides.request(...args)
+              : { data: overrides.record };
           },
           message: (e) => e.message,
           stateNames: {
@@ -179,7 +194,7 @@ const tour = {
   revision: 2,
   content: {
     kind: "tour",
-    point_id: "p1",
+    campus_id: "campus-a",
     title: "测试路线",
     description: "",
     source_note: "测试夹具",
@@ -496,6 +511,162 @@ test("switching tabs from an externally selected tour survives selected-id synch
   h.flushEffects();
   tree = h.render("ExperiencePanel", props);
   assert.equal(button(tree, "图片与视频").props["aria-pressed"], true);
-  assert.equal(button(tree, "定制路线").props["aria-pressed"], false);
+  assert.equal(button(tree, "校园导览路线").props["aria-pressed"], false);
   assert.equal(props.initialExperienceId, "");
+});
+
+const campusPoints = [
+  {
+    point: {
+      id: "p1",
+      campus_id: "campus-a",
+      name: "测试地点甲",
+      aliases: ["甲楼"],
+    },
+  },
+  {
+    point: { id: "p2", campus_id: "campus-a", name: "测试地点乙", aliases: [] },
+  },
+  {
+    point: {
+      id: "p3",
+      campus_id: "campus-b",
+      name: "另一校区地点",
+      aliases: [],
+    },
+  },
+];
+const campusRows = [
+  { id: "campus-a", name: "测试校区甲" },
+  { id: "campus-b", name: "测试校区乙" },
+];
+const editorProps = {
+  session: {
+    user: { id: "editor", role: "editor" },
+    permissions: ["points.edit"],
+  },
+  onDirty() {},
+  kindScope: "tours",
+};
+async function routeEditor(overrides = {}) {
+  const h = harness(
+    adminCode,
+    {},
+    { points: campusPoints, campuses: campusRows, ...overrides },
+  );
+  h.render("ExperienceWorkspace", editorProps);
+  h.flushEffects();
+  await new Promise((resolve) => setImmediate(resolve));
+  let tree = h.render("ExperienceWorkspace", editorProps);
+  button(tree, "＋校园导览路线").props.onClick();
+  tree = h.render("ExperienceWorkspace", editorProps);
+  field(tree, "路线所属校区").props.onChange({ target: { value: "campus-a" } });
+  return { h, render: () => h.render("ExperienceWorkspace", editorProps) };
+}
+
+test("campus route composer has no parent building and filters authorized stations by campus", async () => {
+  const { h, render } = await routeEditor();
+  let tree = render();
+  assert.equal(
+    find(
+      tree,
+      (node) => node.type === "label" && labelText(node).startsWith("归属地点"),
+    ).length,
+    0,
+  );
+  assert.equal(button(tree, "＋图片与视频"), undefined);
+  const candidates = find(
+    tree,
+    (node) => node.props?.className === "ad-tour-candidates",
+  )[0];
+  assert.match(labelText(candidates), /测试地点甲/);
+  assert.doesNotMatch(labelText(candidates), /另一校区地点/);
+  button(tree, "测试地点甲＋ 加入路线").props.onClick();
+  tree = render();
+  button(tree, "测试地点乙＋ 加入路线").props.onClick();
+  tree = render();
+  field(tree, "本站讲解").props.onChange({
+    target: { value: "已核实的第二站讲解" },
+  });
+  tree = render();
+  find(
+    tree,
+    (node) => node.props?.["aria-label"] === "第 2 站上移",
+  )[0].props.onClick();
+  tree = render();
+  assert.equal(field(tree, "本站讲解").props.value, "已核实的第二站讲解");
+  assert.equal(field(tree, "本站地点").props.value, "p2");
+  for (const [label, value] of [
+    ["标题", "测试校园多站路线"],
+    ["来源与公开依据", "测试已核验来源"],
+  ]) {
+    field(tree, label).props.onChange({ target: { value } });
+    tree = render();
+  }
+  button(tree, "保存草稿").props.onClick();
+  await new Promise((resolve) => setImmediate(resolve));
+  const body = h.calls.find(
+    ([path, method]) => path === "/experiences" && method === "POST",
+  )[2];
+  assert.equal(body.content.campus_id, "campus-a");
+  assert.equal("point_id" in body.content, false);
+  assert.deepEqual(
+    Array.from(body.content.stops, (stop) => stop.point_id),
+    ["p2", "p1"],
+  );
+  assert.equal(body.content.stops[0].narrative, "已核实的第二站讲解");
+});
+
+test("save-and-submit uses the returned revision and retains a saved draft when submission fails", async () => {
+  let saved;
+  const { h, render } = await routeEditor({
+    request: async (path, method, body) => {
+      if (path === "/experiences" && method === "POST") {
+        saved = {
+          id: "saved-route",
+          campus_id: "campus-a",
+          revision: 7,
+          published_revision: 0,
+          operation: "upsert",
+          state: "draft",
+          status: "draft",
+          content: body.content,
+          published_content: null,
+          contributor_ids: ["editor"],
+          submitted_by: null,
+          review_note: "",
+        };
+        return { data: saved };
+      }
+      if (path.endsWith("/review/submit")) throw new Error("暂时不能提交");
+      throw new Error("unexpected request");
+    },
+  });
+  let tree = render();
+  button(tree, "测试地点甲＋ 加入路线").props.onClick();
+  tree = render();
+  for (const [label, value] of [
+    ["标题", "测试路线"],
+    ["来源与公开依据", "资料来源"],
+  ]) {
+    field(tree, label).props.onChange({ target: { value } });
+    tree = render();
+  }
+  button(tree, "保存并提交审核").props.onClick();
+  await new Promise((resolve) => setImmediate(resolve));
+  const writes = h.calls.filter(([, method]) => method === "POST");
+  assert.equal(writes.length, 2);
+  assert.equal(writes[1][0], "/experiences/saved-route/review/submit");
+  assert.equal(writes[1][2].expected_revision, 7);
+  tree = render();
+  assert.equal(button(tree, "保存草稿").props.disabled, true);
+  assert.ok(button(tree, "提交审核"));
+  assert.ok(
+    find(
+      tree,
+      (node) =>
+        typeof node.props?.text === "string" &&
+        node.props.text.includes("草稿已保存，但提交审核未完成"),
+    ).length,
+  );
 });

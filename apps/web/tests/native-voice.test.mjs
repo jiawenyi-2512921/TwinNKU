@@ -204,10 +204,10 @@ test("failed question pauses; stop cancels existing speech and recognizer callba
   assert.equal(h.phases.at(-1), "idle");
 });
 
-test("media and unknown actions cannot auto-execute even on current context", () => {
-  for (const type of ["play_video", "open_vr", "play_audio", "future_action"])
+test("video playback and unknown actions cannot auto-execute even on current context", () => {
+  for (const type of ["play_video", "play_audio", "future_action"])
     assert.equal(canAutoApply({ type, context_revision: 9 }, 9, 9), false);
-  for (const type of ["show_checkin", "show_tour", "focus_point"])
+  for (const type of ["show_checkin", "show_tour", "focus_point", "open_vr"])
     assert.equal(canAutoApply({ type, context_revision: 9 }, 9, 9), true);
   assert.equal(
     canAutoApply({ type: "show_tour", context_revision: 9 }, 9, 10),

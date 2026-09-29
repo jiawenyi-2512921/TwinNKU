@@ -17,6 +17,7 @@ const appCode = compile("../src/app/App.tsx");
 const navCode = compile("../src/shared/navigation.ts");
 const nativeCode = compile("../src/features/agent/native.ts");
 const labelsCode = compile("../src/features/map/labelCorrections.ts");
+const panoramaCode = compile("../src/features/points/panorama.ts");
 const walk = (tree, predicate) => {
   if (Array.isArray(tree)) return tree.flatMap((node) => walk(node, predicate));
   if (!tree || typeof tree !== "object") return [];
@@ -29,6 +30,7 @@ const pointA = "11111111-1111-4111-8111-111111111111";
 const pointB = "22222222-2222-4222-8222-222222222222";
 const experienceId = "33333333-3333-4333-8333-333333333333";
 const floorId = "44444444-4444-4444-8444-444444444444";
+const panoramaId = "55555555-5555-4555-8555-555555555555";
 const collegeId = "b041e7c6-3481-51c1-b06f-9a33197ea0db";
 const points = [
   {
@@ -67,6 +69,7 @@ const componentNames = [
   "NavigationPanel",
   "AgentDock",
   "PlaceDirectory",
+  "PanoramaOverlay",
 ];
 const components = Object.fromEntries(
   componentNames.map((name) => [name, () => null]),
@@ -114,6 +117,15 @@ function app(initialHref) {
     removeEventListener: events.removeEventListener.bind(events),
     dispatchEvent: events.dispatchEvent.bind(events),
   };
+  class Element {
+    constructor(tagName = "DIV") {
+      this.tagName = tagName;
+    }
+    isContentEditable = false;
+    closest(selector) {
+      return selector === ".agent-panel" ? this : null;
+    }
+  }
   const base = {
     window: browser,
     URL,
@@ -123,7 +135,7 @@ function app(initialHref) {
     AbortController,
     Date,
     document: { querySelector: () => null },
-    HTMLElement: class {},
+    HTMLElement: Element,
   };
   function module(
     code,
@@ -137,7 +149,8 @@ function app(initialHref) {
   }
   const nav = module(navCode),
     native = module(nativeCode),
-    labels = module(labelsCode);
+    labels = module(labelsCode),
+    panorama = module(panoramaCode);
   const slots = [],
     effects = [];
   let index = 0,
@@ -194,6 +207,7 @@ function app(initialHref) {
     if (name.endsWith("/navigation")) return nav;
     if (name.endsWith("/native")) return native;
     if (name.endsWith("/labelCorrections")) return labels;
+    if (name.endsWith("/panorama")) return panorama;
     if (name.endsWith("/protocol"))
       return { EMPTY_CONTEXT: {}, safeContext: (c) => c };
     if (name.endsWith("/useAgentConfig"))
@@ -233,6 +247,16 @@ function app(initialHref) {
   return {
     browser,
     nav,
+    escapeFromDock() {
+      const event = new Event("keydown", { cancelable: true });
+      const input = new Element("TEXTAREA");
+      Object.defineProperties(event, {
+        key: { value: "Escape" },
+        target: { value: input },
+      });
+      browser.dispatchEvent(event);
+      return event;
+    },
     render() {
       let count = 0;
       do {
@@ -395,5 +419,165 @@ test("corrected college name and summary are projected without mutating catalog"
     points.find((point) => point.id === collegeId).name,
     "新闻与传媒学院",
   );
+  testApp.dispose();
+});
+
+function openTour(testApp) {
+  testApp.node("NativeAgentDock").props.onAction({
+    type: "show_tour",
+    point_id: pointA,
+    point_revision: 1,
+    resource_id: experienceId,
+  });
+  testApp.render();
+}
+function openVR(testApp, point = pointB) {
+  testApp.node("NativeAgentDock").props.onAction({
+    type: "open_vr",
+    point_id: point,
+    point_revision: 1,
+    resource_id: panoramaId,
+  });
+  testApp.render();
+}
+
+test("VR action keeps a campus tour mounted and pauses its media while updating point context", () => {
+  const testApp = app(baseHref);
+  testApp.render();
+  openTour(testApp);
+  const tour = testApp.node("ExperiencePanel");
+  const dock = testApp.node("NativeAgentDock");
+  assert.equal(tour.props.active, true);
+  assert.equal(tour.props.initialKind, "tour");
+  assert.equal(tour.props.pointId, undefined); // The route belongs to the campus.
+  openVR(testApp);
+  const retained = testApp.node("ExperiencePanel");
+  assert.equal(retained.type, tour.type);
+  assert.equal(retained.key, tour.key);
+  assert.equal(retained.props.initialExperienceId, experienceId);
+  assert.equal(retained.props.active, false);
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
+  assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointB);
+  assert.ok(
+    testApp.node("NativeAgentDock").props.current.revision >
+      dock.props.current.revision,
+  );
+  const params = new URL(testApp.browser.location.href).searchParams;
+  assert.equal(params.get("panorama"), panoramaId);
+  assert.equal(params.get("experience"), experienceId);
+  assert.equal(params.get("channel"), "official");
+  testApp.dispose();
+});
+
+test("Escape from the dock textarea closes only VR and restores the same tour", () => {
+  const testApp = app(baseHref);
+  testApp.render();
+  openTour(testApp);
+  openVR(testApp);
+  const tour = testApp.node("ExperiencePanel");
+  const event = testApp.escapeFromDock();
+  testApp.render();
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(
+    new URL(testApp.browser.location.href).searchParams.has("panorama"),
+    false,
+  );
+  assert.equal(testApp.node("ExperiencePanel").type, tour.type);
+  assert.equal(
+    testApp.node("ExperiencePanel").props.initialExperienceId,
+    experienceId,
+  );
+  assert.equal(testApp.node("ExperiencePanel").props.active, true);
+  assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointB);
+  testApp.dispose();
+});
+
+test("VR navigation preserves the active route and tour across Back and Forward", () => {
+  const testApp = app(baseHref);
+  testApp.render();
+  openTour(testApp);
+  testApp.node("ExperiencePanel").props.onNavigateStop(pointA, pointB);
+  testApp.render();
+  const route = {
+    start_point_id: pointA,
+    end_point_id: pointB,
+    segments: [
+      {
+        map_id: "map",
+        map_revision: 3,
+        points: [
+          { x: 1, y: 2 },
+          { x: 3, y: 4 },
+        ],
+      },
+    ],
+  };
+  testApp.node("NavigationPanel").props.onRoute(route);
+  testApp.node("NavigationPanel").props.onSelectionChange({
+    start: pointA,
+    end: pointB,
+    availablePointIds: [pointA, pointB],
+  });
+  testApp.node("NavigationPanel").props.onPickMode("start");
+  testApp.render();
+  const navigation = testApp.node("NavigationPanel"),
+    tour = testApp.node("ExperiencePanel");
+  openVR(testApp);
+  assert.equal(
+    testApp.node("NavigationPanel").props.initial,
+    navigation.props.initial,
+  );
+  assert.equal(testApp.node("MapCanvas").props.routeSegments, route.segments);
+  assert.equal(
+    testApp.node("NativeAgentDock").props.current.start_point_id,
+    pointA,
+  );
+  assert.equal(testApp.node("ExperiencePanel").props.active, false);
+  testApp.browser.history.back();
+  testApp.render();
+  assert.equal(
+    new URL(testApp.browser.location.href).searchParams.has("panorama"),
+    false,
+  );
+  assert.equal(
+    testApp.node("NavigationPanel").props.initial,
+    navigation.props.initial,
+  );
+  assert.equal(testApp.node("MapCanvas").props.routeSegments, route.segments);
+  assert.equal(testApp.node("MapCanvas").props.routePickMode, "start");
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointA);
+  assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointA);
+  assert.equal(testApp.node("ExperiencePanel").type, tour.type);
+  assert.equal(
+    testApp.node("ExperiencePanel").props.initialExperienceId,
+    experienceId,
+  );
+  testApp.browser.history.forward();
+  testApp.render();
+  assert.equal(
+    new URL(testApp.browser.location.href).searchParams.get("panorama"),
+    panoramaId,
+  );
+  assert.equal(
+    testApp.node("NavigationPanel").props.initial,
+    navigation.props.initial,
+  );
+  assert.equal(testApp.node("MapCanvas").props.routeSegments, route.segments);
+  assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointB);
+  const event = testApp.escapeFromDock();
+  testApp.render();
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(
+    testApp.node("NavigationPanel").props.initial,
+    navigation.props.initial,
+  );
+  assert.equal(testApp.node("MapCanvas").props.routePickMode, "start");
+  testApp.node("NavigationPanel").props.onClose();
+  testApp.render();
+  assert.equal(
+    testApp.node("ExperiencePanel").props.initialExperienceId,
+    experienceId,
+  );
+  assert.equal(testApp.node("ExperiencePanel").props.active, true);
   testApp.dispose();
 });

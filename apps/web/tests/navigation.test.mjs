@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  panoramaOnlyTransition,
   floorLocation,
   pointLocation,
   resolveFloor,
@@ -301,4 +302,31 @@ test("retiring all floor images closes the viewer and clears the deep link", () 
   assert.equal(result.floorId, "");
   assert.equal(result.expanded, false);
   assert.equal(result.syncLocation, true);
+});
+
+test("VR-only Back/Forward retains underlying tour or navigation, unrelated moves do not", () => {
+  const base =
+    "https://guide.example/?point=library&experience=tour&channel=official#map";
+  const vr =
+    "https://guide.example/?point=gym&experience=tour&channel=official&panorama=vr-1#map";
+  assert.equal(panoramaOnlyTransition(base, vr), true);
+  assert.equal(panoramaOnlyTransition(vr, base), true);
+  assert.equal(
+    panoramaOnlyTransition(
+      vr,
+      vr.replace("experience=tour", "experience=media"),
+    ),
+    false,
+  );
+  assert.equal(
+    panoramaOnlyTransition(base, base.replace("library", "gym")),
+    false,
+  );
+  assert.equal(
+    panoramaOnlyTransition(
+      vr,
+      "https://other.example/?point=gym&panorama=vr-1",
+    ),
+    false,
+  );
 });

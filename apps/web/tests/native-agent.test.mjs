@@ -11,15 +11,20 @@ test("guide actions ignore model URLs and construct internal resource selection"
     context_revision: 3,
   };
   const url = new URL(
-    actionLocation("https://guide.test/?point=a&floor=f&floor_section=west", a),
+    actionLocation(
+      "https://guide.test/?point=a&floor=f&floor_section=west&experience=tour-1&experience_point=stop-1",
+      a,
+    ),
   );
   assert.equal(url.origin, "https://guide.test");
   assert.equal(url.searchParams.get("panorama"), "scene-b");
   assert.equal(url.searchParams.get("point"), "point-b");
   assert.equal(url.searchParams.get("floor"), null);
+  assert.equal(url.searchParams.get("experience"), "tour-1");
+  assert.equal(url.searchParams.get("experience_point"), "stop-1");
 });
 
-test("manual context changes and VR prevent automatic actions", () => {
+test("manual context changes prevent automatic actions; VR opens the internal viewer", () => {
   assert.ok(canAutoApply({ type: "show_route", context_revision: 3 }, 3, 3));
   assert.equal(
     canAutoApply({ type: "show_route", context_revision: 3 }, 3, 4),
@@ -31,6 +36,6 @@ test("manual context changes and VR prevent automatic actions", () => {
   );
   assert.equal(
     canAutoApply({ type: "open_vr", context_revision: 3 }, 3, 3),
-    false,
+    true,
   );
 });
