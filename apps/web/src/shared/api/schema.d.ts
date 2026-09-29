@@ -1857,6 +1857,8 @@ export interface components {
         };
         /** AdminExperience */
         AdminExperience: {
+            /** Campus Id */
+            campus_id: string;
             /** Content */
             content: (components["schemas"]["ExperienceMediaContent"] | components["schemas"]["ExperienceCheckinContent"] | components["schemas"]["ExperienceTourContent"]) | null;
             /** Contributor Ids */
@@ -2728,6 +2730,8 @@ export interface components {
         };
         /** ExperienceTourContent */
         ExperienceTourContent: {
+            /** Campus Id */
+            campus_id: string;
             /**
              * Description
              * @default
@@ -2738,11 +2742,6 @@ export interface components {
              * @enum {string}
              */
             kind: "tour";
-            /**
-             * Point Id
-             * Format: uuid
-             */
-            point_id: string;
             /** Source Note */
             source_note: string;
             /** Stops */
@@ -3655,6 +3654,8 @@ export interface components {
         };
         /** PublicExperience */
         PublicExperience: {
+            /** Campus Id */
+            campus_id: string;
             /** Content */
             content: components["schemas"]["ExperienceMediaContent"] | components["schemas"]["ExperienceCheckinContent"] | components["schemas"]["ExperienceTourContent"];
             /**
