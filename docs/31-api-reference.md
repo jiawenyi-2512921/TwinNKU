@@ -6,7 +6,7 @@
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
 接口操作数：110；状态统计：{"implemented": 74, "planned": 36}。
-契约SHA256：`60058489ae03b5fddeca03ee5ac9fed1da41d5d200e2d790e77575ff2fd2183e`。
+契约SHA256：`c516969336f5449a6461199215f59c22ba7ac3e6d13ca2ef2eabc8417c94f5a2`。
 
 ## 1. 全部端点
 
@@ -1967,6 +1967,7 @@
 | --- | --- | --- | --- |
 | actions | 是 | array<GuideAction> | — |
 | answer | 是 | string | — |
+| automatic_action_id | 否 | string (uuid) / null | —; — |
 | context_revision | 是 | integer | — |
 | materials | 是 | array<GuideLink> | — |
 | notices | 是 | array<string> | — |
