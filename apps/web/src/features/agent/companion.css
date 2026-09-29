@@ -1,190 +1,258 @@
 .guide-companion {
-  --companion-accent: #71417e;
+  --companion-accent: #764683;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 80px;
-  height: 100px;
-  min-width: 72px;
-  min-height: 88px;
-  padding: 2px 0;
+  width: 164px;
+  height: 185px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
   border: 0;
-  border-radius: 22px;
+  border-radius: 42%;
   background: transparent;
   color: var(--companion-accent);
-  cursor: pointer;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  touch-action: none;
 }
 .guide-companion:focus-visible {
-  outline: 3px solid #71417e;
+  outline: 2px solid #764683;
   outline-offset: 3px;
-  background: #f5ecf8;
+  background: #f5ecf84d;
 }
 .guide-companion:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 .guide-companion.is-listening {
-  --companion-accent: #117660;
+  --companion-accent: #237c69;
 }
 .guide-companion.is-thinking {
-  --companion-accent: #946819;
-}
-.guide-companion.is-speaking {
-  --companion-accent: #71417e;
+  --companion-accent: #926522;
 }
 .guide-companion.is-acting {
-  --companion-accent: #246b97;
+  --companion-accent: #336f9c;
 }
 .guide-companion.is-error {
-  --companion-accent: #ad3e53;
+  --companion-accent: #a34159;
 }
-.companion-figure {
+.companion-scene {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
-  overflow: visible;
   pointer-events: none;
 }
-.companion-shadow {
-  fill: #33213e;
-  opacity: 0.14;
+.companion-character {
+  position: absolute;
+  display: block;
+  left: 0;
+  top: 4%;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  transform-origin: 50% 75%;
+  animation: companion-float 5s ease-in-out infinite;
 }
-.companion-boot {
-  fill: #443050;
+.companion-atlas {
+  position: absolute;
+  display: block;
+  width: 300%;
+  height: 200%;
+  max-width: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
-.companion-sleeve {
-  fill: #866098;
+.companion-ground {
+  position: absolute;
+  left: 28%;
+  bottom: 5%;
+  width: 44%;
+  height: 5%;
+  border-radius: 50%;
+  background: #4d355317;
+  animation: companion-ground 5s ease-in-out infinite;
 }
-.companion-skin,
-.companion-face {
-  fill: #fff9f0;
+.companion-aura {
+  position: absolute;
+  left: 21%;
+  bottom: 3%;
+  width: 58%;
+  height: 10%;
+  border: 1px solid var(--companion-accent);
+  border-radius: 50%;
+  opacity: 0;
 }
-.companion-jacket {
-  fill: #6b417d;
-  stroke: #543160;
-  stroke-width: 1.5;
+.is-listening .companion-aura {
+  animation: companion-listen 2.6s ease-out infinite;
 }
-.companion-collar {
-  fill: #e6ddf0;
+.is-acting .companion-aura {
+  animation: companion-listen 900ms ease-out 2;
 }
-.companion-seam {
-  fill: none;
-  stroke: #9470a3;
-  stroke-width: 1.5;
+.is-error .companion-character {
+  animation: companion-settle 350ms ease-out 1;
 }
-.companion-guide-card {
-  fill: #a8dec9;
-  stroke: #446e65;
-  stroke-width: 1;
+.companion-cues {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
-.companion-card-lines {
-  fill: none;
-  stroke: #446e65;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-}
-.companion-antenna {
-  fill: none;
-  stroke: #805590;
-  stroke-width: 3;
-  stroke-linecap: round;
-}
-.companion-light {
-  fill: var(--companion-accent);
-  stroke: #fff;
-  stroke-width: 1.5;
-}
-.companion-ear {
-  fill: #a8dec9;
-  stroke: #527c72;
-  stroke-width: 1.5;
-}
-.companion-shell {
-  fill: #e7d6ee;
-  stroke: #6b417d;
-  stroke-width: 2;
-}
-.companion-hair {
-  fill: #6b417d;
-}
-.companion-eyes {
-  fill: #463050;
-}
-.companion-cheek {
-  fill: #e9adba;
-  opacity: 0.65;
-}
-.companion-mouth {
-  fill: none;
-  stroke: #684653;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-.companion-mouth-open {
-  fill: #684653;
-}
-.companion-state-background {
-  fill: #fff;
-  stroke: var(--companion-accent);
-  stroke-width: 1.75;
-}
-.companion-state-icon,
-.companion-signal {
+.companion-listen-cue,
+.companion-guide-cue {
   fill: none;
   stroke: var(--companion-accent);
-  stroke-width: 1.75;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+  animation: companion-cue 600ms ease-out 1;
 }
-.companion-state-dots,
-.companion-thought {
+.companion-thought-cue {
   fill: var(--companion-accent);
 }
-.companion-head {
-  transform-origin: 44px 58px;
-  transition: transform 180ms ease-out;
+.companion-thought-cue circle {
+  animation: companion-dot 1.6s ease-in-out infinite;
 }
-.companion-wave-hand {
-  transform-origin: 61px 67px;
-  transition: transform 180ms ease-out;
+.companion-thought-cue circle:nth-child(2) {
+  animation-delay: 180ms;
 }
-.guide-companion.is-listening .companion-head {
-  transform: rotate(-5deg);
+.companion-thought-cue circle:nth-child(3) {
+  animation-delay: 360ms;
 }
-.guide-companion.is-thinking .companion-head {
-  transform: rotate(5deg);
+.companion-speaking-cue {
+  position: absolute;
+  bottom: 2%;
+  left: calc(50% - 14px);
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  height: 15px;
 }
-.guide-companion.is-acting .companion-wave-hand {
-  transform: rotate(22deg);
+/* Speaking indicator, not a measured microphone/audio waveform. */
+.companion-speaking-cue i {
+  display: block;
+  width: 3px;
+  height: 12px;
+  background: var(--companion-accent);
+  border-radius: 2px;
+  animation: companion-voice 0.9s ease-in-out infinite alternate;
 }
-.guide-companion.is-error .companion-wave-hand {
-  transform: rotate(12deg);
+.companion-speaking-cue i:nth-child(2) {
+  animation-delay: -0.25s;
+  height: 16px;
 }
-/* Finite state-entry cues only: no idle loop, frame timer or animation runtime. */
-.guide-companion .companion-signal {
-  animation: companion-signal 650ms ease-out 2;
+.companion-speaking-cue i:nth-child(3) {
+  animation-delay: -0.5s;
+  height: 10px;
 }
-.guide-companion .companion-thought {
-  animation: companion-thought 900ms ease-out 1;
+.companion-speaking-cue i:nth-child(4) {
+  animation-delay: -0.7s;
+  height: 7px;
 }
-@keyframes companion-signal {
+.companion-state-dot {
+  position: absolute;
+  left: 72%;
+  bottom: 12%;
+  width: 7px;
+  height: 7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--companion-accent);
+  box-shadow: 0 1px 4px #39233b26;
+}
+.is-idle .companion-state-dot {
+  opacity: 0;
+}
+.companion-fallback {
+  width: 60%;
+  height: 60%;
+  margin: 20%;
+  fill: #f0e7f4;
+  stroke: #764683;
+  stroke-width: 2;
+}
+[data-dragging="true"] .guide-companion {
+  cursor: grabbing;
+}
+[data-dragging="true"] .companion-character {
+  animation: none;
+  transform: rotate(-4deg) translateY(-4px);
+}
+[data-dragging="true"] .companion-ground {
+  opacity: 0;
+}
+.guide-companion.is-quiet *,
+[data-dragging="true"] .companion-scene * {
+  animation-play-state: paused;
+}
+@keyframes companion-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.7deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(0.7deg);
+  }
+}
+@keyframes companion-ground {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scaleX(0.85);
+    opacity: 0.5;
+  }
+}
+@keyframes companion-listen {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.65);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+@keyframes companion-cue {
   from {
-    opacity: 0.2;
+    opacity: 0;
+    transform: translateY(3px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
-@keyframes companion-thought {
+@keyframes companion-dot {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes companion-voice {
   from {
-    opacity: 0.2;
-    transform: translateY(2px);
+    transform: scaleY(0.4);
   }
   to {
-    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+@keyframes companion-settle {
+  from {
+    transform: translateY(-3px);
+  }
+  to {
     transform: translateY(0);
   }
 }
@@ -192,27 +260,26 @@
   .guide-companion *,
   .guide-companion *::before,
   .guide-companion *::after {
-    animation: none;
-    transition: none;
+    animation: none !important;
+    transition: none !important;
+  }
+  [data-dragging="true"] .companion-character {
+    transform: none;
+  }
+  .is-listening .companion-aura {
+    opacity: 0.35;
   }
 }
 @media (forced-colors: active) {
   .guide-companion {
-    border: 1px solid ButtonText;
+    outline: 1px solid ButtonText;
   }
   .guide-companion:focus-visible {
-    outline-color: Highlight;
+    outline: 3px solid Highlight;
   }
-  .companion-state-background {
-    fill: Canvas;
-    stroke: ButtonText;
-  }
-  .companion-state-icon,
-  .companion-signal {
-    stroke: ButtonText;
-  }
-  .companion-state-dots,
-  .companion-thought {
-    fill: ButtonText;
+  .companion-state-dot {
+    background: ButtonText;
+    border-color: Canvas;
+    forced-color-adjust: none;
   }
 }

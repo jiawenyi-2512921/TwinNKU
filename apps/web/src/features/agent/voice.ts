@@ -1,5 +1,7 @@
 // Web Speech supplies browser recognition/TTS around the existing text API.
 // It is deliberately turn-based: no microphone runs while a reply is spoken.
+import { speechCaptionAt, splitSpeechCaptions } from "./captions.ts";
+
 export type VoicePhase = "idle" | "listening" | "thinking" | "speaking";
 type RecognitionResult = {
   isFinal: boolean;
@@ -16,7 +18,10 @@ export type Recognition = {
   start: () => void;
   abort: () => void;
 };
-type Utterance = Pick<SpeechSynthesisUtterance, "lang" | "onend" | "onerror">;
+type Utterance = Pick<
+  SpeechSynthesisUtterance,
+  "lang" | "onend" | "onerror" | "onboundary"
+>;
 export type VoiceEnvironment = {
   recognize?: () => Recognition;
   utterance?: (text: string) => Utterance;
@@ -49,6 +54,7 @@ export function createVoiceConversation(
     onPhase: (phase: VoicePhase) => void;
     onTranscript: (text: string) => void;
     onNotice: (text: string) => void;
+    onCaption?: (text: string) => void;
   },
 ) {
   let generation = 0;
@@ -56,10 +62,16 @@ export function createVoiceConversation(
   let phase: VoicePhase = "idle";
   let recognition: Recognition | null = null;
   let utterance: Utterance | null = null;
+  let caption = "";
   let watchdog: ReturnType<typeof setTimeout> | undefined;
   const update = (value: VoicePhase) => {
     phase = value;
     callbacks.onPhase(value);
+  };
+  const updateCaption = (value: string) => {
+    if (caption === value) return;
+    caption = value;
+    callbacks.onCaption?.(value);
   };
   function cancelAudio() {
     if (recognition) {
@@ -73,7 +85,7 @@ export function createVoiceConversation(
       }
     }
     if (utterance) {
-      utterance.onend = utterance.onerror = null;
+      utterance.onend = utterance.onerror = utterance.onboundary = null;
       utterance = null;
       environment.cancel?.();
     }
@@ -84,6 +96,7 @@ export function createVoiceConversation(
     generation++;
     cancelAudio();
     callbacks.onTranscript("");
+    updateCaption("");
     update("idle");
     if (notice) callbacks.onNotice(notice);
   }
@@ -116,6 +129,7 @@ export function createVoiceConversation(
         submitted = true;
         cancelAudio();
         callbacks.onTranscript("");
+        updateCaption("");
         update("thinking");
         void Promise.resolve()
           .then(() =>
@@ -129,6 +143,8 @@ export function createVoiceConversation(
               stop();
               return;
             }
+            const captions = splitSpeechCaptions(answer);
+            updateCaption(captions[0]?.text || "");
             if (!environment.utterance || !environment.speak) {
               callbacks.onNotice(
                 "此浏览器不能朗读回答，请查看字幕；你可以继续说话。",
@@ -139,12 +155,26 @@ export function createVoiceConversation(
             try {
               utterance = environment.utterance(answer);
               const spoken = utterance;
+              let boundaryIndex = -1;
               spoken.lang = "zh-CN";
+              spoken.onboundary = (event) => {
+                if (
+                  !active ||
+                  turn !== generation ||
+                  utterance !== spoken ||
+                  event.charIndex < boundaryIndex
+                )
+                  return;
+                const next = speechCaptionAt(captions, event.charIndex);
+                if (!next) return;
+                boundaryIndex = event.charIndex;
+                updateCaption(next.text);
+              };
               spoken.onend = () => {
                 if (!active || turn !== generation || utterance !== spoken)
                   return;
                 clearTimeout(watchdog);
-                spoken.onend = spoken.onerror = null;
+                spoken.onend = spoken.onerror = spoken.onboundary = null;
                 utterance = null;
                 listen();
               };
@@ -209,6 +239,7 @@ export function createVoiceConversation(
       if (!active || phase !== "speaking") return;
       generation++;
       cancelAudio();
+      updateCaption("");
       listen();
     },
   };
