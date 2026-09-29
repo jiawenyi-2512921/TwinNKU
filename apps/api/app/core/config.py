@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     nk_genios_web_context_enabled: bool = False
     nk_genios_web_hide_sidebar: bool = True
     public_site_origin: str = "https://2512921.cn"
+    voice_enabled: bool = False
+    voice_api_key: SecretStr | None = None
+    voice_base_url: str = ""
+    voice_tier: Literal["standard", "demo"] = "standard"
+    voice_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    voice_max_characters: int = Field(default=300, ge=1, le=2000)
+    voice_cache_ttl_seconds: int = Field(default=86400, ge=0, le=2592000)
+    voice_visitor_requests_per_hour: int = Field(default=45, ge=1, le=1000)
+    voice_total_requests_per_hour: int = Field(default=200, ge=1, le=10000)
 
     @property
     def web_agent_configured(self) -> bool:
@@ -93,6 +102,12 @@ class Settings(BaseSettings):
                 raise ValueError("NK_GENIOS_WEB_APP_KEY must be the WebSDK embed identifier")
         if self.nk_genios_web_enabled and not self.nk_genios_web_app_key:
             raise ValueError("NK_GENIOS_WEB_ENABLED requires NK_GENIOS_WEB_APP_KEY")
+        if self.voice_enabled:
+            if not self.voice_api_key:
+                raise ValueError("VOICE_ENABLED requires VOICE_API_KEY")
+            origin = urlsplit(self.voice_base_url)
+            if origin.scheme != "https" or not origin.hostname or origin.query or origin.fragment:
+                raise ValueError("VOICE_BASE_URL must be an HTTPS origin without query")
         if self.admin_public_origin:
             origin = urlsplit(self.admin_public_origin)
             if (

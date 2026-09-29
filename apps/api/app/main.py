@@ -30,6 +30,7 @@ from app.modules.guide_settings import router as guide_settings_router
 from app.modules.maps.router import router as maps_router
 from app.modules.navigation import router as navigation_router
 from app.modules.road_assist import router as road_assist_router
+from app.modules.voice.router import router as voice_router
 
 logger = logging.getLogger("twinnku")
 
@@ -103,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(assistant_router)
     app.include_router(experiences_router)
     app.include_router(guide_settings_router)
+    app.include_router(voice_router)
     return app
 
 
