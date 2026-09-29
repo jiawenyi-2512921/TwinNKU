@@ -21,11 +21,25 @@ from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
 from app.api import DB, envelope
-from app.contracts import DTO, Envelope, PanoramaContent, ResourceRetireRequest, ReviewRequest
+from app.contracts import (
+    DTO,
+    CampusId,
+    Envelope,
+    PanoramaContent,
+    ResourceRetireRequest,
+    ReviewRequest,
+)
 from app.core.errors import DomainError
-from app.models import CampusRecord, ExperienceRecord, ExperienceUploadRecord, PointRecord, now_utc
+from app.models import (
+    AdminAuditRecord,
+    CampusRecord,
+    ExperienceRecord,
+    ExperienceUploadRecord,
+    PointRecord,
+    now_utc,
+)
 from app.modules.admin.router import STAFF, WRITE
-from app.modules.admin.security import Actor, audit, point_scope, require_point
+from app.modules.admin.security import Actor, audit, require_point
 from app.modules.admin.service import conflict
 from app.modules.floors.import_bundle import contained
 
@@ -46,7 +60,6 @@ ExperienceState = Literal["draft", "in_review", "rejected", "published", "discar
 
 
 class ExperienceBase(DTO):
-    point_id: UUID
     title: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=8000)
     source_note: str = Field(min_length=1, max_length=2000)
@@ -60,6 +73,7 @@ class ExperienceBase(DTO):
 
 
 class ExperienceMediaContent(ExperienceBase):
+    point_id: UUID
     kind: Literal["media"] = "media"
     media_type: Literal["image", "video"]
     upload_id: UUID | None = None
@@ -78,6 +92,7 @@ class ExperienceMediaContent(ExperienceBase):
 
 
 class ExperienceCheckinContent(ExperienceBase):
+    point_id: UUID
     kind: Literal["checkin"] = "checkin"
     image_id: UUID | None = None
 
@@ -90,6 +105,7 @@ class ExperienceStop(DTO):
 
 
 class ExperienceTourContent(ExperienceBase):
+    campus_id: CampusId
     kind: Literal["tour"] = "tour"
     stops: list[ExperienceStop] = Field(min_length=1, max_length=50)
 
@@ -108,6 +124,7 @@ class ExperienceSave(DTO):
 
 
 class PublicExperience(DTO):
+    campus_id: CampusId
     id: UUID
     revision: int
     content: ExperienceContent
@@ -115,6 +132,7 @@ class PublicExperience(DTO):
 
 
 class AdminExperience(DTO):
+    campus_id: CampusId
     id: UUID
     revision: int
     published_revision: int
@@ -140,10 +158,48 @@ class ExperienceUpload(DTO):
 
 
 def content_points(content):
-    points = {str(content.point_id)}
     if isinstance(content, ExperienceTourContent):
-        points.update(str(stop.point_id) for stop in content.stops)
-    return points
+        return {str(stop.point_id) for stop in content.stops}
+    return {str(content.point_id)}
+
+
+def experience_anchor(content):
+    """Compatibility focus for an assistant/map action, never a tour's ownership."""
+    return (
+        content.stops[0].point_id
+        if isinstance(content, ExperienceTourContent)
+        else content.point_id
+    )
+
+
+def stored_content(record, payload):
+    """Read old published JSON without mutating the reviewed snapshot or its revision."""
+    value = dict(payload)
+    if value.get("kind") == "tour":
+        value.pop("point_id", None)
+        value.setdefault("campus_id", record.campus_id)
+    return CONTENT.validate_python(value)
+
+
+def require_campus_scope(db, actor, campus_id):
+    campus = db.get(CampusRecord, campus_id)
+    if not campus or (actor.user.role != "admin" and campus_id not in actor.user.campus_ids):
+        raise DomainError("NOT_FOUND", "校区不存在或不在授权范围内", 404)
+    return campus
+
+
+def experience_audit(db, user, action, *, record, note="", details=None):
+    db.add(
+        AdminAuditRecord(
+            actor_id=user.id,
+            actor_name=user.display_name,
+            action=action,
+            campus_id=record.campus_id,
+            point_id=record.point_id,
+            note=note,
+            details=details or {},
+        )
+    )
 
 
 def public_point(db, point_id):
@@ -163,9 +219,18 @@ def public_record(db, key):
     record = db.get(ExperienceRecord, str(key))
     if not record or record.status != "published" or not record.published:
         raise DomainError("NOT_FOUND", "内容未发布或已不可用", 404)
-    content = CONTENT.validate_python(record.published)
-    if any(not public_point(db, p) for p in content_points(content)):
-        raise DomainError("NOT_FOUND", "关联地点已不可用", 404)
+    content = stored_content(record, record.published)
+    campus = db.get(CampusRecord, record.campus_id)
+    if (
+        not campus
+        or not campus.is_active
+        or (isinstance(content, ExperienceTourContent) and content.campus_id != record.campus_id)
+    ):
+        raise DomainError("NOT_FOUND", "所属校区已不可用", 404)
+    for point_id in content_points(content):
+        point = public_point(db, point_id)
+        if not point or point.campus_id != record.campus_id:
+            raise DomainError("NOT_FOUND", "关联地点已不可用或已变更校区", 404)
     # Referenced media must remain independently published and bound to the same point.
     if isinstance(content, ExperienceCheckinContent) and content.image_id:
         referenced_media(db, content.image_id, "image", content.point_id)
@@ -180,7 +245,7 @@ def referenced_media(db, key, media_type, point_id):
     record = db.get(ExperienceRecord, str(key))
     if not record or record.kind != "media" or record.status != "published" or not record.published:
         raise DomainError("MEDIA_NOT_PUBLIC", "引用的媒体未发布或已下架", 409)
-    content = CONTENT.validate_python(record.published)
+    content = stored_content(record, record.published)
     if (
         content.media_type != media_type
         or str(content.point_id) != str(point_id)
@@ -195,7 +260,11 @@ def public_view(record, content):
     if isinstance(content, ExperienceMediaContent):
         url = content.url or f"/api/v1/experiences/{record.id}/media"
     return PublicExperience(
-        id=record.id, revision=record.published_revision, content=content, media_url=url
+        id=record.id,
+        campus_id=record.campus_id,
+        revision=record.published_revision,
+        content=content,
+        media_url=url,
     )
 
 
@@ -207,23 +276,19 @@ def get_published_experience(db, experience_id):
 
 
 def published_experiences(db, *, point_id=None, kind=None, campus_id=None):
-    query = (
-        select(ExperienceRecord)
-        .join(PointRecord, PointRecord.id == ExperienceRecord.point_id)
-        .where(ExperienceRecord.status == "published")
-    )
-    if point_id:
-        query = query.where(ExperienceRecord.point_id == str(point_id))
+    query = select(ExperienceRecord).where(ExperienceRecord.status == "published")
     if kind:
         query = query.where(ExperienceRecord.kind == kind)
     if campus_id:
-        query = query.where(PointRecord.campus_id == campus_id)
+        query = query.where(ExperienceRecord.campus_id == campus_id)
     result = []
     for record in db.scalars(
         query.order_by(ExperienceRecord.updated_at.desc(), ExperienceRecord.id)
     ):
         try:
-            result.append(get_published_experience(db, record.id))
+            item = get_published_experience(db, record.id)
+            if not point_id or str(point_id) in content_points(item.content):
+                result.append(item)
         except DomainError:
             continue
     return result
@@ -236,11 +301,13 @@ def require_record(db, actor, key, *, lock=False):
     record = db.scalar(query.execution_options(populate_existing=True))
     if record is None:
         raise DomainError("NOT_FOUND", "内容不存在", 404)
-    require_point(db, actor.user, record.point_id)
+    require_campus_scope(db, actor, record.campus_id)
+    if record.point_id:
+        require_point(db, actor.user, record.point_id)
     # Scope applies to all stops, including both draft and still-public versions.
     for payload in (record.draft, record.published):
         if payload:
-            for point_id in content_points(CONTENT.validate_python(payload)):
+            for point_id in content_points(stored_content(record, payload)):
                 require_point(db, actor.user, point_id)
     return record
 
@@ -257,6 +324,10 @@ def validate_candidate(db, actor, content, settings):
     points = [require_point(db, actor.user, key) for key in sorted(content_points(content))]
     if len({point.campus_id for point in points}) != 1:
         raise DomainError("CAMPUS_MISMATCH", "路线中的地点须属于同一校区", 422)
+    if isinstance(content, ExperienceTourContent):
+        require_campus_scope(db, actor, content.campus_id)
+        if any(point.campus_id != content.campus_id for point in points):
+            raise DomainError("CAMPUS_MISMATCH", "路线站点须属于选择的校区", 422)
     contributors = set()
     if isinstance(content, ExperienceMediaContent) and content.upload_id:
         upload = db.get(ExperienceUploadRecord, str(content.upload_id))
@@ -278,14 +349,15 @@ def validate_candidate(db, actor, content, settings):
 
 
 def admin_view(record):
-    content = CONTENT.validate_python(record.draft) if record.draft else None
-    current = CONTENT.validate_python(record.published) if record.published else None
+    content = stored_content(record, record.draft) if record.draft else None
+    current = stored_content(record, record.published) if record.published else None
     preview = content if record.state in ACTIVE else current
     media_url = None
     if isinstance(preview, ExperienceMediaContent):
         media_url = preview.url or f"/api/v1/admin/experience-media/{preview.upload_id}"
     return AdminExperience(
         id=record.id,
+        campus_id=record.campus_id,
         revision=record.revision,
         published_revision=record.published_revision,
         state=record.state,
@@ -525,19 +597,15 @@ def list_admin(
     q: str = Query("", max_length=120),
 ):
     actor.require("points.read")
-    query = (
-        select(ExperienceRecord)
-        .join(PointRecord, PointRecord.id == ExperienceRecord.point_id)
-        .where(point_scope(actor.user))
-    )
-    if point_id:
-        query = query.where(ExperienceRecord.point_id == str(point_id))
+    query = select(ExperienceRecord)
+    if actor.user.role != "admin":
+        query = query.where(ExperienceRecord.campus_id.in_(actor.user.campus_ids))
     if kind:
         query = query.where(ExperienceRecord.kind == kind)
     if state:
         query = query.where(ExperienceRecord.state == state)
     if campus_id:
-        query = query.where(PointRecord.campus_id == campus_id)
+        query = query.where(ExperienceRecord.campus_id == campus_id)
     term = unicodedata.normalize("NFKC", q.strip()).casefold()
     result = []
     for record in db.scalars(
@@ -548,6 +616,11 @@ def list_admin(
         except DomainError:
             continue
         item = admin_view(record)
+        if point_id and not any(
+            value and str(point_id) in content_points(value)
+            for value in (item.content, item.published_content)
+        ):
+            continue
         content = item.content or item.published_content
         if (
             term
@@ -582,16 +655,27 @@ def save_experience(key, payload, request, actor, db):
     if record and record.state == "in_review":
         conflict("请先撤回审核中的修改")
     content = payload.content
-    if record and (record.kind != content.kind or record.point_id != str(content.point_id)):
-        raise DomainError("IDENTITY_IMMUTABLE", "不能修改内容类型或主地点，请新建内容", 422)
     contributors = validate_candidate(db, actor, content, request.app.state.settings)
+    point_id = None if isinstance(content, ExperienceTourContent) else str(content.point_id)
+    campus_id = (
+        content.campus_id
+        if isinstance(content, ExperienceTourContent)
+        else db.get(PointRecord, point_id).campus_id
+    )
+    if record and (
+        record.kind != content.kind or record.point_id != point_id or record.campus_id != campus_id
+    ):
+        raise DomainError(
+            "IDENTITY_IMMUTABLE", "不能修改内容类型、所属校区或媒体地点，请新建内容", 422
+        )
     contributors.add(actor.user.id)
     if record and record.state in {"draft", "rejected"}:
         contributors.update(record.contributor_ids)
     if not record:
         record = ExperienceRecord(
             id=str(uuid4()),
-            point_id=str(content.point_id),
+            point_id=point_id,
+            campus_id=campus_id,
             kind=content.kind,
             revision=1,
             published_revision=0,
@@ -607,11 +691,11 @@ def save_experience(key, payload, request, actor, db):
         "",
         now_utc(),
     )
-    audit(
+    experience_audit(
         db,
         actor.user,
         "experience.draft_saved",
-        point=db.get(PointRecord, record.point_id),
+        record=record,
         note=content.source_note,
         details={
             "experience_id": record.id,
@@ -670,11 +754,11 @@ def retire(
     record.draft = None
     record.contributor_ids, record.submitted_by = [actor.user.id], actor.user.id
     record.review_note, record.updated_at = payload.note.strip(), now_utc()
-    audit(
+    experience_audit(
         db,
         actor.user,
         "experience.retire_requested",
-        point=db.get(PointRecord, record.point_id),
+        record=record,
         note=payload.note,
         details={"experience_id": record.id, "revision": record.revision},
     )
@@ -707,7 +791,7 @@ def review(
             conflict("当前状态不能提交")
         if record.operation == "upsert":
             validate_candidate(
-                db, actor, CONTENT.validate_python(record.draft), request.app.state.settings
+                db, actor, stored_content(record, record.draft), request.app.state.settings
             )
         elif record.status != "published":
             conflict("当前内容已不可用")
@@ -730,18 +814,18 @@ def review(
             if record.operation == "retire":
                 record.status = "retired"
             else:
-                content = CONTENT.validate_python(record.draft)
+                content = stored_content(record, record.draft)
                 validate_candidate(db, actor, content, request.app.state.settings)
                 if any(not public_point(db, p) for p in content_points(content)):
                     raise DomainError("POINT_NOT_PUBLIC", "请先发布路线及内容涉及的所有地点", 409)
-                record.published, record.status = record.draft, "published"
+                record.published, record.status = content.model_dump(mode="json"), "published"
             record.published_revision += 1
             record.state = "published"
-            audit(
+            experience_audit(
                 db,
                 actor.user,
                 "experience.retired" if record.operation == "retire" else "experience.published",
-                point=db.get(PointRecord, record.point_id),
+                record=record,
                 note=payload.note,
                 details={
                     "experience_id": record.id,
@@ -754,11 +838,11 @@ def review(
     record.revision += 1
     record.review_note, record.updated_at = payload.note.strip(), now_utc()
     if action != "publish":
-        audit(
+        experience_audit(
             db,
             actor.user,
             "experience." + action,
-            point=db.get(PointRecord, record.point_id),
+            record=record,
             note=payload.note,
             details={"experience_id": record.id, "revision": record.revision},
         )

@@ -5,7 +5,7 @@ import re
 import secrets
 import unicodedata
 from typing import Literal
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from uuid import UUID, uuid4, uuid5
 
 from fastapi import APIRouter, Request, Response
@@ -208,16 +208,18 @@ def published_directory(db, request, points, priority):
                     "resource_id": panorama.id,
                     "title": panorama.title,
                     "revision": panorama.revision,
+                    "campus_portal": official_campus_panorama(panorama.url),
                 }
             )
-    from app.modules.experiences import published_experiences
+    from app.modules.experiences import experience_anchor, published_experiences
 
     experiences = []
     # The public helper rechecks referenced published media/points before handing them to AI.
     candidates = published_experiences(db, campus_id=requested_campus(points)) if points else []
     for item in candidates:
         content = item.content
-        if str(content.point_id) not in selected:
+        anchor = str(experience_anchor(content))
+        if anchor not in selected:
             continue
         if content.kind == "tour" and any(
             str(stop.point_id) not in selected for stop in content.stops
@@ -228,12 +230,13 @@ def published_directory(db, request, points, priority):
         data = {
             "resource_id": str(item.id),
             "revision": item.revision,
-            "point_id": str(content.point_id),
+            "point_id": anchor,
             "kind": content.kind,
             "title": content.title,
             "description": content.description[:1000],
         }
         if content.kind == "tour":
+            data["campus_id"] = content.campus_id
             data["stops"] = [
                 {
                     "point_id": str(stop.point_id),
@@ -289,13 +292,42 @@ def floor_ordinal(query):
     return -number if negative and number is not None else number
 
 
+def official_campus_panorama(url):
+    """The already published official portal, without constructing a new scene URL."""
+    try:
+        parsed = urlsplit(url)
+        return (
+            parsed.scheme == "https"
+            and parsed.hostname == "stjgpt.nankai.edu.cn"
+            and parsed.path == "/index-jn.php"
+            and parsed.port in {None, 443}
+            and parsed.username is None
+            and parsed.password is None
+        )
+    except ValueError:
+        return False
+
+
 def explicit_resources(query, target, directory, experiences, notices):
     """Explicit intent replaces model commands, including incorrect but valid model actions."""
     text = normalize(query)
-    floor_intent = bool(
-        re.search(r"楼层|平面图|示意图|[一二两三四五六七八九十\d]+[层楼]|\bb\d+\b|\b\d+f\b", text)
+    intent_text = re.sub(
+        r"(?:不要|不用|不看|别打开|不需要)(?:打开|查看|看)?(?:楼层(?:图)?|平面图|示意图|全景(?:地图|图)?|vr)",
+        "",
+        text,
     )
-    vr_intent = bool(re.search(r"全景|实景|vr", text))
+    floor_mentions = list(
+        re.finditer(
+            r"楼层|平面图|示意图|[一二两三四五六七八九十\d]+[层楼]|\bb\d+\b|\b\d+f\b", intent_text
+        )
+    )
+    vr_mentions = list(re.finditer(r"全景|实景|vr", intent_text))
+    # The last explicit resource request wins when the user corrects themselves,
+    # e.g. '不是楼层图，打开全景地图'. Do not convert that back to a floor action.
+    vr_intent = bool(vr_mentions) and (
+        not floor_mentions or vr_mentions[-1].start() > floor_mentions[-1].start()
+    )
+    floor_intent = bool(floor_mentions) and not vr_intent
     kind = (
         "checkin"
         if re.search(r"打卡|拍照|样图", text)
@@ -318,10 +350,38 @@ def explicit_resources(query, target, directory, experiences, notices):
     )
     global_query = not named_point and (
         bool(re.search(r"校园|学校|全校", text))
+        or (
+            vr_intent
+            and bool(
+                re.search(r"全景\s*地图|vr\s*地图|全景\s*观校|全部全景|整个全景|完整全景", text)
+            )
+        )
         or (kind == "tour" and not re.search(r"这里|这个|该地点|它的", text))
     )
     source = [d for d in directory if not target or global_query or d["point_id"] == target]
     commands = []
+    campus_portals = (
+        [
+            (point, resource)
+            for point in source
+            for resource in point["vr"]
+            if resource.get("campus_portal")
+        ]
+        if vr_intent and global_query
+        else []
+    )
+    if campus_portals:
+        point, resource = campus_portals[0]
+        notices.append(
+            "已找到已发布的校园官方全景入口；起始场景以该资料链接为准，可在全景内继续浏览校园。"
+        )
+        return [
+            GuideCommand(
+                type="open_vr",
+                point_id=UUID(point["point_id"]),
+                resource_id=UUID(resource["resource_id"]),
+            )
+        ]
     if floor_intent or vr_intent:
         ordinal = floor_ordinal(text) if floor_intent else None
         section_match = re.search(r"([a-z])(?:分)?区", text)
@@ -393,14 +453,14 @@ def resolve(db, request, command, context):
         raise DomainError("ACTION_DISABLED", "管理员暂未开放此动作，可手动浏览地图", 403)
     if command.type == "show_route" and not policy.navigation_enabled:
         raise DomainError("ACTION_DISABLED", "导航暂时关闭", 403)
-    _, points = checked_context(db, context)
+    current_map, points = checked_context(db, context)
     point = points.get(str(command.point_id))
     if not point:
         raise DomainError("ACTION_UNAVAILABLE", "此地点未公开或已下架", 404)
     if command.start_point_id and str(command.start_point_id) not in points:
         raise DomainError("ACTION_UNAVAILABLE", "导航起点已不可用", 404)
     if command.type in {"show_checkin", "play_video", "show_tour"}:
-        from app.modules.experiences import get_published_experience
+        from app.modules.experiences import experience_anchor, get_published_experience
 
         if not command.resource_id:
             raise DomainError("ACTION_UNAVAILABLE", "请明确选择已发布的资料", 404)
@@ -409,11 +469,14 @@ def resolve(db, request, command, context):
         expected = {"show_checkin": "checkin", "play_video": "media", "show_tour": "tour"}
         if (
             content.kind != expected[command.type]
-            or str(content.point_id) != point.id
+            or str(experience_anchor(content)) != point.id
             or (command.type == "play_video" and content.media_type != "video")
             or (
                 command.type == "show_tour"
-                and any(str(stop.point_id) not in points for stop in content.stops)
+                and (
+                    content.campus_id != current_map.campus_id
+                    or any(str(stop.point_id) not in points for stop in content.stops)
+                )
             )
         ):
             raise DomainError("ACTION_UNAVAILABLE", "该资料不属于当前地点或地图", 404)
@@ -565,11 +628,12 @@ def chat(payload: GuideTurn, request: Request, response: Response, db: DB):
         "仅用已发布资料回答具体校园事实，资料不足应说明，禁止编造来源、开放时间、房间或道路。"
         '请只返回JSON：{"answer":"给用户的自然语言回答","actions":[{"type":"focus_point|show_floor|open_vr|show_route|show_checkin|play_video|show_tour","point_id":"目录中的ID","resource_id":null,"start_point_id":null,"section":null}]}。'
         "directory包含当前地图已发布的楼层和VR目录，即使未选地点也可据此推荐入口。"
+        "VR项campus_portal为true表示已发布的官方全景入口；用户要求全景地图/VR地图/校园全景时，优先open_vr该入口，不受当前浏览建筑限制，不用focus_point代替观看全景。"
         "按用户意图选择动作；楼层和VR的resource_id/section必须来自目录。楼层ordinal为层数，负数为地下层；有楼层图不表示识别了图中的房间。"
         "用户追问该地点的资源时参考view.point_id或conversation_point_id。用户给出楼层或分区时只能选匹配项，不得打开其他楼层。"
         "experiences中checkin可show_checkin展示打卡及样图，media为视频可play_video，tour可show_tour展示审核的站点顺序与讲解。"
         "视频必须先询问用户是否观看，play_video只是观看邀请，不代表已播放。没有公开素材就如实说明，不编造图片和视频。"
-        "定制/主题路线使用show_tour。真实步行导航才提交show_route，实际计算交给网站，不编造路径或距离。"
+        "定制/主题路线使用show_tour，路线所属为campus_id校区，point_id仅为首站地图定位，不代表路线归属于该建筑。真实步行导航才提交show_route，实际计算交给网站，不编造路径或距离。"
         "导航起点只采用用户明确说出的起点或view.start_point_id，当前浏览点不是GPS位置。"
         "没有起点就询问从哪里出发，同时给出终点show_route。一个问题最多4个动作，普通聊天actions为空。\n"
         "应用提供的数据：" + json.dumps(context_data, ensure_ascii=False) + "\n用户问题：" + query
