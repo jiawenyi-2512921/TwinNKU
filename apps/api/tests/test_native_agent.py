@@ -143,7 +143,11 @@ def test_vr_id_validation_and_stale_resource(client, db):
         == 409
     )
     command["resource_id"] = str(uuid4())
-    reply = client.post("/api/v1/agent/chat", json=turn(m, points[0])).json()["data"]
+    # An informational question leaves model suggestions subject to validation;
+    # an explicit positioning command would correctly replace the model's VR.
+    reply = client.post(
+        "/api/v1/agent/chat", json=turn(m, points[0], "请介绍图书馆")
+    ).json()["data"]
     assert not reply["actions"] and reply["notices"]
 
 
