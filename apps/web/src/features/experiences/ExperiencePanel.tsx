@@ -27,6 +27,7 @@ export type ExperiencePanelProps = {
   onNavigateStop?: (from: string, to: string) => void;
   onExperienceChange?: (id: string) => void;
   campusId?: string;
+  campusName?: string;
   pointId?: string;
   initialExperienceId?: string;
   initialKind?: ExperienceKind;
@@ -36,6 +37,7 @@ export type ExperiencePanelProps = {
 
 export function ExperiencePanel({
   campusId,
+  campusName,
   pointId,
   initialExperienceId,
   initialKind,
@@ -48,7 +50,9 @@ export function ExperiencePanel({
   pointNames,
 }: ExperiencePanelProps) {
   const [items, setItems] = useState<Experience[]>([]);
-  const [kind, setKind] = useState<ExperienceKind | "">(initialKind ?? "");
+  const [kind, setKind] = useState<ExperienceKind | "">(
+    initialKind ?? (pointId ? "" : "tour"),
+  );
   const [selectedId, setSelectedId] = useState(initialExperienceId ?? "");
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [retry, setRetry] = useState(0);
@@ -56,7 +60,7 @@ export function ExperiencePanel({
     setSelectedId(initialExperienceId ?? "");
   }, [initialExperienceId, pointId]);
   useEffect(() => {
-    setKind(initialKind ?? "");
+    setKind(initialKind ?? (pointId ? "" : "tour"));
   }, [initialKind, pointId]);
   useEffect(() => {
     let pending: AbortController | undefined;
@@ -99,9 +103,9 @@ export function ExperiencePanel({
     (item) =>
       (!kind || item.content.kind === kind) &&
       (!pointId ||
-        item.content.point_id === pointId ||
-        (item.content.kind === "tour" &&
-          item.content.stops.some((stop) => stop.point_id === pointId))),
+        (item.content.kind === "tour"
+          ? item.content.stops.some((stop) => stop.point_id === pointId)
+          : item.content.point_id === pointId)),
   );
   return (
     <ExperienceActions.Provider
@@ -115,7 +119,18 @@ export function ExperiencePanel({
         <header className="experience-heading">
           <div>
             <span className="experience-eyebrow">CAMPUS STORIES</span>
-            <h2>{pointId ? "在这里发现更多" : "校园体验"}</h2>
+            <h2>
+              {kind === "tour"
+                ? "校园导览路线"
+                : pointId
+                  ? "在这里发现更多"
+                  : "校园体验"}
+            </h2>
+            {kind === "tour" && (
+              <p className="experience-campus-caption">
+                {campusName || "当前校区"} · 多地点主题参观
+              </p>
+            )}
           </div>
           {onClose && (
             <button
@@ -197,7 +212,27 @@ export function ExperiencePanel({
                           ? `${item.content.stops.length} 站校园导览`
                           : "查看详情")}
                     </p>
-                    <span aria-hidden="true">查看 →</span>
+                    {item.content.kind === "tour" && (
+                      <div className="experience-route-preview">
+                        <b>{item.content.stops.length} 站</b>
+                        <span>
+                          {item.content.stops
+                            .slice(0, 4)
+                            .map(
+                              (stop, index) =>
+                                pointNames?.[stop.point_id] ||
+                                `第 ${index + 1} 站`,
+                            )
+                            .join(" → ")}
+                          {item.content.stops.length > 4 ? " …" : ""}
+                        </span>
+                      </div>
+                    )}
+                    <span aria-hidden="true">
+                      {item.content.kind === "tour"
+                        ? "查看完整校园路线 →"
+                        : "查看 →"}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -222,6 +257,7 @@ function ExperienceDetail({
     return (
       <TourPlayer item={item} items={items} onSelectPoint={onSelectPoint} />
     );
+  const pointId = item.content.point_id;
   return (
     <article className="experience-detail">
       <h3>{item.content.title}</h3>
@@ -231,9 +267,7 @@ function ExperienceDetail({
       ) : (
         <CheckinCard item={item} items={items} />
       )}
-      <button onClick={() => onSelectPoint(item.content.point_id)}>
-        在地图查看此地点
-      </button>
+      <button onClick={() => onSelectPoint(pointId)}>在地图查看此地点</button>
       <details>
         <summary>资料来源</summary>
         <p className="experience-prose">{item.content.source_note}</p>
@@ -444,7 +478,15 @@ export function TourPlayer({
   }
   return (
     <article className="experience-tour">
-      <h3>{item.content.title}</h3>
+      <div className="experience-tour-hero">
+        <span className="experience-eyebrow">CAMPUS ITINERARY</span>
+        <h3>{item.content.title}</h3>
+        <p>
+          {count} 站 ·{" "}
+          {new Set(item.content.stops.map((entry) => entry.point_id)).size}{" "}
+          个校园地点
+        </p>
+      </div>
       <p className="experience-prose">{item.content.description}</p>
       <p className="experience-note">
         按站点顺序浏览校园。站点进度由你确认；切换站点不会自动判定到达。

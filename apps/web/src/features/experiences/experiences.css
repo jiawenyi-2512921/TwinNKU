@@ -435,3 +435,184 @@
     scroll-behavior: auto;
   }
 }
+
+.ad-tour-builder-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.ad-tour-builder-heading h3 {
+  margin: 0 0 5px;
+}
+.ad-tour-builder-heading p,
+.ad-tour-builder-heading > span {
+  margin: 0;
+  font-size: 12px;
+  color: #607369;
+}
+.ad-tour-canvas {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 16px;
+}
+.ad-tour-picker,
+.ad-tour-itinerary {
+  border: 1px solid #dce6df;
+  border-radius: 12px;
+  background: #f7faf7;
+  padding: 14px;
+  min-width: 0;
+}
+.ad-tour-candidates {
+  max-height: 290px;
+  overflow: auto;
+  margin-top: 12px;
+  display: grid;
+  gap: 7px;
+}
+.ad-tour-candidates button {
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  min-height: 42px;
+}
+.ad-tour-candidates button span {
+  font-size: 13px;
+}
+.ad-tour-candidates button small {
+  font-size: 10px;
+  color: #526b5d;
+  white-space: nowrap;
+}
+.ad-tour-itinerary {
+  max-height: 362px;
+  overflow: auto;
+  background: #fff;
+}
+.ad-tour-itinerary ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 7px;
+}
+.ad-tour-itinerary li > button {
+  width: 100%;
+  display: flex;
+  text-align: left;
+  align-items: center;
+  gap: 12px;
+  padding: 11px;
+}
+.ad-tour-itinerary button[aria-current="step"] {
+  border-color: #418267;
+  background: #eff7ef;
+}
+.ad-tour-itinerary button > span {
+  display: grid;
+  place-items: center;
+  min-width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #e5efe5;
+  color: #356149;
+  font-weight: 700;
+}
+.ad-tour-itinerary strong,
+.ad-tour-itinerary small {
+  display: block;
+}
+.ad-tour-itinerary strong {
+  font-size: 13px;
+}
+.ad-tour-itinerary small {
+  font-size: 10px;
+  margin-top: 4px;
+  color: #6b7c70;
+}
+.ad-tour-media-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.ad-experience-fields small {
+  font-weight: 400;
+  color: #64776d;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.ad-experience-savebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+  margin: 18px -3px 0;
+  background: #f2f7f0;
+  border: 1px solid #dce7d7;
+  border-radius: 12px;
+}
+.ad-experience-savebar > span {
+  margin-right: auto;
+  font-size: 12px;
+  color: #53664f;
+}
+.ad-experience-savebar > small {
+  width: 100%;
+  font-size: 11px;
+  color: #60705c;
+}
+.experience-campus-caption {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: #5f7565;
+}
+.experience-route-preview {
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid #e0e9df;
+  padding-top: 10px;
+  margin-top: 2px;
+}
+.experience-route-preview b {
+  font-size: 12px;
+  color: #356149;
+}
+.experience-route-preview span {
+  font-size: 12px;
+  color: #4e6354;
+  line-height: 1.6;
+}
+.experience-tour-hero {
+  padding: 18px;
+  background: #edf5eb;
+  border-radius: 14px;
+  margin-bottom: 16px;
+}
+.experience-tour-hero h3 {
+  margin: 5px 0 10px;
+}
+.experience-tour-hero p {
+  margin: 0;
+  color: #4f6a55;
+  font-size: 12px;
+}
+@media (max-width: 560px) {
+  .ad-tour-canvas,
+  .ad-tour-media-settings {
+    grid-template-columns: 1fr;
+  }
+  .ad-tour-itinerary {
+    max-height: 255px;
+  }
+  .ad-tour-candidates {
+    max-height: 210px;
+  }
+  .ad-experience-savebar > span {
+    width: 100%;
+  }
+}
