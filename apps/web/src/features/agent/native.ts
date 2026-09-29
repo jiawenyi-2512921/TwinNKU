@@ -77,7 +77,6 @@ export function canAutoApply(
     [
       "focus_point",
       "show_floor",
-      "open_vr",
       "show_route",
       "show_checkin",
       "show_tour",

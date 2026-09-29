@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { get } from "../../shared/api/client";
+import { api, get } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import type { AgentRequest } from "./AgentDock";
 import { contextQuestion } from "./protocol";
+import { externalPanoramaUrl } from "../points/panorama";
+import { watchCatalogChanges } from "../../shared/catalogSync";
 import {
   canAutoApply,
   NativeError,
@@ -61,6 +63,11 @@ export function NativeAgentDock({
   const [transcript, setTranscript] = useState(""),
     [voiceNotice, setVoiceNotice] = useState("");
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [verifiedVr, setVerifiedVr] = useState<{
+    url: string;
+    label: string;
+    contextRevision: number;
+  } | null>(null);
   const latest = useRef(current),
     seen = useRef(0),
     end = useRef<HTMLDivElement>(null);
@@ -74,6 +81,7 @@ export function NativeAgentDock({
     authGeneration = useRef(0);
   const chatAbort = useRef<AbortController | null>(null);
   const actionAbort = useRef<AbortController | null>(null);
+  const pendingVr = useRef<{ tab: Window | null } | null>(null);
   const panelOpen = useRef(open);
   const voice = useRef<ReturnType<typeof createVoiceConversation> | null>(null);
   const submit = useRef<(text: string) => Promise<string | null>>(
@@ -108,6 +116,7 @@ export function NativeAgentDock({
       voice.current = null;
       chatAbort.current?.abort();
       actionAbort.current?.abort();
+      closePendingVr();
       document.removeEventListener("visibilitychange", visibility);
     };
   }, []);
@@ -115,6 +124,17 @@ export function NativeAgentDock({
     if (mediaActive)
       voice.current?.stop("正在播放视频，语音已暂停。看完后可点击麦克风继续。");
   }, [mediaActive]);
+  useEffect(() => {
+    if (!verifiedVr) return;
+    // A blocked-popup fallback is a short-lived verified link, not a permanent
+    // copy of a resource URL. Publication/resume/visible polling expires it.
+    return watchCatalogChanges(() => {
+      setVerifiedVr(null);
+      setVoiceNotice(
+        "资料可能已更新，请再次点击「原网站打开全景」核验后打开。",
+      );
+    });
+  }, [verifiedVr]);
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController(),
@@ -154,6 +174,10 @@ export function NativeAgentDock({
 
   function close() {
     voice.current?.stop();
+    if (pendingVr.current) {
+      actionAbort.current?.abort();
+      closePendingVr();
+    }
     panelOpen.current = false;
     setOpen(false);
     launcher.current?.focus();
@@ -166,9 +190,20 @@ export function NativeAgentDock({
     voice.current?.stop();
     setExpanded(true);
   }
+  function closePendingVr() {
+    const tab = pendingVr.current?.tab;
+    pendingVr.current = null;
+    try {
+      if (tab && !tab.closed) tab.close();
+    } catch {
+      /* Detached window. */
+    }
+  }
   async function login() {
     if (chatInFlight.current) return;
     authGeneration.current++;
+    closePendingVr();
+    setVerifiedVr(null);
     chatInFlight.current = true;
     setBusy(true);
     setError("");
@@ -212,9 +247,37 @@ export function NativeAgentDock({
     )
       return;
     processing.current = true;
+    setError("");
     const controller = new AbortController();
     const generation = authGeneration.current;
     actionAbort.current = controller;
+    let reservation: { tab: Window | null } | null = null;
+    let navigated = false;
+    if (action.type === "open_vr") {
+      // Reserve during the actual click. Opening after async verification is
+      // blocked by browsers and must never replace the map's own location.
+      voice.current?.stop("正在核验全景原网站，语音已暂停。");
+      setVerifiedVr(null);
+      let tab: Window | null = null;
+      try {
+        tab = window.open("about:blank", "_blank");
+        if (tab) {
+          tab.opener = null;
+          if (tab.opener !== null) throw new Error("无法隔离新窗口");
+          tab.document.title = "正在核验全景";
+          tab.document.body.textContent = "正在核验已发布的全景资料，请稍候…";
+        }
+      } catch {
+        try {
+          tab?.close();
+        } catch {
+          /* No controllable popup. */
+        }
+        tab = null;
+      }
+      reservation = { tab };
+      pendingVr.current = reservation;
+    }
     try {
       const before = latest.current.revision;
       const checked = await post<GuideAction>(
@@ -225,12 +288,62 @@ export function NativeAgentDock({
       );
       if (
         !mounted.current ||
+        controller.signal.aborted ||
         generation !== authGeneration.current ||
         (automatic && !panelOpen.current)
       )
         return;
       if (latest.current?.revision !== before) {
         setError("你已切换地点，本次未打开旧回答中的资料。");
+        return;
+      }
+      if (action.type === "open_vr") {
+        if (checked.type !== "open_vr" || !checked.resource_id)
+          throw new Error("未能核验指定全景，请重新提问。");
+        const { data } = await api.panoramas(
+          checked.point_id,
+          controller.signal,
+        );
+        if (
+          !mounted.current ||
+          controller.signal.aborted ||
+          generation !== authGeneration.current
+        )
+          return;
+        if (latest.current?.revision !== before) {
+          setError("你已切换地点，本次未打开旧回答中的全景。");
+          return;
+        }
+        const resource = data.find(
+          (item) =>
+            item.id === checked.resource_id &&
+            item.point_id === checked.point_id &&
+            item.revision === checked.resource_revision,
+        );
+        const url = resource && externalPanoramaUrl(resource.url);
+        if (!url)
+          throw new Error("全景资料已更新、下架或链接不可用，请重新提问。");
+        applied.current.add(action.action_id);
+        if (reservation?.tab && !reservation.tab.closed) {
+          try {
+            reservation.tab.location.replace(url);
+            navigated = true;
+          } catch {
+            /* Offer the verified link below. */
+          }
+        }
+        if (!navigated)
+          setVerifiedVr({
+            url,
+            label: resource.title,
+            contextRevision: before,
+          });
+        setVoiceNotice(
+          navigated
+            ? "已在新窗口打开全景原网站。返回这里可继续导览。"
+            : "全景已核验，请点击链接在原网站打开。",
+        );
+        if (panelOpen.current) collapse();
         return;
       }
       applied.current.add(action.action_id);
@@ -247,6 +360,15 @@ export function NativeAgentDock({
         }
       }
     } finally {
+      if (reservation && !navigated) {
+        try {
+          if (reservation.tab && !reservation.tab.closed)
+            reservation.tab.close();
+        } catch {
+          /* Detached window. */
+        }
+      }
+      if (pendingVr.current === reservation) pendingVr.current = null;
       processing.current = false;
     }
   }
@@ -263,6 +385,7 @@ export function NativeAgentDock({
     chatInFlight.current = true;
     setBusy(true);
     setError("");
+    setVerifiedVr(null);
     setQuery("");
     const id = crypto.randomUUID(),
       controller = new AbortController();
@@ -321,7 +444,7 @@ export function NativeAgentDock({
               {a.type === "play_video"
                 ? "观看视频："
                 : a.type === "open_vr"
-                  ? "打开全景："
+                  ? "原网站打开全景："
                   : ""}
               {a.label} →
             </button>
@@ -398,6 +521,20 @@ export function NativeAgentDock({
               {error}
             </p>
           )}
+          {csrf &&
+            verifiedVr &&
+            verifiedVr.contextRevision === current?.revision && (
+              <p className="native-notice">
+                <a
+                  href={verifiedVr.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => voice.current?.stop()}
+                >
+                  打开{verifiedVr.label}（原网站，新窗口）
+                </a>
+              </p>
+            )}
           {!csrf ? (
             <form
               className="native-login"
@@ -638,6 +775,8 @@ export function NativeAgentDock({
                             voice.current?.stop();
                             authGeneration.current++;
                             actionAbort.current?.abort();
+                            closePendingVr();
+                            setVerifiedVr(null);
                             setCsrf("");
                             setTurns([]);
                             setError("");
