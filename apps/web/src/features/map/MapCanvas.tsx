@@ -10,6 +10,14 @@ import type {
 import type { RoutePickMode } from "./NavigationPanel";
 import { imageBounds, toMapPoint } from "./coordinates";
 import { appendMapLabelCorrections } from "./labelCorrections";
+import {
+  watchMapTiles,
+  type TileLoadController,
+  type TileLoadState,
+} from "./tileLoad";
+
+const EMPTY_ROUTE_SEGMENTS: RouteSegment[] = [];
+const EMPTY_POINT_IDS: string[] = [];
 
 type Props = {
   info: MapInfo;
@@ -32,20 +40,23 @@ export function MapCanvas({
   points,
   selectedId,
   onSelect,
-  routeSegments = [],
+  routeSegments = EMPTY_ROUTE_SEGMENTS,
   routePickMode = null,
   routeStartId = null,
   routeEndId = null,
-  routeAvailablePointIds = [],
+  routeAvailablePointIds = EMPTY_POINT_IDS,
   onRoutePick,
   onRoutePickCancel,
 }: Props) {
   const element = useRef<HTMLDivElement>(null);
   const instance = useRef<L.Map | null>(null);
-  const tileLayer = useRef<L.TileLayer | null>(null);
+  const tileLoad = useRef<TileLoadController | null>(null);
   const select = useRef(onSelect);
   select.current = onSelect;
-  const [tileError, setTileError] = useState(false);
+  const [tileState, setTileState] = useState<TileLoadState>({
+    failed: 0,
+    retrying: false,
+  });
   const routePick = useRef({
     mode: routePickMode,
     onRoutePick,
@@ -55,7 +66,7 @@ export function MapCanvas({
 
   useEffect(() => {
     if (!element.current || !info.tiles) return;
-    setTileError(false);
+    setTileState({ failed: 0, retrying: false });
     const map = L.map(element.current, {
       crs: L.CRS.Simple,
       zoomControl: false,
@@ -78,17 +89,19 @@ export function MapCanvas({
       maxZoom: info.tiles.max_native_zoom + 1,
       keepBuffer: 1,
       updateWhenIdle: true,
-    }).addTo(map);
-    tileLayer.current = layer;
-    layer.on("tileerror", () => setTileError(true));
+    });
+    const loading = watchMapTiles(layer, map, setTileState);
+    tileLoad.current = loading;
+    layer.addTo(map);
     const resize = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     resize.observe(element.current);
     map.fitBounds(imageBounds(info), { padding: [18, 18], animate: false });
     return () => {
       resize.disconnect();
+      loading.dispose();
       map.remove();
       instance.current = null;
-      tileLayer.current = null;
+      tileLoad.current = null;
     };
   }, [info]);
 
@@ -303,6 +316,7 @@ export function MapCanvas({
     (p) => p.point_id === selectedId,
   );
   const selectedRegion = JSON.stringify(selectedFeature?.polygon ?? null);
+  const hasRoute = routeSegments.length > 0;
   useEffect(() => {
     const map = instance.current;
     const feature = selectedFeature;
@@ -314,7 +328,7 @@ export function MapCanvas({
       feature.map_revision !== info.revision
     )
       return;
-    if (routeSegments.length || routePickMode) return;
+    if (hasRoute || routePickMode) return;
     const bounds = L.latLngBounds(
       feature.polygon.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
     );
@@ -331,11 +345,11 @@ export function MapCanvas({
       });
     const timer = window.setTimeout(fit, 30);
     return () => window.clearTimeout(timer);
-  }, [selectedId, info, selectedRegion, routeSegments, routePickMode]);
+  }, [selectedId, info, selectedRegion, hasRoute, routePickMode]);
 
   useEffect(() => {
     const map = instance.current;
-    if (!map || !info.tiles) return;
+    if (!map || !info.tiles || !routeSegments.length) return;
     const layer = L.layerGroup().addTo(map);
     const routeBounds = L.latLngBounds([]);
     for (const segment of routeSegments) {
@@ -408,16 +422,14 @@ export function MapCanvas({
         }}
         tabIndex={0}
       />
-      {tileError && (
+      {tileState.failed > 0 && (
         <div className="tile-warning" role="status">
           部分地图未加载{" "}
           <button
-            onClick={() => {
-              setTileError(false);
-              tileLayer.current?.redraw();
-            }}
+            disabled={tileState.retrying}
+            onClick={() => tileLoad.current?.retry()}
           >
-            重新加载
+            {tileState.retrying ? "正在重试…" : "重新加载"}
           </button>
         </div>
       )}

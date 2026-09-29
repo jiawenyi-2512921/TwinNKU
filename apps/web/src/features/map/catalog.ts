@@ -17,19 +17,24 @@ export async function loadCatalog(
   source: typeof api,
   signal: AbortSignal,
 ): Promise<Catalog | null> {
-  const [system, campuses] = await Promise.all([
-    source.status(signal),
-    source.campuses(signal),
-  ]);
+  // The public map endpoint already enforces capability/publication checks.
+  // An unrelated status request must not block an otherwise readable map.
+  const campuses = await source.campuses(signal);
   const campus =
     campuses.data.find((c) => c.id === "nku-jinnan") ?? campuses.data[0];
   if (!campus) return null;
-  const maps = system.data.capabilities.map
-    ? await source.maps(campus.id, signal)
-    : { data: [] };
-  const map = maps.data.find((m) => m.kind === "campus" && m.tiles) ?? null;
-  const [features, first] = await Promise.all([
-    map ? source.mapFeatures(map.id, signal) : Promise.resolve({ data: null }),
+  // Read points alongside map metadata, and start geometry as soon as its map
+  // is known. Do not download every floor's metadata to display the campus.
+  const [{ map, features }, first] = await Promise.all([
+    (async () => {
+      const maps = await source.maps(campus.id, signal, "campus");
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+      const map = maps.data.find((m) => m.kind === "campus" && m.tiles) ?? null;
+      const features = map
+        ? await source.mapFeatures(map.id, signal)
+        : { data: null };
+      return { map, features };
+    })(),
     source.points(campus.id, "", signal),
   ]);
   if (
