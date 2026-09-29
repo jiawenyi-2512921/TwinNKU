@@ -5,6 +5,7 @@ export type GuideReply = components["schemas"]["GuideReply"];
 export type NavigationPath = components["schemas"]["NavigationPath"];
 export type NavigationAvailability =
   components["schemas"]["NavigationAvailability"];
+export type GuideActionOptions = { requestedPlayback?: boolean };
 
 export class NativeError extends Error {
   status: number;
@@ -70,8 +71,11 @@ export function canAutoApply(
   a: GuideAction,
   sent: number,
   current: number,
+  automaticActionId?: string | null,
 ): boolean {
   return (
+    Boolean(automaticActionId) &&
+    a.action_id === automaticActionId &&
     sent === current &&
     a.context_revision === sent &&
     [
@@ -80,6 +84,8 @@ export function canAutoApply(
       "show_route",
       "show_checkin",
       "show_tour",
+      "open_vr",
+      "play_video",
     ].includes(a.type)
   );
 }

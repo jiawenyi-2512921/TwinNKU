@@ -5,6 +5,7 @@ import type { AgentRequest } from "./AgentDock";
 import { contextQuestion } from "./protocol";
 import { externalPanoramaUrl } from "../points/panorama";
 import { watchCatalogChanges } from "../../shared/catalogSync";
+import { Companion } from "./Companion";
 import {
   canAutoApply,
   NativeError,
@@ -12,6 +13,7 @@ import {
   type GuideAction,
   type GuideContext,
   type GuideReply,
+  type GuideActionOptions,
 } from "./native";
 import {
   browserVoiceEnvironment,
@@ -32,7 +34,8 @@ type Props = {
   autoActions: boolean;
   pointName: string;
   mediaActive?: boolean;
-  onAction: (a: GuideAction) => void;
+  onAction: (a: GuideAction, options?: GuideActionOptions) => boolean;
+  onCancelAction?: () => void;
   onNavigate: () => void;
 };
 const phaseNames: Record<VoicePhase, string> = {
@@ -48,6 +51,7 @@ export function NativeAgentDock({
   pointName,
   onAction,
   onNavigate,
+  onCancelAction,
   autoActions,
   mediaActive = false,
 }: Props) {
@@ -63,6 +67,8 @@ export function NativeAgentDock({
   const [transcript, setTranscript] = useState(""),
     [voiceNotice, setVoiceNotice] = useState("");
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [acting, setActing] = useState(false);
+  const [actionStatus, setActionStatus] = useState("");
   const [verifiedVr, setVerifiedVr] = useState<{
     url: string;
     label: string;
@@ -79,9 +85,11 @@ export function NativeAgentDock({
   const processing = useRef(false),
     chatInFlight = useRef(false),
     authGeneration = useRef(0);
+  const actionGeneration = useRef(0);
   const chatAbort = useRef<AbortController | null>(null);
   const actionAbort = useRef<AbortController | null>(null);
   const pendingVr = useRef<{ tab: Window | null } | null>(null);
+  const automaticPending = useRef(false);
   const panelOpen = useRef(open);
   const voice = useRef<ReturnType<typeof createVoiceConversation> | null>(null);
   const submit = useRef<(text: string) => Promise<string | null>>(
@@ -130,9 +138,7 @@ export function NativeAgentDock({
     // copy of a resource URL. Publication/resume/visible polling expires it.
     return watchCatalogChanges(() => {
       setVerifiedVr(null);
-      setVoiceNotice(
-        "资料可能已更新，请再次点击「打开全景」核验后打开。",
-      );
+      setVoiceNotice("资料可能已更新，请再次点击「打开全景」核验后打开。");
     });
   }, [verifiedVr]);
   useEffect(() => {
@@ -165,7 +171,7 @@ export function NativeAgentDock({
   useEffect(() => {
     if (open) {
       if (expanded && csrf) input.current?.focus();
-      else heading.current?.focus();
+      else if (!csrf) heading.current?.focus();
     }
   }, [open, expanded, Boolean(csrf)]);
   useEffect(() => {
@@ -174,7 +180,10 @@ export function NativeAgentDock({
 
   function close() {
     voice.current?.stop();
-    if (pendingVr.current) {
+    actionGeneration.current++;
+    setActionStatus("");
+    onCancelAction?.();
+    if (pendingVr.current || automaticPending.current) {
       actionAbort.current?.abort();
       closePendingVr();
     }
@@ -199,9 +208,33 @@ export function NativeAgentDock({
       /* Detached window. */
     }
   }
+  function reserveVrTab(): { tab: Window | null } {
+    let tab: Window | null = null;
+    try {
+      tab = window.open("about:blank", "_blank");
+      if (tab) {
+        tab.opener = null;
+        if (tab.opener !== null) throw new Error("无法隔离新窗口");
+        tab.document.title = "正在核验全景";
+        tab.document.body.textContent = "正在打开已发布的全景资料，请稍候…";
+      }
+    } catch {
+      try {
+        tab?.close();
+      } catch {
+        /* No controllable popup. */
+      }
+      tab = null;
+    }
+    const reservation = { tab };
+    pendingVr.current = reservation;
+    return reservation;
+  }
   async function login() {
     if (chatInFlight.current) return;
     authGeneration.current++;
+    actionGeneration.current++;
+    onCancelAction?.();
     closePendingVr();
     setVerifiedVr(null);
     chatInFlight.current = true;
@@ -233,20 +266,29 @@ export function NativeAgentDock({
     action: GuideAction,
     automatic = false,
     sentRevision = current?.revision,
-  ) {
+    automaticActionId?: string | null,
+  ): Promise<string | null> {
     if (
       !latest.current ||
       processing.current ||
       applied.current.has(action.action_id)
     )
-      return;
+      return null;
     if (
       automatic &&
       (!panelOpen.current ||
-        !canAutoApply(action, sentRevision ?? -1, latest.current.revision))
+        !canAutoApply(
+          action,
+          sentRevision ?? -1,
+          latest.current.revision,
+          automaticActionId,
+        ))
     )
-      return;
+      return null;
     processing.current = true;
+    automaticPending.current = automatic;
+    setActing(true);
+    setActionStatus("正在核验并打开资料…");
     setError("");
     const controller = new AbortController();
     const generation = authGeneration.current;
@@ -254,29 +296,11 @@ export function NativeAgentDock({
     let reservation: { tab: Window | null } | null = null;
     let navigated = false;
     if (action.type === "open_vr") {
-      // Reserve during the actual click. Opening after async verification is
-      // blocked by browsers and must never replace the map's own location.
+      // A manual click can reserve a tab before awaiting validation. An explicit
+      // voice/text command tries only after verification and may be popup-blocked.
       voice.current?.stop("正在核验全景，语音已暂停。");
       setVerifiedVr(null);
-      let tab: Window | null = null;
-      try {
-        tab = window.open("about:blank", "_blank");
-        if (tab) {
-          tab.opener = null;
-          if (tab.opener !== null) throw new Error("无法隔离新窗口");
-          tab.document.title = "正在核验全景";
-          tab.document.body.textContent = "正在核验已发布的全景资料，请稍候…";
-        }
-      } catch {
-        try {
-          tab?.close();
-        } catch {
-          /* No controllable popup. */
-        }
-        tab = null;
-      }
-      reservation = { tab };
-      pendingVr.current = reservation;
+      if (!automatic) reservation = reserveVrTab();
     }
     try {
       const before = latest.current.revision;
@@ -292,11 +316,18 @@ export function NativeAgentDock({
         generation !== authGeneration.current ||
         (automatic && !panelOpen.current)
       )
-        return;
+        return null;
       if (latest.current?.revision !== before) {
-        setError("你已切换地点，本次未打开旧回答中的资料。");
-        return;
+        setActionStatus("");
+        const message = "你已切换地点，本次未打开旧回答中的资料。";
+        setError(message);
+        return message;
       }
+      if (
+        checked.type !== action.type ||
+        checked.action_id !== action.action_id
+      )
+        throw new Error("核验结果与请求不符，本次未执行，请重新提问。");
       if (action.type === "open_vr") {
         if (checked.type !== "open_vr" || !checked.resource_id)
           throw new Error("未能核验指定全景，请重新提问。");
@@ -309,10 +340,12 @@ export function NativeAgentDock({
           controller.signal.aborted ||
           generation !== authGeneration.current
         )
-          return;
+          return null;
         if (latest.current?.revision !== before) {
-          setError("你已切换地点，本次未打开旧回答中的全景。");
-          return;
+          setActionStatus("");
+          const message = "你已切换地点，本次未打开旧回答中的全景。";
+          setError(message);
+          return message;
         }
         const resource = data.find(
           (item) =>
@@ -323,6 +356,7 @@ export function NativeAgentDock({
         const url = resource && externalPanoramaUrl(resource.url);
         if (!url)
           throw new Error("全景资料已更新、下架或链接不可用，请重新提问。");
+        if (automatic) reservation = reserveVrTab();
         applied.current.add(action.action_id);
         if (reservation?.tab && !reservation.tab.closed) {
           try {
@@ -338,27 +372,51 @@ export function NativeAgentDock({
             label: resource.title,
             contextRevision: before,
           });
-        setVoiceNotice(
-          navigated
-            ? "已在新窗口打开全景。返回这里可继续导览。"
-            : "全景已核验，请点击链接打开。",
-        );
+        const outcome = navigated
+          ? "已请求在新标签页打开全景；返回这里可继续导览。"
+          : "全景未在新窗口打开，可能被浏览器拦截。请点击下方已核验的链接。";
+        setActionStatus(outcome);
+        setVoiceNotice("");
         if (panelOpen.current) collapse();
-        return;
+        return outcome;
       }
+      if (checked.type === "play_video")
+        voice.current?.stop(
+          "视频入口已打开，语音已暂停。观看结束后可点击麦克风继续交流。",
+        );
+      const accepted = onAction(checked, {
+        requestedPlayback: automatic && checked.type === "play_video",
+      });
+      if (!accepted)
+        throw new Error("地点资料已变化，本次未执行。请重新选择地点或提问。");
       applied.current.add(action.action_id);
-      if (["open_vr", "play_video"].includes(checked.type))
-        voice.current?.stop("已打开观看入口。观看结束后可点击麦克风继续交流。");
-      onAction(checked);
+      const status: Record<string, string> = {
+        focus_point: "已切换到对应地点。",
+        show_floor: "已转到楼层资料。",
+        show_route: "已打开路线规划；路线结果以地图显示为准。",
+        show_checkin: "已转到打卡资料。",
+        show_tour: "已转到校园导览。",
+        play_video: automatic
+          ? "已打开视频入口；浏览器可能仍需你点击播放或原站链接。"
+          : "已打开视频资料，请选择是否观看。",
+      };
+      const outcome = status[checked.type] || "已提交查看请求。";
+      setActionStatus(outcome);
       if (panelOpen.current) collapse();
+      return outcome;
     } catch (e) {
+      if (controller.signal.aborted) return null;
       if (mounted.current && generation === authGeneration.current) {
-        setError(e instanceof Error ? e.message : "资料暂不可用");
+        setActionStatus("");
+        const message = e instanceof Error ? e.message : "资料暂不可用";
+        setError(message);
         if (e instanceof NativeError && e.status === 401) {
           setCsrf("");
           voice.current?.stop();
         }
+        return `本次未能完成操作：${message}`;
       }
+      return null;
     } finally {
       if (reservation && !navigated) {
         try {
@@ -370,11 +428,14 @@ export function NativeAgentDock({
       }
       if (pendingVr.current === reservation) pendingVr.current = null;
       processing.current = false;
+      automaticPending.current = false;
+      if (mounted.current) setActing(false);
     }
   }
   async function send(text: string): Promise<string | null> {
     text = text.trim();
     const context = latest.current;
+    const sentActionGeneration = actionGeneration.current;
     if (!text || !context || chatInFlight.current || !csrf) return null;
     if (text.length > 2000) {
       setQuery(text.slice(0, 2000));
@@ -385,6 +446,7 @@ export function NativeAgentDock({
     chatInFlight.current = true;
     setBusy(true);
     setError("");
+    setActionStatus("");
     setVerifiedVr(null);
     setQuery("");
     const id = crypto.randomUUID(),
@@ -402,14 +464,23 @@ export function NativeAgentDock({
       setTurns((v) => v.map((t) => (t.id === id ? { ...t, reply } : t)));
       if (
         autoActions &&
+        sentActionGeneration === actionGeneration.current &&
         reply.actions.length === 1 &&
         canAutoApply(
           reply.actions[0],
           context.revision,
           latest.current?.revision ?? -1,
+          reply.automatic_action_id,
         )
-      )
-        await act(reply.actions[0], true, context.revision);
+      ) {
+        const outcome = await act(
+          reply.actions[0],
+          true,
+          context.revision,
+          reply.automatic_action_id,
+        );
+        return outcome ? `${reply.answer}\n${outcome}` : null;
+      }
       return reply.answer;
     } catch (e) {
       if (!mounted.current) return null;
@@ -455,27 +526,24 @@ export function NativeAgentDock({
   }
   return (
     <div className={`agent-dock native-dock${open ? " is-open" : ""}`}>
-      <button
-        ref={launcher}
-        className="agent-launcher"
-        onClick={() => setOpen(true)}
-        aria-expanded={open}
-        aria-controls="native-agent-panel"
-      >
-        <span className="agent-avatar">
-          <Icon name="chat" />
-        </span>
-        <span>
-          问小开<small>语音导览 · 随行交流</small>
-        </span>
-      </button>
+      <Companion
+        buttonRef={launcher}
+        className="native-companion"
+        phase={
+          error ? "error" : acting ? "acting" : busy ? "thinking" : voicePhase
+        }
+        label={open ? "收起小开并暂停语音" : "问小开，展开随行交互"}
+        onClick={() => (open ? close() : setOpen(true))}
+        expanded={open}
+        controls="native-agent-panel"
+      />
       {open && (
         <section
           id="native-agent-panel"
-          role="dialog"
-          aria-modal="false"
+          role={expanded || !csrf ? "dialog" : "region"}
+          aria-modal={expanded || !csrf ? "false" : undefined}
           aria-label="小开校园导览"
-          className={`native-agent${expanded ? " is-expanded" : ""}`}
+          className={`native-agent${expanded ? " is-expanded" : ""}${!csrf ? " needs-auth" : ""}`}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.preventDefault();
@@ -485,40 +553,44 @@ export function NativeAgentDock({
             }
           }}
         >
-          <header className="agent-heading">
-            <span className="agent-avatar">
-              <Icon name="chat" />
-            </span>
-            <div>
-              <h2 ref={heading} tabIndex={-1}>
-                小开 · 随行导览
-              </h2>
-              <p>
-                {pointName
-                  ? `正在浏览：${pointName}`
-                  : "问地点 · 看楼层 · 逛校园"}
-              </p>
-            </div>
-            {expanded && (
+          {(expanded || !csrf) && (
+            <header className="agent-heading">
+              <div>
+                <h2 ref={heading} tabIndex={-1}>
+                  小开 · 随行导览
+                </h2>
+                <p>
+                  {pointName
+                    ? `正在浏览：${pointName}`
+                    : "问地点 · 看楼层 · 逛校园"}
+                </p>
+              </div>
+              {expanded && (
+                <button
+                  className="icon-button"
+                  aria-label="收起文字抽屉"
+                  onClick={collapse}
+                >
+                  −
+                </button>
+              )}
               <button
                 className="icon-button"
-                aria-label="缩小为语音浮窗"
-                onClick={collapse}
+                aria-label="收起小开并暂停语音"
+                onClick={close}
               >
-                −
+                <Icon name="close" />
               </button>
-            )}
-            <button
-              className="icon-button"
-              aria-label="关闭浮窗并暂停语音"
-              onClick={close}
-            >
-              <Icon name="close" />
-            </button>
-          </header>
+            </header>
+          )}
           {error && (
             <p className="native-notice" role="alert">
               {error}
+            </p>
+          )}
+          {actionStatus && (
+            <p className="native-notice native-action-status" role="status">
+              {actionStatus}
             </p>
           )}
           {csrf &&
@@ -613,7 +685,7 @@ export function NativeAgentDock({
                           ? "小开正在查阅资料…"
                           : phaseNames[voicePhase]}
                   </p>
-                  <small>说完一句，小开回答后继续听</small>
+                  {expanded && <small>说完一句，小开回答后继续听</small>}
                 </div>
                 {voicePhase === "speaking" && (
                   <button
@@ -648,28 +720,28 @@ export function NativeAgentDock({
                     </p>
                   ) : (
                     <>
-                      {last && (
-                        <p className="native-last-question">
-                          <b>你：</b>
-                          {last.question}
-                        </p>
-                      )}
-                      <p>
+                      <p className="native-subtitle-answer">
                         {last?.reply?.answer ||
                           last?.error ||
                           (busy
                             ? "正在查阅校园资料…"
-                            : "你好，我是小开。点击麦克风说出问题，或展开文字交流。")}
+                            : pointName
+                              ? `我陪你看${pointName}。点击麦克风，或展开文字交流。`
+                              : "我是小开，陪你看校园。点击麦克风，或展开文字交流。")}
                       </p>
                     </>
                   )}
-                  {last?.reply?.notices.map((notice) => (
-                    <p className="native-notice" key={notice}>
-                      {notice}
-                    </p>
-                  ))}
+                </div>
+              )}
+              {!expanded && (
+                <div className="native-context-actions">
                   {actionButtons(last?.reply)}
                 </div>
+              )}
+              {!expanded && last?.reply?.notices[0] && (
+                <p className="native-notice native-context-note">
+                  {last.reply.notices[0]}
+                </p>
               )}
               {expanded && (
                 <>
@@ -773,13 +845,16 @@ export function NativeAgentDock({
                             )
                           ) {
                             voice.current?.stop();
+                            onCancelAction?.();
                             authGeneration.current++;
+                            actionGeneration.current++;
                             actionAbort.current?.abort();
                             closePendingVr();
                             setVerifiedVr(null);
                             setCsrf("");
                             setTurns([]);
                             setError("");
+                            setActionStatus("");
                             applied.current.clear();
                           }
                         }}
@@ -801,7 +876,7 @@ export function NativeAgentDock({
                   type="button"
                   onClick={expanded ? collapse : typeInstead}
                 >
-                  {expanded ? "返回小浮窗" : "文字交流与记录"}
+                  {expanded ? "返回随行角色" : "文字交流与记录"}
                 </button>
                 <button
                   type="button"
