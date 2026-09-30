@@ -75,21 +75,60 @@ export function createBrowserSpeechFallback(environment: VoiceEnvironment) {
 }
 
 const MAX_CHARACTERS = 300;
+const FIRST_CLIP_CHARACTERS = 80;
+
+/** A text cap must not leave half of a Unicode character in either clip. */
+function completeCharacterCut(text: string, cut: number): number {
+  const before = text.charCodeAt(cut - 1);
+  const after = text.charCodeAt(cut);
+  if (
+    before >= 0xd800 &&
+    before <= 0xdbff &&
+    after >= 0xdc00 &&
+    after <= 0xdfff
+  )
+    // With a caller-supplied cap of one, keep that one complete character.
+    return cut === 1 ? 2 : cut - 1;
+  return cut;
+}
 
 /**
- * The API caps a single clip, so long answers are split on sentence
- * boundaries. Splitting also lets the first sentence start playing while
- * later ones are still being fetched.
+ * Keep the opening sentence small instead of synthesizing an entire answer
+ * before it can begin. Later clips still use the API's bounded text limit.
  */
 export function splitForSpeech(text: string, limit = MAX_CHARACTERS): string[] {
   const trimmed = text.trim();
   if (!trimmed) return [];
-  if (trimmed.length <= limit) return [trimmed];
+  const firstLimit = Math.min(FIRST_CLIP_CHARACTERS, limit);
+  if (trimmed.length <= firstLimit) return [trimmed];
+  const firstEnd = trimmed.search(/[。！？!?；;\n]/) + 1;
+  let firstLength =
+    firstEnd > 0 && firstEnd <= firstLimit
+      ? firstEnd
+      : Math.min(trimmed.length, firstLimit);
+  if (firstLength < trimmed.length && firstLength !== firstEnd) {
+    const window = trimmed.slice(0, firstLength);
+    const cut = Math.max(
+      window.lastIndexOf("，"),
+      window.lastIndexOf(","),
+      window.lastIndexOf(" "),
+    );
+    if (cut > firstLength / 3) firstLength = cut + 1;
+  }
+  firstLength = completeCharacterCut(trimmed, firstLength);
+  const first = trimmed.slice(0, firstLength);
+  const rest = trimmed.slice(firstLength);
+  return [first, ...splitBoundedClips(rest, limit)];
+}
+
+function splitBoundedClips(text: string, limit: number): string[] {
+  if (!text) return [];
+  if (text.length <= limit) return [text];
 
   const parts: string[] = [];
   let buffer = "";
   // Split after Chinese and Latin sentence enders, keeping the punctuation.
-  const sentences = trimmed.split(/(?<=[。！？!?；;\n])/);
+  const sentences = text.split(/(?<=[。！？!?；;\n])/);
 
   for (const sentence of sentences) {
     if (sentence.length > limit) {
@@ -106,7 +145,10 @@ export function splitForSpeech(text: string, limit = MAX_CHARACTERS): string[] {
           window.lastIndexOf(","),
           window.lastIndexOf(" "),
         );
-        const take = cut > limit / 3 ? cut + 1 : limit;
+        const take = completeCharacterCut(
+          rest,
+          cut > limit / 3 ? cut + 1 : limit,
+        );
         parts.push(rest.slice(0, take));
         rest = rest.slice(take);
       }
@@ -174,7 +216,7 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
   let generation = 0;
   let audio: HTMLAudioElement | null = null;
   let playback: Playback | null = null;
-  let request: AbortController | null = null;
+  const requests = new Set<AbortController>();
   let finishFallback: ((success: boolean) => void) | null = null;
   let priming: { done: () => void; promise: Promise<void> } | null = null;
   let primed = false;
@@ -192,13 +234,16 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
   }
   function cancel() {
     generation++;
-    request?.abort();
-    request = null;
+    abortRequests();
     priming?.done();
     playback?.settle("cancelled");
     finishFallback?.(false);
     deps.fallbackCancel?.();
     setState("idle");
+  }
+  function abortRequests() {
+    for (const request of requests) request.abort();
+    requests.clear();
   }
 
   function speakWithBrowser(
@@ -235,7 +280,7 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
 
   async function fetchClip(text: string, token: number): Promise<Blob | null> {
     const controller = new AbortController();
-    request = controller;
+    requests.add(controller);
     const timer = setTimeout(() => controller.abort(), 45000);
     try {
       const response = await doFetch("/api/v1/voice/speech", {
@@ -244,14 +289,17 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
         body: JSON.stringify({ text }),
         signal: controller.signal,
       });
-      if (token !== generation || !response.ok) return null;
+      if (token !== generation || controller.signal.aborted || !response.ok)
+        return null;
       const blob = await response.blob();
-      return token === generation && blob.size ? blob : null;
+      return token === generation && !controller.signal.aborted && blob.size
+        ? blob
+        : null;
     } catch {
       return null;
     } finally {
       clearTimeout(timer);
-      if (request === controller) request = null;
+      requests.delete(controller);
     }
   }
 
@@ -260,6 +308,7 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
     blob: Blob,
     token: number,
     onCaption?: Caption,
+    onStarted?: () => void,
   ): Promise<ClipOutcome> {
     if (priming) await priming.promise;
     if (token !== generation) return "cancelled";
@@ -334,6 +383,7 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
           Math.max(15000, Math.min(180000, text.length * 300 + 10000)),
         );
         setState("speaking");
+        onStarted?.();
         // File TTS has no word timestamps. Show the real clip's caption only.
         onCaption?.(splitSpeechCaptions(text)[0]?.text || text);
       }
@@ -419,17 +469,34 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
       const token = generation;
       const segments = splitForSpeech(clean);
       let remaining = 0;
+      let prefetched: Promise<Blob | null> | null = null;
       if (Date.now() >= cloudUnavailableUntil) {
         for (; remaining < segments.length; remaining++) {
           if (token !== generation) return false;
           setState("loading");
-          const blob = await fetchClip(segments[remaining], token);
+          const blob = await (prefetched ??
+            fetchClip(segments[remaining], token));
+          prefetched = null;
           if (token !== generation) return false;
+          const next = remaining + 1;
           const outcome = blob
-            ? await playClip(segments[remaining], blob, token, onCaption)
+            ? await playClip(
+                segments[remaining],
+                blob,
+                token,
+                onCaption,
+                () => {
+                  // Only one clip ahead, and only after playback really starts.
+                  // Refused autoplay must not queue more billable synthesis.
+                  if (token === generation && next < segments.length)
+                    prefetched = fetchClip(segments[next], token);
+                },
+              )
             : "failed";
           if (token !== generation || outcome === "cancelled") return false;
           if (outcome === "failed") {
+            abortRequests();
+            prefetched = null;
             cloudUnavailableUntil = Date.now() + 60000;
             deps.onFallback?.("云端语音暂不可用，本轮尝试系统朗读。");
             break;

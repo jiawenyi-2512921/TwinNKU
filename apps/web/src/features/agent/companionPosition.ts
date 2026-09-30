@@ -17,6 +17,14 @@ export type CompanionBounds = {
   minY: number;
   maxY: number;
 };
+export type CompanionSubtitleLayout = {
+  x: number;
+  y: number;
+  width: number;
+  maxHeight: number;
+  side: "left" | "right" | "above" | "below";
+  pointer: number;
+};
 type PositionStorage = Pick<Storage, "getItem" | "setItem">;
 const finite = (value: number, fallback: number) =>
   Number.isFinite(value) ? value : fallback;
@@ -75,6 +83,92 @@ export function restoreCompanionPosition(
   return {
     x: bounds.minX + clamp(normalized.x, 0, 1) * (bounds.maxX - bounds.minX),
     y: bounds.minY + clamp(normalized.y, 0, 1) * (bounds.maxY - bounds.minY),
+  };
+}
+
+/** A speech bubble stays beside its character, including in a keyboard viewport.
+ * Coordinates are relative to the companion so its existing transform moves both.
+ */
+export function companionSubtitleLayout(
+  viewport: CompanionViewport,
+  position: CompanionPosition,
+  companion: CompanionSize,
+  subtitle: CompanionSize,
+): CompanionSubtitleLayout {
+  const visibleWidth = Math.max(0, finite(viewport.width, 0));
+  const visibleHeight = Math.max(0, finite(viewport.height, 0));
+  const insetX = Math.min(COMPANION_MARGIN, visibleWidth / 2);
+  const insetY = Math.min(COMPANION_MARGIN, visibleHeight / 2);
+  const left = finite(viewport.offsetLeft, 0) + insetX;
+  const top = finite(viewport.offsetTop, 0) + insetY;
+  const right = left + Math.max(0, visibleWidth - insetX * 2);
+  const bottom = top + Math.max(0, visibleHeight - insetY * 2);
+  const characterWidth = Math.max(0, finite(companion.width, 0));
+  const characterHeight = Math.max(0, finite(companion.height, 0));
+  const characterX = finite(position.x, left);
+  const characterY = finite(position.y, top);
+  const gap = 12;
+  let width = Math.min(320, right - left);
+  let maxHeight = Math.min(120, bottom - top, visibleHeight * 0.32);
+  const height = Math.min(maxHeight, Math.max(0, finite(subtitle.height, 48)));
+  const room = {
+    left: Math.max(0, characterX - gap - left),
+    right: Math.max(0, right - characterX - characterWidth - gap),
+    above: Math.max(0, characterY - gap - top),
+    below: Math.max(0, bottom - characterY - characterHeight - gap),
+  };
+  const horizontal = room.left >= room.right ? "left" : "right";
+  const vertical = room.above >= room.below ? "above" : "below";
+  let side: CompanionSubtitleLayout["side"];
+  if (room[horizontal] >= width) side = horizontal;
+  else if (room[vertical] >= height) side = vertical;
+  else if (room[horizontal] >= Math.min(120, width)) {
+    side = horizontal;
+    width = Math.min(width, room[horizontal]);
+  } else {
+    side = vertical;
+  }
+  // Keep the chosen slot's constraint even if the last measured bubble was
+  // shorter. Otherwise a capped caption could repeatedly expand and flip sides.
+  if (side === "above" || side === "below")
+    maxHeight = Math.min(maxHeight, room[side]);
+  else width = Math.min(width, room[side]);
+  const finalHeight = Math.min(height, maxHeight);
+  const anchorX = characterX + characterWidth / 2;
+  // Keep speech next to the upper half of the sprite, above its control buttons.
+  const anchorY = characterY + characterHeight * 0.3;
+  const x = clamp(
+    side === "left"
+      ? characterX - gap - width
+      : side === "right"
+        ? characterX + characterWidth + gap
+        : anchorX - width / 2,
+    left,
+    Math.max(left, right - width),
+  );
+  const y = clamp(
+    side === "above"
+      ? characterY - gap - finalHeight
+      : side === "below"
+        ? characterY + characterHeight + gap
+        : anchorY - finalHeight / 2,
+    top,
+    Math.max(top, bottom - finalHeight),
+  );
+  const pointerExtent =
+    side === "left" || side === "right" ? finalHeight : width;
+  const pointerInset = Math.min(14, pointerExtent / 2);
+  return {
+    x: x - characterX,
+    y: y - characterY,
+    width,
+    maxHeight,
+    side,
+    pointer: clamp(
+      side === "left" || side === "right" ? anchorY - y : anchorX - x,
+      pointerInset,
+      Math.max(pointerInset, pointerExtent - pointerInset),
+    ),
   };
 }
 export function parseCompanionPosition(

@@ -703,10 +703,12 @@ export function NativeAgentDock({
     error ||
     voiceUnlockNotice ||
     voiceNotice ||
+    (acting ? actionStatus : "") ||
+    (busy || voicePhase === "thinking" ? "正在查阅校园资料…" : "") ||
+    (speechState === "loading" ? "正在准备声音…" : "") ||
     transcript ||
     (voicePhase === "speaking" ? voiceCaption : "") ||
     actionStatus ||
-    (busy ? "正在查阅校园资料…" : "") ||
     muteNotice ||
     voiceCaption ||
     last?.reply?.answer?.match(
@@ -926,18 +928,19 @@ export function NativeAgentDock({
             <Icon name="panorama" />
           </a>
         )}
+        {open && !expanded && !minimized && caption && (
+          <div
+            ref={position.subtitleRef}
+            id="native-agent-captions"
+            className={`native-subtitles${error ? " is-error" : ""}`}
+            role={error ? "alert" : "status"}
+            aria-live={error ? "assertive" : "polite"}
+            aria-atomic="true"
+          >
+            <p>{caption}</p>
+          </div>
+        )}
       </div>
-      {open && !expanded && !minimized && caption && (
-        <div
-          id="native-agent-captions"
-          className={`native-subtitles${error ? " is-error" : ""}`}
-          role={error ? "alert" : "status"}
-          aria-live={error ? "assertive" : "polite"}
-          aria-atomic="true"
-        >
-          <p>{caption}</p>
-        </div>
-      )}
       {open && expanded && !minimized && (
         <section
           id="native-agent-panel"

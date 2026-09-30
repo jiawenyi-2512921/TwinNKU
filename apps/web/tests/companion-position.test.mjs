@@ -266,9 +266,26 @@ function hookHarness({ captureFails = false, blockedStorage = false } = {}) {
   const element = {
     style: {},
     dataset: {},
-    getBoundingClientRect: () => dimensions,
+    getBoundingClientRect: () => {
+      measurements.character++;
+      return dimensions;
+    },
+  };
+  const measurements = { character: 0, subtitle: 0 };
+  const subtitle = {
+    style: {
+      setProperty(name, value) {
+        this[name] = value;
+      },
+    },
+    dataset: {},
+    getBoundingClientRect: () => {
+      measurements.subtitle++;
+      return subtitleDimensions;
+    },
   };
   let dimensions = { width: 176, height: 236 },
+    subtitleDimensions = { width: 320, height: 76 },
     nextFrame = 0,
     observeResize,
     disconnected = false,
@@ -294,6 +311,7 @@ function hookHarness({ captureFails = false, blockedStorage = false } = {}) {
         observeResize = callback;
       }
       observe() {}
+      unobserve() {}
       disconnect() {
         disconnected = true;
       }
@@ -333,6 +351,8 @@ function hookHarness({ captureFails = false, blockedStorage = false } = {}) {
     browser,
     visual,
     element,
+    subtitle,
+    measurements,
     writes,
     frames,
     event,
@@ -344,7 +364,11 @@ function hookHarness({ captureFails = false, blockedStorage = false } = {}) {
     },
     resize(width, height) {
       dimensions = { width, height };
-      observeResize();
+      observeResize([{ target: element }]);
+    },
+    resizeSubtitle(height) {
+      subtitleDimensions = { ...subtitleDimensions, height };
+      observeResize([{ target: subtitle }]);
     },
     cleanup() {
       cleanups.forEach((cleanup) => cleanup?.());
@@ -474,4 +498,28 @@ test("lost capture and viewport interruption end dragging, cleanup cancels stale
   assert.equal(h.element.style.transform, previous);
   h.hook.resetPosition();
   assert.equal(h.frames.size, 0);
+});
+
+test("actual hook tethers captions in the same frame without layout reads on pointer movement", () => {
+  const h = hookHarness();
+  h.hook.subtitleRef(h.subtitle);
+  h.paint();
+  assert.equal(h.subtitle.dataset.side, "left");
+  assert.equal(h.subtitle.style.left, "-332px");
+  const measured = { ...h.measurements };
+  h.hook.buttonProps.onPointerDown(h.event());
+  h.hook.buttonProps.onPointerMove(h.event(-2000, 30));
+  h.paint();
+  assert.equal(h.element.style.transform, "translate3d(16px, 548px, 0)");
+  assert.equal(h.subtitle.dataset.side, "right");
+  assert.equal(h.subtitle.style.left, "188px");
+  assert.deepEqual(h.measurements, measured);
+  h.resizeSubtitle(180);
+  h.paint();
+  assert.equal(h.captured, 1, "caption height changes must not cancel a drag");
+  assert.equal(h.subtitle.style.maxHeight, "120px");
+  assert.equal(h.measurements.character, measured.character);
+  assert.equal(h.measurements.subtitle, measured.subtitle + 1);
+  h.hook.subtitleRef(null);
+  h.cleanup();
 });

@@ -5,7 +5,7 @@
 .native-companion-cluster {
   position: fixed;
   z-index: 1066;
-  width: 176px;
+  width: min(200px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -47,6 +47,9 @@
 }
 .native-orbit-controls {
   display: flex;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  max-width: 100%;
   justify-content: center;
   align-items: center;
   gap: 6px;
@@ -114,19 +117,15 @@
   background: #f2edf8;
   border-color: #b59bc9;
 }
-/* Captions stay within the viewport independently of the dragged fairy. */
+/* Position is measured against the visual viewport and moves with the fairy. */
 .native-subtitles {
-  position: fixed;
-  z-index: 1065;
-  left: 50%;
-  bottom: max(28px, calc(env(safe-area-inset-bottom) + 16px));
-  transform: translateX(-50%);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 12px);
   box-sizing: border-box;
-  width: max-content;
-  max-width: min(560px, calc(100vw - 40px));
-  max-height: min(160px, 26dvh);
-  overflow: auto;
-  padding: 12px 18px;
+  width: min(320px, calc(100vw - 32px));
+  max-height: var(--native-caption-max-height, min(120px, 32dvh));
+  pointer-events: auto;
   border: 1px solid #e0d6e6;
   border-radius: 18px;
   background: #fffdf9f5;
@@ -136,10 +135,53 @@
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  overscroll-behavior: contain;
 }
 .native-subtitles p {
   margin: 0;
+  box-sizing: border-box;
+  max-height: calc(var(--native-caption-max-height, min(120px, 32dvh)) - 2px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 10px 14px;
+  border-radius: inherit;
+}
+.native-subtitles::before {
+  display: none;
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  content: "";
+  background: #fffdf9;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.native-subtitles[data-side]::before {
+  display: block;
+}
+.native-subtitles[data-side="left"]::before {
+  top: calc(var(--native-caption-pointer) - 5px);
+  right: -6px;
+  border-top: 1px solid #e0d6e6;
+  border-right: 1px solid #e0d6e6;
+}
+.native-subtitles[data-side="right"]::before {
+  top: calc(var(--native-caption-pointer) - 5px);
+  left: -6px;
+  border-bottom: 1px solid #e0d6e6;
+  border-left: 1px solid #e0d6e6;
+}
+.native-subtitles[data-side="above"]::before {
+  left: calc(var(--native-caption-pointer) - 5px);
+  bottom: -6px;
+  border-right: 1px solid #e0d6e6;
+  border-bottom: 1px solid #e0d6e6;
+}
+.native-subtitles[data-side="below"]::before {
+  left: calc(var(--native-caption-pointer) - 5px);
+  top: -6px;
+  border-left: 1px solid #e0d6e6;
+  border-top: 1px solid #e0d6e6;
 }
 .native-subtitles.is-error {
   border-color: #d2b9ae;
@@ -357,9 +399,6 @@
   scrollbar-width: thin;
 }
 @media (max-width: 760px) {
-  .native-companion-cluster {
-    width: 156px;
-  }
   .native-companion-cluster .native-companion {
     width: 144px;
     height: 163px;
@@ -373,11 +412,6 @@
     border-radius: 20px;
   }
   .native-subtitles {
-    top: max(82px, calc(env(safe-area-inset-top) + 72px));
-    bottom: auto;
-    max-width: calc(100vw - 28px);
-    max-height: 22dvh;
-    padding: 10px 14px;
     font-size: 13px;
   }
 }
@@ -391,10 +425,6 @@
   }
   .native-messages {
     flex: none;
-  }
-  .native-subtitles {
-    top: 68px;
-    bottom: auto;
   }
   .native-voice-hint {
     display: none;

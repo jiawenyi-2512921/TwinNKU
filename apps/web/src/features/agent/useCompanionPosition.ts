@@ -6,6 +6,7 @@ import type {
 } from "react";
 import {
   companionBounds,
+  companionSubtitleLayout,
   createCompanionDrag,
   keyboardCompanionPosition,
   normalizeCompanionPosition,
@@ -32,6 +33,7 @@ type Runtime = {
   click: (detail: number) => boolean;
   key: (key: string, shift: boolean) => boolean;
   reset: () => void;
+  subtitle: (element: HTMLDivElement | null) => void;
 };
 
 /** Attach the ref/style to the cluster and buttonProps only to its character button.
@@ -40,6 +42,11 @@ type Runtime = {
 export function useCompanionPosition() {
   const containerRef = useRef<HTMLDivElement>(null);
   const runtime = useRef<Runtime | null>(null);
+  const subtitleElement = useRef<HTMLDivElement | null>(null);
+  const subtitleRef = useRef((element: HTMLDivElement | null) => {
+    subtitleElement.current = element;
+    runtime.current?.subtitle(element);
+  }).current;
   useEffect(() => {
     const element = containerRef.current;
     if (!element || typeof window === "undefined") return;
@@ -62,9 +69,22 @@ export function useCompanionPosition() {
         offsetTop: visual?.offsetTop ?? 0,
       };
     };
-    const measure = () =>
-      companionBounds(viewport(), element.getBoundingClientRect());
-    let bounds = measure();
+    let visible = viewport();
+    let dimensions = element.getBoundingClientRect();
+    let subtitle = subtitleElement.current;
+    let subtitleDimensions = { width: 320, height: 48 };
+    let observer: ResizeObserver | null = null;
+    const measureSubtitle = () => {
+      if (subtitle) subtitleDimensions = subtitle.getBoundingClientRect();
+    };
+    const measure = () => {
+      visible = viewport();
+      dimensions = element.getBoundingClientRect();
+      measureSubtitle();
+      return companionBounds(visible, dimensions);
+    };
+    measureSubtitle();
+    let bounds = companionBounds(visible, dimensions);
     let normalized = readCompanionPosition(storage) ?? { x: 1, y: 1 };
     let position = restoreCompanionPosition(normalized, bounds);
     const gesture = createCompanionDrag();
@@ -76,6 +96,28 @@ export function useCompanionPosition() {
       element.style.right = "auto";
       element.style.bottom = "auto";
       element.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
+      if (subtitle) {
+        const layout = companionSubtitleLayout(
+          visible,
+          position,
+          dimensions,
+          subtitleDimensions,
+        );
+        subtitle.style.left = `${layout.x}px`;
+        subtitle.style.top = `${layout.y}px`;
+        subtitle.style.width = `${layout.width}px`;
+        subtitle.style.maxHeight = `${layout.maxHeight}px`;
+        subtitle.style.bottom = "auto";
+        subtitle.style.setProperty(
+          "--native-caption-max-height",
+          `${layout.maxHeight}px`,
+        );
+        subtitle.style.setProperty(
+          "--native-caption-pointer",
+          `${layout.pointer}px`,
+        );
+        subtitle.dataset.side = layout.side;
+      }
     };
     const schedule = () => {
       if (frame === null) frame = window.requestAnimationFrame(paint);
@@ -177,6 +219,16 @@ export function useCompanionPosition() {
         saveCompanionPosition(storage, normalized);
         schedule();
       },
+      subtitle(next) {
+        if (subtitle === next) return;
+        if (subtitle) observer?.unobserve(subtitle);
+        subtitle = next;
+        if (subtitle) {
+          measureSubtitle();
+          observer?.observe(subtitle);
+          schedule();
+        }
+      },
     };
     paint();
     const visual = window.visualViewport;
@@ -184,11 +236,18 @@ export function useCompanionPosition() {
     window.addEventListener("orientationchange", refresh);
     visual?.addEventListener("resize", refresh);
     visual?.addEventListener("scroll", refresh);
-    const observer =
+    observer =
       typeof ResizeObserver === "undefined"
         ? null
-        : new ResizeObserver(refresh);
+        : new ResizeObserver((entries) => {
+            if (entries.some((entry) => entry.target === element)) refresh();
+            else {
+              measureSubtitle();
+              schedule();
+            }
+          });
     observer?.observe(element);
+    if (subtitle) observer?.observe(subtitle);
     return () => {
       disposed = true;
       runtime.current = null;
@@ -226,6 +285,7 @@ export function useCompanionPosition() {
   };
   return {
     containerRef,
+    subtitleRef,
     style: initialStyle,
     buttonProps,
     resetPosition: () => runtime.current?.reset(),

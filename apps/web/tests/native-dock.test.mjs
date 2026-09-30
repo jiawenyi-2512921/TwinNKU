@@ -1281,6 +1281,62 @@ function cloudPlayer() {
   };
 }
 
+test("microphone captions distinguish waiting for the answer, preparing audio and actual playback", async () => {
+  const mics = [],
+    player = cloudPlayer();
+  let finishAnswer, finishAudio;
+  const h = harness({
+    voiceEnvironment: {
+      recognize() {
+        const mic = { start() {}, abort() {} };
+        mics.push(mic);
+        return mic;
+      },
+    },
+    createAudio: player.create,
+    cloudFetch: () =>
+      new Promise((resolve) => {
+        finishAudio = resolve;
+      }),
+  });
+  h.setReply(
+    new Promise((resolve) => {
+      finishAnswer = resolve;
+    }),
+  );
+  const subtitle = () =>
+    words(
+      find(h.render(), (node) => node.props?.id === "native-agent-captions")[0],
+    );
+  try {
+    await h.open();
+    h.button("开启语音交流").props.onClick();
+    h.render();
+    mics[0].onresult({
+      results: [{ isFinal: true, 0: { transcript: "介绍图书馆" } }],
+    });
+    await settle();
+    assert.match(subtitle(), /正在查阅校园资料/);
+    assert.doesNotMatch(subtitle(), /介绍图书馆/);
+    finishAnswer({
+      ...reply,
+      answer: "这里是供你参观的图书馆。",
+      actions: [],
+      materials: [],
+    });
+    await settle();
+    assert.match(subtitle(), /正在准备声音/);
+    assert.doesNotMatch(subtitle(), /供你参观/);
+    finishAudio({ ok: true, blob: async () => new Blob([new Uint8Array(64)]) });
+    await settle();
+    assert.equal(subtitle(), "这里是供你参观的图书馆。");
+    player.players[0].onended();
+    await settle();
+  } finally {
+    h.unmount();
+  }
+});
+
 test("actual dock microphone path requests cloud speech once and resumes after audio ends", async () => {
   const clips = [],
     mics = [],
