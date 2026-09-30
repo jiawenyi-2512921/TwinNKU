@@ -162,7 +162,11 @@ class VoiceSynthesizer:
         raise VoiceSynthesisError("所有语音模型均不可用", attempts=attempts, last_code=last_code)
 
     async def _call_tier(self, tier: VoiceTier, text: str) -> bytes:
-        url = f"{self._base_url}/api/v1/services/aigc/multimodal-generation/generation"
+        # Accept both the service origin and DashScope SDK's /api/v1 base.
+        api_base = (
+            self._base_url if self._base_url.endswith("/api/v1") else f"{self._base_url}/api/v1"
+        )
+        url = f"{api_base}/services/aigc/multimodal-generation/generation"
         payload = {
             "model": tier.model,
             "input": {"text": text, "voice": tier.voice},
@@ -173,11 +177,15 @@ class VoiceSynthesizer:
         }
 
         async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
-            response = await client.post(url, json=payload, headers=headers)
-
-            if response.status_code in TRANSIENT_HTTP_STATUS:
-                # Server-side blip: one same-tier retry before giving up on it.
+            try:
                 response = await client.post(url, json=payload, headers=headers)
+                if response.status_code in TRANSIENT_HTTP_STATUS:
+                    # Server-side blip: one same-tier retry before giving up on it.
+                    response = await client.post(url, json=payload, headers=headers)
+            except httpx.HTTPError as exc:
+                # Do not log provider URLs, credentials or raw transport errors.
+                # No automatic timeout retry: the provider may already have billed it.
+                raise _TierHardFailure("无法连接语音服务", code="TransportError") from exc
 
             if response.status_code >= 400:
                 code = None
