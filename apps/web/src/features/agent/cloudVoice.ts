@@ -1,36 +1,78 @@
-// Cloud speech playback with automatic browser fallback.
-//
-// The backend returns a WAV clip for a given sentence. When the cloud is
-// unavailable for any reason (disabled, quota exhausted, network trouble)
-// this module falls back to the browser voice so the guide never goes
-// silent. Callers only ever deal with "speak this text".
+// Same-origin cloud TTS with one persistent player and explicit playback recovery.
+import { speechCaptionAt, splitSpeechCaptions } from "./captions.ts";
+import type { VoiceEnvironment } from "./voice.ts";
 
-export type CloudSpeechState = "idle" | "loading" | "speaking";
-
+export type CloudSpeechState = "idle" | "loading" | "speaking" | "blocked";
+type Caption = (text: string) => void;
 export type CloudSpeechDeps = {
-  /** Same-origin fetch, injectable for tests. */
   fetchImpl?: typeof fetch;
-  /** Creates an audio element, injectable for tests. */
   createAudio?: () => HTMLAudioElement;
-  /** Browser speech, used when the cloud path is unavailable. */
-  fallbackSpeak?: (text: string, onDone: () => void) => void;
+  fallbackSpeak?: (
+    text: string,
+    onDone: (success?: boolean) => void,
+    onCaption?: Caption,
+  ) => void | boolean;
   fallbackCancel?: () => void;
   onState?: (state: CloudSpeechState) => void;
   onFallback?: (reason: string) => void;
-  /**
-   * Called when speech was attempted but produced no audible output at all,
-   * with a message fit to show the visitor. Distinct from onFallback: the
-   * fallback still speaks, this one happens when even that failed, so the
-   * visitor must be told in writing rather than left in silence.
-   */
   onSilent?: (message: string) => void;
 };
 
-type Playback = {
-  audio?: HTMLAudioElement;
-  url?: string;
-  done: () => void;
-};
+/** Completion/error events, rather than calling speak(), determine success. */
+export function createBrowserSpeechFallback(environment: VoiceEnvironment) {
+  let finish: ((success: boolean) => void) | null = null;
+  function cancel() {
+    finish?.(false);
+    environment.cancel?.();
+  }
+  return {
+    cancel,
+    speak(
+      text: string,
+      done: (success?: boolean) => void,
+      onCaption?: Caption,
+    ) {
+      cancel();
+      const spoken = environment.utterance?.(text);
+      if (!spoken || !environment.speak) {
+        done(false);
+        return;
+      }
+      const captions = splitSpeechCaptions(text);
+      let boundaryIndex = -1;
+      let settled = false;
+      const timer = setTimeout(
+        () => complete(false),
+        Math.max(8000, Math.min(120000, text.length * 250 + 4000)),
+      );
+      function complete(success: boolean) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        spoken!.onend = spoken!.onerror = spoken!.onboundary = null;
+        if (finish === complete) finish = null;
+        done(success);
+      }
+      finish = complete;
+      spoken.lang = "zh-CN";
+      spoken.onend = () => complete(true);
+      spoken.onerror = () => complete(false);
+      spoken.onboundary = (event) => {
+        if (settled || event.charIndex < boundaryIndex) return;
+        const next = speechCaptionAt(captions, event.charIndex);
+        if (!next) return;
+        boundaryIndex = event.charIndex;
+        onCaption?.(next.text);
+      };
+      onCaption?.(captions[0]?.text || "");
+      try {
+        environment.speak(spoken);
+      } catch {
+        complete(false);
+      }
+    },
+  };
+}
 
 const MAX_CHARACTERS = 300;
 
@@ -93,177 +135,224 @@ export function speakableText(text: string): string {
     .trim();
 }
 
-export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
-  const doFetch = deps.fetchImpl ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
-  const makeAudio = deps.createAudio ?? (() => new Audio());
+// A valid 10 ms silent PCM WAV, served as blob: (allowed by the site's CSP).
+function silentWav(): Blob {
+  const bytes = new Uint8Array(204);
+  const view = new DataView(bytes.buffer);
+  for (const [offset, word] of [
+    [0, "RIFF"],
+    [8, "WAVE"],
+    [12, "fmt "],
+    [36, "data"],
+  ] as const)
+    for (let index = 0; index < word.length; index++)
+      bytes[offset + index] = word.charCodeAt(index);
+  view.setUint32(4, 196, true);
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 8000, true);
+  view.setUint32(28, 16000, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  view.setUint32(40, 160, true);
+  return new Blob([bytes], { type: "audio/wav" });
+}
 
+type ClipOutcome = "ended" | "failed" | "cancelled";
+type Playback = {
+  audio: HTMLAudioElement;
+  url: string;
+  settle: (outcome: ClipOutcome) => void;
+  retry: () => void;
+};
+
+export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
+  const doFetch =
+    deps.fetchImpl ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
+  const makeAudio = deps.createAudio ?? (() => new Audio());
   let generation = 0;
+  let audio: HTMLAudioElement | null = null;
   let playback: Playback | null = null;
+  let request: AbortController | null = null;
+  let finishFallback: ((success: boolean) => void) | null = null;
+  let priming: { done: () => void; promise: Promise<void> } | null = null;
+  let primed = false;
   let state: CloudSpeechState = "idle";
-  /** Set once the cloud proves unavailable, to avoid retrying on every reply. */
-  let cloudDisabled = false;
-  /**
-   * Set when a clip decoded fine but produced no sound, which in practice
-   * means the browser refused playback: it resolved play() without ever
-   * starting the element. That is a deferral rather than a verdict, so a
-   * later user gesture re-enables the cloud instead of forfeiting it for the
-   * whole session.
-   */
-  let cloudPaused = false;
-  /**
-   * Set when even browser speech produced nothing. Reported once so the
-   * visitor is not left wondering why the guide is silent.
-   */
-  let silenceReported = false;
+  let cloudUnavailableUntil = 0;
 
   function setState(next: CloudSpeechState) {
     if (state === next) return;
     state = next;
     deps.onState?.(next);
   }
-
-  function release(current: Playback | null) {
-    if (!current) return;
-    if (current.audio) {
-      current.audio.onended = null;
-      current.audio.onerror = null;
-      try {
-        current.audio.pause();
-      } catch {
-        /* Already stopped. */
-      }
-    }
-    if (current.url) URL.revokeObjectURL(current.url);
+  function player() {
+    audio ??= makeAudio();
+    return audio;
   }
-
   function cancel() {
     generation++;
+    request?.abort();
+    request = null;
+    priming?.done();
+    playback?.settle("cancelled");
+    finishFallback?.(false);
     deps.fallbackCancel?.();
-    release(playback);
-    playback = null;
     setState("idle");
   }
 
-  function speakWithBrowser(text: string): Promise<boolean> {
-    if (!deps.fallbackSpeak) {
-      setState("idle");
-      return Promise.resolve(false);
-    }
-    return new Promise<boolean>((resolve) => {
+  function speakWithBrowser(
+    text: string,
+    token: number,
+    onCaption?: Caption,
+  ): Promise<boolean> {
+    if (!deps.fallbackSpeak) return Promise.resolve(false);
+    return new Promise((resolve) => {
       let settled = false;
-      let spoke = false;
-      const finish = () => {
+      const timer = setTimeout(
+        () => finish(false),
+        Math.max(8000, Math.min(120000, text.length * 250 + 4000)),
+      );
+      function finish(success = true) {
         if (settled) return;
         settled = true;
-        resolve(spoke);
-      };
+        clearTimeout(timer);
+        if (finishFallback === finish) finishFallback = null;
+        resolve(success && token === generation);
+      }
+      finishFallback = finish;
       setState("speaking");
-      spoke = deps.fallbackSpeak?.(text, finish) ?? true;
-      // Guard against engines that never fire their completion callback.
-      setTimeout(finish, Math.max(8000, Math.min(120000, text.length * 250 + 4000)));
+      try {
+        const result = deps.fallbackSpeak!(text, finish, (caption) => {
+          if (token === generation) onCaption?.(caption);
+        });
+        if (result === false) finish(false);
+      } catch {
+        finish(false);
+      }
     });
   }
 
-  /** Retries once if the clip decoded but stayed silent, else gives up. */
-  async function attemptPlay(
-    element: HTMLAudioElement,
-    token: number,
-    settlePlayback: () => void,
-  ): Promise<boolean> {
-    let ended = false;
-    element.onended = () => {
-      ended = true;
-      settlePlayback();
-    };
-
+  async function fetchClip(text: string, token: number): Promise<Blob | null> {
+    const controller = new AbortController();
+    request = controller;
+    const timer = setTimeout(() => controller.abort(), 45000);
     try {
-      await element.play();
-    } catch {
-      // A rejected play() is a deferral, not a verdict: the reply may have
-      // been synthesised outside the click's activation window. Callers fall
-      // back now and the next gesture restores the cloud voice.
-      return false;
-    }
-    if (token !== generation) return true;
-
-    // Autoplay that is refused silently: play() resolves but the element
-    // never advances. A short grace period separates "buffering" from
-    // "never started" without delaying a clip that is genuinely playing.
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    if (token !== generation) return true;
-    return ended || (element.currentTime ?? 0) > 0.05 || element.paused === false;
-  }
-
-  /** Fetch and play one clip. Resolves when playback finishes. */
-  async function playClip(text: string, token: number): Promise<boolean> {
-    let response: Response;
-    try {
-      response = await doFetch("/api/v1/voice/speech", {
+      const response = await doFetch("/api/v1/voice/speech", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
+        signal: controller.signal,
       });
+      if (token !== generation || !response.ok) return null;
+      const blob = await response.blob();
+      return token === generation && blob.size ? blob : null;
     } catch {
-      return false;
+      return null;
+    } finally {
+      clearTimeout(timer);
+      if (request === controller) request = null;
     }
-    if (token !== generation) return true;
-    if (!response.ok) return false;
+  }
 
-    let blob: Blob;
-    try {
-      blob = await response.blob();
-    } catch {
-      return false;
-    }
-    if (token !== generation) return true;
-    if (!blob.size) return false;
-
+  async function playClip(
+    text: string,
+    blob: Blob,
+    token: number,
+    onCaption?: Caption,
+  ): Promise<ClipOutcome> {
+    if (priming) await priming.promise;
+    if (token !== generation) return "cancelled";
+    const element = player();
     const url = URL.createObjectURL(blob);
-    const current: Playback = { url, done: () => undefined };
-    let settle: () => void = () => undefined;
-    const finished = new Promise<void>((resolve) => {
-      settle = resolve;
+    return new Promise((resolve) => {
+      let settled = false;
+      let started = false;
+      let startTimer: ReturnType<typeof setTimeout> | undefined;
+      let watchdog = setTimeout(
+        () => current.settle("failed"),
+        Math.max(15000, Math.min(180000, text.length * 300 + 10000)),
+      );
+      const current: Playback = {
+        audio: element,
+        url,
+        settle(outcome) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(startTimer);
+          clearTimeout(watchdog);
+          if (playback === current) {
+            playback = null;
+            element.onended = element.onerror = element.onplaying = null;
+            element.pause();
+            element.removeAttribute("src");
+            element.load();
+          }
+          URL.revokeObjectURL(url);
+          resolve(outcome);
+        },
+        retry() {
+          if (settled || token !== generation) return;
+          clearTimeout(startTimer);
+          // Call play synchronously here: unlock() is invoked in the click handler.
+          let attempt: Promise<void>;
+          try {
+            attempt = element.play();
+          } catch {
+            current.settle("failed");
+            return;
+          }
+          Promise.resolve(attempt).then(
+            () => {
+              if (settled || token !== generation) return;
+              if (!element.paused || element.currentTime > 0) markStarted();
+            },
+            (error: unknown) => {
+              if (settled || token !== generation) return;
+              if (
+                error &&
+                typeof error === "object" &&
+                "name" in error &&
+                error.name === "NotAllowedError"
+              )
+                block();
+              else current.settle("failed");
+            },
+          );
+          startTimer = setTimeout(() => {
+            if (!settled && !started && token === generation) block();
+          }, 1500);
+        },
+      };
+      function markStarted() {
+        if (settled || token !== generation || started) return;
+        started = true;
+        clearTimeout(startTimer);
+        clearTimeout(watchdog);
+        watchdog = setTimeout(
+          () => current.settle("failed"),
+          Math.max(15000, Math.min(180000, text.length * 300 + 10000)),
+        );
+        setState("speaking");
+        // File TTS has no word timestamps. Show the real clip's caption only.
+        onCaption?.(splitSpeechCaptions(text)[0]?.text || text);
+      }
+      function block() {
+        if (settled || token !== generation) return;
+        clearTimeout(startTimer);
+        clearTimeout(watchdog);
+        watchdog = setTimeout(() => current.settle("failed"), 120000);
+        setState("blocked");
+        deps.onSilent?.("浏览器已拦截回答播放，点播放图标即可继续听。");
+      }
+      element.src = url;
+      element.muted = false;
+      element.onplaying = markStarted;
+      element.onended = () => current.settle("ended");
+      element.onerror = () => current.settle("failed");
+      playback = current;
+      current.retry();
     });
-
-    const audio = makeAudio();
-    current.audio = audio;
-    current.done = settle;
-    audio.src = url;
-    // A decode failure must not hang the queue; fall back for the remainder.
-    audio.onerror = () => {
-      audio.dataset.failed = "1";
-      settle();
-    };
-
-    playback = current;
-    setState("speaking");
-    const started = await attemptPlay(audio, token, settle);
-    if (token !== generation) {
-      release(current);
-      playback = null;
-      return true;
-    }
-    if (!started) {
-      // play() was deferred rather than audio failing. Skip the cloud for now
-      // so this reply still gets a voice, and let a gesture bring it back.
-      release(current);
-      playback = null;
-      cloudPaused = true;
-      return false;
-    }
-
-    // Watchdog: a stalled element must not block the conversation forever.
-    const watchdog = setTimeout(
-      settle,
-      Math.max(15000, Math.min(180000, text.length * 300 + 10000)),
-    );
-    await finished;
-    clearTimeout(watchdog);
-
-    const failed = audio.dataset.failed === "1";
-    release(current);
-    if (playback === current) playback = null;
-    return !failed;
   }
 
   return {
@@ -271,82 +360,98 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
       return state;
     },
     get supported() {
-      return !cloudDisabled && !cloudPaused;
+      return Date.now() >= cloudUnavailableUntil;
     },
-    /**
-     * Prime audio playback from a user gesture so later, gestureless replies
-     * can still be spoken. Browsers only grant that permission inside a
-     * gesture, and a reply that arrives seconds after a typed question is
-     * well outside that window. Returns whether the cloud is now usable.
-     */
+    /** Prime THIS player on the first meaningful interaction, or resume its blocked clip. */
     unlock(): boolean {
-      if (cloudDisabled) return false;
-      if (!cloudPaused) return true;
-      if (state !== "idle") return true;
-      const element = makeAudio();
-      element.muted = true;
-      const silent =
-        "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQQAAAAAAAAA";
-      element.src = silent;
-      const restored = () => {
-        cloudPaused = false;
-      };
-      element.play().then(restored, () => undefined);
-      // The element is only a key to the permission; the real clips get their
-      // own element. Dropping the reference lets it be collected.
+      if (playback) {
+        if (state === "blocked") playback.retry();
+        return true;
+      }
+      if (Date.now() < cloudUnavailableUntil) return false;
+      if (primed || priming) return true;
+      const element = player();
+      const url = URL.createObjectURL(silentWav());
+      let resolve: () => void = () => undefined;
+      const promise = new Promise<void>((done) => {
+        resolve = done;
+      });
+      let settled = false;
+      const timer = setTimeout(done, 1500);
+      function done() {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (priming?.promise === promise) priming = null;
+        element.onended = element.onerror = null;
+        element.pause();
+        element.removeAttribute("src");
+        element.load();
+        URL.revokeObjectURL(url);
+        resolve();
+      }
+      priming = { done, promise };
+      element.src = url;
+      element.muted = false;
       element.onended = () => {
-        restored();
+        primed = true;
+        done();
       };
+      element.onerror = done;
+      try {
+        // A muted disposable element does not grant playback to later players.
+        const attempt = element.play();
+        Promise.resolve(attempt).then(() => {
+          if (!settled) {
+            primed = true;
+            done();
+          }
+        }, done);
+      } catch {
+        done();
+      }
       return true;
     },
-    /** Speak `text`, falling back to the browser voice if the cloud fails. */
-    async speak(text: string): Promise<void> {
+    async speak(text: string, onCaption?: Caption): Promise<boolean> {
+      cancel();
       const clean = speakableText(text);
-      if (!clean) return;
-
-      const token = ++generation;
-      release(playback);
-      playback = null;
-
-      if (!cloudDisabled && !cloudPaused) {
-        const segments = splitForSpeech(clean);
-        let ok = true;
-        for (let index = 0; index < segments.length; index++) {
-          if (token !== generation) return;
-          // Only the first clip shows a loading state; the rest stream on.
-          if (index === 0) setState("loading");
-          const played = await playClip(segments[index], token);
-          if (!played) {
-            ok = false;
+      if (!clean) return false;
+      const token = generation;
+      const segments = splitForSpeech(clean);
+      let remaining = 0;
+      if (Date.now() >= cloudUnavailableUntil) {
+        for (; remaining < segments.length; remaining++) {
+          if (token !== generation) return false;
+          setState("loading");
+          const blob = await fetchClip(segments[remaining], token);
+          if (token !== generation) return false;
+          const outcome = blob
+            ? await playClip(segments[remaining], blob, token, onCaption)
+            : "failed";
+          if (token !== generation || outcome === "cancelled") return false;
+          if (outcome === "failed") {
+            cloudUnavailableUntil = Date.now() + 60000;
+            deps.onFallback?.("云端语音暂不可用，本轮尝试系统朗读。");
             break;
           }
         }
-        if (token !== generation) return;
-        if (ok) {
+        if (remaining === segments.length) {
           setState("idle");
-          return;
-        }
-        if (cloudPaused) {
-          // A gesture can lift this, so it is not treated as a dead service.
-          deps.onFallback?.(
-            "浏览器尚未允许自动播放，本轮先用系统朗读；点一下页面即可恢复小开音色。",
-          );
-        } else {
-          // The service itself refused us. Retrying it each reply is waste.
-          cloudDisabled = true;
-          deps.onFallback?.("云端语音暂不可用，已切换浏览器朗读。");
+          return true;
         }
       }
-
-      if (token !== generation) return;
-      const spoke = await speakWithBrowser(clean);
-      if (token === generation) setState("idle");
-      // Nothing was audible through either path. Say so in writing rather than
-      // letting the visitor conclude the feature is simply broken.
-      if (!spoke && !silenceReported) {
-        silenceReported = true;
-        deps.onSilent?.("当前浏览器没有可用的朗读声音，请检查系统音量或浏览器设置。");
-      }
+      if (token !== generation) return false;
+      // Never repeat cloud clips that already finished successfully.
+      const success = await speakWithBrowser(
+        segments.slice(remaining).join(""),
+        token,
+        onCaption,
+      );
+      if (token !== generation) return false;
+      setState("idle");
+      if (!success)
+        deps.onSilent?.("回答未能播放，可点播放图标重试；也请检查设备音量。");
+      return success;
     },
     cancel,
   };

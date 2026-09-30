@@ -55,6 +55,11 @@ export function createVoiceConversation(
     onTranscript: (text: string) => void;
     onNotice: (text: string) => void;
     onCaption?: (text: string) => void;
+    speakAnswer?: (
+      text: string,
+      onCaption: (text: string) => void,
+    ) => Promise<boolean>;
+    cancelSpeech?: () => void;
   },
 ) {
   let generation = 0;
@@ -62,6 +67,7 @@ export function createVoiceConversation(
   let phase: VoicePhase = "idle";
   let recognition: Recognition | null = null;
   let utterance: Utterance | null = null;
+  let externalSpeech = false;
   let caption = "";
   let watchdog: ReturnType<typeof setTimeout> | undefined;
   const update = (value: VoicePhase) => {
@@ -74,6 +80,10 @@ export function createVoiceConversation(
     callbacks.onCaption?.(value);
   };
   function cancelAudio() {
+    if (externalSpeech) {
+      externalSpeech = false;
+      callbacks.cancelSpeech?.();
+    }
     if (recognition) {
       const previous = recognition;
       recognition = null;
@@ -145,6 +155,25 @@ export function createVoiceConversation(
             }
             const captions = splitSpeechCaptions(answer);
             updateCaption(captions[0]?.text || "");
+            if (callbacks.speakAnswer) {
+              externalSpeech = true;
+              update("speaking");
+              void callbacks
+                .speakAnswer(answer, (caption) => {
+                  if (active && turn === generation) updateCaption(caption);
+                })
+                .then((success) => {
+                  if (!active || turn !== generation) return;
+                  externalSpeech = false;
+                  if (success) listen();
+                  else stop("回答未能播放。可点播放图标重试，或查看文字记录。");
+                })
+                .catch(() => {
+                  if (active && turn === generation)
+                    stop("回答未能播放。可点播放图标重试，或查看文字记录。");
+                });
+              return;
+            }
             if (!environment.utterance || !environment.speak) {
               callbacks.onNotice(
                 "此浏览器不能朗读回答，请查看字幕；你可以继续说话。",
