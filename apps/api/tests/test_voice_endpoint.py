@@ -261,3 +261,14 @@ def test_cache_hits_do_not_consume_the_global_budget(monkeypatch):
     assert repeat.status_code == 200
     assert repeat.headers["x-voice-cache"] == "hit"
     assert len(calls) == 1
+
+
+def test_upstream_timeout_returns_recoverable_error_without_raw_details(monkeypatch):
+    def handler(request):
+        raise httpx.ReadTimeout("synthetic private upstream detail", request=request)
+
+    _install_transport(monkeypatch, handler)
+    response = _client(_settings()).post("/api/v1/voice/speech", json={"text": "测试语音"})
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "VOICE_SYNTHESIS_FAILED"
+    assert "private upstream" not in response.text

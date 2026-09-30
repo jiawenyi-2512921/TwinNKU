@@ -232,3 +232,39 @@ def test_cache_key_differs_by_model_and_voice():
 def test_synthesizer_requires_at_least_one_tier():
     with pytest.raises(ValueError):
         VoiceSynthesizer(api_key="sk-ws-test", base_url="https://example.invalid", tiers=())
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("base", ["https://example.invalid", "https://example.invalid/api/v1/"])
+async def test_origin_and_sdk_base_use_the_same_tts_endpoint(base):
+    requested = []
+
+    def handler(request):
+        requested.append(str(request.url))
+        return httpx.Response(200, json=_audio_body())
+
+    synthesizer = VoiceSynthesizer(
+        api_key="synthetic-test-key",
+        base_url=base,
+        tiers=TIERS,
+        transport=httpx.MockTransport(handler),
+    )
+    await synthesizer.synthesize("测试语音")
+    assert requested == [
+        "https://example.invalid/api/v1/services/aigc/multimodal-generation/generation"
+    ]
+
+
+@pytest.mark.anyio
+async def test_transport_failure_is_sanitized_and_does_not_retry_billable_synthesis():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        raise httpx.ReadTimeout("synthetic private upstream detail", request=request)
+
+    with pytest.raises(VoiceSynthesisError) as error:
+        await _synthesizer(handler).synthesize("测试语音")
+    assert len(calls) == 1
+    assert error.value.last_code == "TransportError"
+    assert "private upstream" not in str(error.value)
