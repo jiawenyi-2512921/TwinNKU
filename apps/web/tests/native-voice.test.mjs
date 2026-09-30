@@ -6,7 +6,7 @@ import { canAutoApply } from "../src/features/agent/native.ts";
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 function harness(
   answer = async () => "这是校园资料回答。",
-  { recognition = true, synthesis = true } = {},
+  { recognition = true, synthesis = true, externalSpeech } = {},
 ) {
   const recognizers = [],
     utterances = [],
@@ -58,6 +58,12 @@ function harness(
     onTranscript: (value) => transcripts.push(value),
     onNotice: (value) => notices.push(value),
     onCaption: (value) => captions.push(value),
+    ...(externalSpeech
+      ? {
+          speakAnswer: externalSpeech.speak,
+          cancelSpeech: externalSpeech.cancel,
+        }
+      : {}),
   });
   const result = (text, final = true) => ({
     results: [{ isFinal: final, 0: { transcript: text } }],
@@ -308,4 +314,84 @@ test("all media still needs explicit server intent and unknown action types rema
     canAutoApply({ type: "show_tour", context_revision: 9 }, 9, 10),
     false,
   );
+});
+
+test("dictated replies use the injected cloud reader and await its completion before listening", async () => {
+  let finish;
+  const spoken = [];
+  const h = harness(undefined, {
+    externalSpeech: {
+      speak(text, caption) {
+        spoken.push(text);
+        caption("真实音频对应的字幕。");
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      },
+      cancel() {},
+    },
+  });
+  h.controller.start();
+  h.recognizers[0].onresult(h.result("介绍图书馆"));
+  await settle();
+  assert.deepEqual(spoken, ["这是校园资料回答。"]);
+  assert.equal(
+    h.utterances.length,
+    0,
+    "never uses the old browser-only reader",
+  );
+  assert.equal(
+    h.recognizers.length,
+    1,
+    "microphone stays off during cloud playback",
+  );
+  assert.equal(h.captions.at(-1), "真实音频对应的字幕。");
+  finish(true);
+  await settle();
+  assert.equal(h.recognizers.length, 2);
+  assert.equal(h.phases.at(-1), "listening");
+  h.controller.stop();
+});
+test("interrupt and stop cancel the cloud reader; late captions and end cannot restart the mic", async () => {
+  for (const action of ["interrupt", "stop"]) {
+    let finish, caption;
+    let cancelled = 0;
+    const h = harness(undefined, {
+      externalSpeech: {
+        speak(_text, callback) {
+          caption = callback;
+          return new Promise((resolve) => {
+            finish = resolve;
+          });
+        },
+        cancel() {
+          cancelled++;
+        },
+      },
+    });
+    h.controller.start();
+    h.recognizers[0].onresult(h.result("问题"));
+    await settle();
+    h.controller[action]();
+    const before = h.recognizers.length;
+    caption("迟到的旧字幕");
+    finish(true);
+    await settle();
+    assert.equal(cancelled, 1);
+    assert.equal(h.recognizers.length, before);
+    assert.notEqual(h.captions.at(-1), "迟到的旧字幕");
+    h.controller.stop();
+  }
+});
+test("failure of both cloud and system speech pauses with a visible recovery notice", async () => {
+  const h = harness(undefined, {
+    externalSpeech: { speak: async () => false, cancel() {} },
+  });
+  h.controller.start();
+  h.recognizers[0].onresult(h.result("问题"));
+  await settle();
+  assert.equal(h.recognizers.length, 1);
+  assert.equal(h.phases.at(-1), "idle");
+  assert.match(h.notices.at(-1), /未能播放.*播放图标/);
+  h.controller.stop();
 });

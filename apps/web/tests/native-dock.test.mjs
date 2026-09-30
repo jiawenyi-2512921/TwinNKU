@@ -7,7 +7,10 @@ import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
 import { canAutoApply, NativeError } from "../src/features/agent/native.ts";
 import { createVoiceConversation } from "../src/features/agent/voice.ts";
-import { createCloudSpeaker } from "../src/features/agent/cloudVoice.ts";
+import {
+  createBrowserSpeechFallback,
+  createCloudSpeaker,
+} from "../src/features/agent/cloudVoice.ts";
 import { externalPanoramaUrl } from "../src/features/points/panorama.ts";
 
 // Controlled React hooks check the component's actual event handlers and state,
@@ -67,7 +70,12 @@ const reply = {
   ],
   notices: [],
 };
-function harness({ voiceEnvironment = {}, sessionError } = {}) {
+function harness({
+  voiceEnvironment = {},
+  sessionError,
+  cloudFetch,
+  createAudio,
+} = {}) {
   const slots = [],
     cleanups = new Map(),
     pending = [],
@@ -231,12 +239,36 @@ function harness({ voiceEnvironment = {}, sessionError } = {}) {
         };
       if (name === "./cloudVoice")
         return {
+          createBrowserSpeechFallback,
           createCloudSpeaker: (options = {}) =>
             createCloudSpeaker({
               ...options,
-              // Tests must never reach the network; failing here also
-              // proves the browser fallback still runs.
-              fetchImpl: async () => ({ ok: false, blob: async () => new Blob([]) }),
+              // Controlled clips exercise playback without reaching the network.
+              fetchImpl:
+                cloudFetch ??
+                (async () => ({
+                  ok: true,
+                  blob: async () => new Blob([new Uint8Array(64)]),
+                })),
+              createAudio:
+                createAudio ??
+                (() => ({
+                  src: "",
+                  muted: false,
+                  paused: true,
+                  currentTime: 0,
+                  play() {
+                    this.paused = false;
+                    queueMicrotask(() => {
+                      this.onplaying?.();
+                      this.onended?.();
+                    });
+                    return Promise.resolve();
+                  },
+                  pause() {},
+                  load() {},
+                  removeAttribute() {},
+                })),
             }),
         };
       if (name === "./native.css") return {};
@@ -1205,4 +1237,165 @@ test("minimize pauses voice and expanding the small fairy does not restart it", 
   assert.equal(mic.starts, 1);
   assert.equal(find(h.render(), (node) => node.type === "textarea").length, 0);
   h.unmount();
+});
+
+function cloudPlayer() {
+  const players = [];
+  let blocked = false;
+  return {
+    players,
+    setBlocked(value) {
+      blocked = value;
+    },
+    create() {
+      const player = {
+        src: "",
+        muted: false,
+        paused: true,
+        currentTime: 0,
+        played: 0,
+        onplaying: null,
+        onended: null,
+        onerror: null,
+        pause() {
+          this.paused = true;
+        },
+        load() {},
+        removeAttribute() {
+          this.src = "";
+        },
+        play() {
+          this.played++;
+          if (blocked)
+            return Promise.reject(
+              new DOMException("blocked", "NotAllowedError"),
+            );
+          this.paused = false;
+          queueMicrotask(() => this.onplaying?.());
+          return Promise.resolve();
+        },
+      };
+      players.push(player);
+      return player;
+    },
+  };
+}
+
+test("actual dock microphone path requests cloud speech once and resumes after audio ends", async () => {
+  const clips = [],
+    mics = [],
+    player = cloudPlayer();
+  const h = harness({
+    voiceEnvironment: {
+      recognize() {
+        const mic = { start() {}, abort() {} };
+        mics.push(mic);
+        return mic;
+      },
+    },
+    createAudio: player.create,
+    cloudFetch: async (_url, init) => {
+      clips.push(JSON.parse(init.body).text);
+      return { ok: true, blob: async () => new Blob([new Uint8Array(64)]) };
+    },
+  });
+  await h.open();
+  h.button("开启语音交流").props.onClick();
+  h.render();
+  mics[0].onresult({
+    results: [{ isFinal: true, 0: { transcript: "介绍图书馆" } }],
+  });
+  await settle();
+  h.render();
+  assert.deepEqual(clips, [reply.answer]);
+  assert.equal(mics.length, 1);
+  assert.equal(
+    find(h.render(), (node) => node.type === "companion")[0].props.phase,
+    "speaking",
+  );
+  player.players[0].onended();
+  await settle();
+  h.render();
+  assert.equal(mics.length, 2);
+  assert.equal(clips.length, 1, "no duplicate announcement");
+  h.unmount();
+});
+test("autoplay recovery notice outranks answer captions and play icon resumes without a new TTS call", async () => {
+  const player = cloudPlayer();
+  player.setBlocked(true);
+  let requests = 0;
+  const h = harness({
+    createAudio: player.create,
+    cloudFetch: async () => {
+      requests++;
+      return { ok: true, blob: async () => new Blob([new Uint8Array(64)]) };
+    },
+  });
+  await h.open();
+  await h.ask();
+  await settle();
+  h.button("收起文字抽屉").props.onClick();
+  const captions = find(
+    h.render(),
+    (node) => node.props?.id === "native-agent-captions",
+  )[0];
+  assert.match(words(captions), /浏览器已拦截.*播放图标/);
+  const before = player.players[0].played;
+  player.setBlocked(false);
+  h.button("播放回答").props.onClick();
+  assert.equal(player.players[0].played, before + 1);
+  await settle();
+  assert.equal(requests, 1);
+  player.players[0].onended();
+  await settle();
+  h.unmount();
+});
+test("system synthesis absence is visible instead of hidden behind the answer", async () => {
+  const h = harness({ cloudFetch: async () => ({ ok: false }) });
+  await h.open();
+  await h.ask();
+  await settle();
+  assert.match(words(h.render()), /回答未能播放/);
+  h.button("收起文字抽屉").props.onClick();
+  assert.match(
+    words(
+      find(h.render(), (node) => node.props?.id === "native-agent-captions")[0],
+    ),
+    /未能播放/,
+  );
+  assert.ok(h.button("播放回答"));
+  h.unmount();
+});
+test("background, close and mute abort pending typed speech; late audio cannot play", async () => {
+  for (const action of ["background", "close", "mute"]) {
+    let complete, signal;
+    const player = cloudPlayer(),
+      h = harness({
+        createAudio: player.create,
+        cloudFetch: (_url, init) => {
+          signal = init.signal;
+          return new Promise((resolve) => {
+            complete = resolve;
+          });
+        },
+      });
+    await h.open();
+    await h.ask();
+    await settle();
+    if (action === "background") h.setVisibility("hidden");
+    else if (action === "close") h.button("收起小开并暂停语音").props.onClick();
+    else h.button("关闭回答播报").props.onClick();
+    assert.equal(signal.aborted, true);
+    const before = player.players.reduce(
+      (total, item) => total + item.played,
+      0,
+    );
+    complete({ ok: true, blob: async () => new Blob([new Uint8Array(64)]) });
+    await settle();
+    assert.equal(
+      player.players.reduce((total, item) => total + item.played, 0),
+      before,
+    );
+    h.unmount();
+  }
 });
