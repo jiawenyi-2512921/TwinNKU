@@ -24,9 +24,7 @@ print("PASS frontend index")
 with urllib.request.urlopen(base + "/api/v1/system/status", timeout=10) as response:
     capabilities = json.load(response)["data"]["capabilities"]
 if capabilities["map"]:
-    with urllib.request.urlopen(
-        base + "/api/v1/campuses/nku-jinnan/maps", timeout=10
-    ) as response:
+    with urllib.request.urlopen(base + "/api/v1/campuses/nku-jinnan/maps", timeout=10) as response:
         maps = json.load(response)["data"]
     assert maps, "map capability enabled without a published map"
     for info in maps:
@@ -36,10 +34,7 @@ if capabilities["map"]:
             base + f"/api/v1/maps/{info['id']}/features", timeout=10
         ) as response:
             features = json.load(response)["data"]
-            assert (
-                features["map_id"] == info["id"]
-                and features["map_revision"] == info["revision"]
-            )
+            assert features["map_id"] == info["id"] and features["map_revision"] == info["revision"]
         tile = info["tiles"]["url_template"].format(z=0, x=0, y=0)
         with urllib.request.urlopen(base + tile, timeout=10) as response:
             assert response.headers["Content-Type"] == "image/png"
@@ -71,9 +66,7 @@ if capabilities["floors"]:
             assert floor["point_id"] == point["id"]
             assert {a["variant"] for a in floor["images"]} == {"labeled"}
             for asset in floor["images"]:
-                with urllib.request.urlopen(
-                    base + asset["url"], timeout=30
-                ) as response:
+                with urllib.request.urlopen(base + asset["url"], timeout=30) as response:
                     data = response.read()
                     assert response.headers["Content-Type"] == asset["media_type"]
                     assert len(data) == asset["size_bytes"]

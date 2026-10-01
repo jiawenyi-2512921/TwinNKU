@@ -1,9 +1,7 @@
 {
   "schema_version": 1,
-  "source_note": "用户提供的前19项91层目录；按2026-09-23最新指示，只交付有标注图，无标注图和实拍不打包。第20项楼层资料未完成不导入；目录可见不等同图片已收到或已发布。",
-  "excluded_source_numbers": [
-    20
-  ],
+  "source_note": "2026-09-24 按用户提供飞书目录逐层核对的20栋、96个楼层、100张标注原图；只复制原文件，不含实拍或无标注图。",
+  "excluded_source_numbers": [],
   "buildings": [
     {
       "source_number": 1,
@@ -19,7 +17,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "69134d8b-fade-591a-b981-d771f9ab035d",
@@ -29,7 +27,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "dc93f7be-8860-5c2d-985d-7d5850406c0d",
@@ -39,7 +37,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "785324ae-f6f9-5edc-bd3e-50e12989dc92",
@@ -49,7 +47,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "43caabcd-535f-505c-b236-d1e9671990eb",
@@ -59,9 +57,10 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/DWkOfHeDXljwzWdao8HcqpomnUh"
     },
     {
       "source_number": 2,
@@ -77,7 +76,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "e93eec3a-e8f8-5730-9adb-06ffedcef7ff",
@@ -87,7 +86,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "3fe6ab27-47c8-53e0-95d5-6769f41a8eef",
@@ -97,7 +96,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "cdc0ddff-1726-5a92-99fc-3f91b13b1e35",
@@ -107,7 +106,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "117d2316-30a2-53c6-919c-0826af0fe512",
@@ -117,9 +116,10 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/TcPhfloNnlVpMHd3DYmcQBX2nrc"
     },
     {
       "source_number": 3,
@@ -135,7 +135,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "587e7780-6ec0-5156-94d4-afd7aca88da5",
@@ -145,7 +145,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "0e4b29a2-ce38-5246-9e94-2bf89d43aa5a",
@@ -155,7 +155,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "e64e73db-52b8-544b-a214-71215a708103",
@@ -165,9 +165,10 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/VzfqfRv1dleYjgdNVOhcO961nKd"
     },
     {
       "source_number": 4,
@@ -183,7 +184,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "fbb5b965-f89b-5618-871f-1128a075b845",
@@ -193,7 +194,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "ea8497a4-f97d-573f-a207-2bdd0b272ae0",
@@ -203,7 +204,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "927a2145-cb2d-57ea-8a90-b05b3bb706fa",
@@ -213,7 +214,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "27a9389a-b9fd-51ec-b5f8-d27f46ef1875",
@@ -223,9 +224,10 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/WVGNfu3dJljAu0dWYu2cFLfQngc"
     },
     {
       "source_number": 5,
@@ -241,7 +243,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "6e49c283-5ff9-562b-b395-9b5696a06ca7",
@@ -251,7 +253,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "9fee5481-78a9-5764-b2e0-4f9b57007e3f",
@@ -261,7 +263,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "a0d502f5-d3db-5a08-a50a-b292d3a00d01",
@@ -271,7 +273,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "e802d4ee-ccb5-56d2-931a-c806adb31289",
@@ -281,9 +283,10 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/ZxoCfhEshl2s42dk5YjcKk3gnzh"
     },
     {
       "source_number": 6,
@@ -299,7 +302,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "df92c1d1-e9b1-5482-81d6-5ed4bb8e3196",
@@ -309,7 +312,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "ddb1ae1e-7cac-5a7a-adf0-e1882075eb1d",
@@ -319,7 +322,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "09f93d31-bc26-5b10-b8c7-528a96db34b8",
@@ -329,9 +332,10 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/AYKvf5US7lDZ2ldqHYOcWiNXnOc"
     },
     {
       "source_number": 7,
@@ -347,7 +351,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "ac149f14-f1a1-5961-9973-e787332c3bc8",
@@ -357,7 +361,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "b4f56921-0ee6-55e8-969e-e92979bfbeca",
@@ -367,7 +371,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "f1fdde98-195e-5c81-8294-7bd6a46e9688",
@@ -377,7 +381,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "f62c2769-dc16-5f83-95b3-96cb20c9d166",
@@ -387,7 +391,7 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "751f334e-5bf9-5d6e-a600-53da1cc4e493",
@@ -397,9 +401,10 @@
           "ordinal": 6,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/LvfPfehuCl1cevdbWt5cdDWhnpg"
     },
     {
       "source_number": 8,
@@ -415,7 +420,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "f60f9d99-1c50-5423-9450-1fd2b3b84441",
@@ -425,7 +430,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "202b2fa0-e407-575a-9a63-4a35b80b61fe",
@@ -435,9 +440,10 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/MrnDf3Vm0lBFeHd7Al7cyiblnwb"
     },
     {
       "source_number": 9,
@@ -453,7 +459,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "a42d3579-3ba7-5cf2-a610-2371a423014d",
@@ -463,9 +469,10 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/IjXEfV20VldG49d2g5NcKhmTnbf"
     },
     {
       "source_number": 10,
@@ -481,7 +488,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "fcab260a-9802-530c-8e88-2273ea8fc5d3",
@@ -491,7 +498,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "39afdd8c-29d8-5ce5-bdb8-c6d2bf53ae46",
@@ -501,7 +508,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "f1e29fd9-ef58-5c07-b2ac-1f504b441ebb",
@@ -511,7 +518,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "6e0cedac-647e-5db8-9865-195707284aac",
@@ -521,9 +528,10 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/L7kOfJbt0li52RdxRv1chMdvnEf"
     },
     {
       "source_number": 11,
@@ -539,7 +547,24 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready",
+          "labeled_sections": [
+            {
+              "section": "a",
+              "section_label": "A区",
+              "labeled_file": null
+            },
+            {
+              "section": "b",
+              "section_label": "B区",
+              "labeled_file": null
+            },
+            {
+              "section": "c",
+              "section_label": "C区",
+              "labeled_file": null
+            }
+          ]
         },
         {
           "id": "4cd7ad10-17d9-5f46-9650-3836bb2ccc6c",
@@ -549,7 +574,24 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready",
+          "labeled_sections": [
+            {
+              "section": "a",
+              "section_label": "A区",
+              "labeled_file": null
+            },
+            {
+              "section": "b",
+              "section_label": "B区",
+              "labeled_file": null
+            },
+            {
+              "section": "c",
+              "section_label": "C区",
+              "labeled_file": null
+            }
+          ]
         },
         {
           "id": "838696ae-4fdc-5410-9fda-58ae8f1c83f6",
@@ -559,7 +601,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "c73f2863-bcc7-597e-95e5-36c3d0589207",
@@ -569,9 +611,17 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready",
+          "labeled_sections": [
+            {
+              "section": "a",
+              "section_label": "A区",
+              "labeled_file": null
+            }
+          ]
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/R8XHfiLYjlbU3OdC0RTcPeesnxg"
     },
     {
       "source_number": 12,
@@ -587,7 +637,7 @@
           "ordinal": 1,
           "revision": 2,
           "labeled_file": null,
-          "status": "labeled_received_in_release"
+          "status": "bundle_ready"
         },
         {
           "id": "7452ddd5-d9f0-57e2-b363-4a8d4865ac18",
@@ -597,7 +647,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "62cea063-4643-50e1-9ebc-bee196a87173",
@@ -607,7 +657,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "49263bc5-9443-5785-950b-9b3581d45ce0",
@@ -617,7 +667,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "98787711-7980-58c0-a377-286404269070",
@@ -627,7 +677,7 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "447fb173-9343-55b9-b732-713a9306e678",
@@ -637,9 +687,10 @@
           "ordinal": 7,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/N9yXfbm2glhMNvdk4H2c5Ufynwd"
     },
     {
       "source_number": 13,
@@ -655,7 +706,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "4c4aaf0e-00f5-5226-8f1f-46180e11175d",
@@ -665,7 +716,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "b34e6cac-c486-572a-a0c3-71674331fb8d",
@@ -675,7 +726,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "c62002e2-346e-5415-b7b4-cfac42360d95",
@@ -685,7 +736,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "0eb7f605-f4a0-5353-8459-f1cc4d057018",
@@ -695,7 +746,7 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "7e9c0b47-fb52-579f-bc3f-31f561c8bc63",
@@ -705,9 +756,10 @@
           "ordinal": 6,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/CgiyfUXhalKVkVdlgDRc5KG5ntc"
     },
     {
       "source_number": 14,
@@ -723,7 +775,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "ad6a47a6-c3cf-52c6-b2fd-ce7ec24d2260",
@@ -733,7 +785,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "f562ef2a-1c61-54ef-9069-983f443a85f8",
@@ -743,7 +795,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "5c91cc97-0bb4-5efc-aa11-ceb7ed529801",
@@ -753,7 +805,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "73d9f477-f236-59f6-afbb-1ecd3f42f97a",
@@ -763,7 +815,7 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "70fdc32d-84d5-5910-a28f-6e4a766b6aa9",
@@ -773,9 +825,10 @@
           "ordinal": 6,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/Ci26fU7LblY2tPdMlEVcySYjnxh"
     },
     {
       "source_number": 15,
@@ -791,7 +844,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "7d83e995-e05e-5b07-a918-54bc8b7faac9",
@@ -801,7 +854,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "d965beca-6095-5b5a-acdf-38d5c8c2b357",
@@ -811,7 +864,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "a7ca6320-3b09-5765-8024-ff0791441636",
@@ -821,7 +874,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "15ac4a4b-f05f-514d-9d45-88182a638cb8",
@@ -831,7 +884,7 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "4194f6ad-4b9d-548f-94e7-4de9b3ecdd18",
@@ -841,9 +894,10 @@
           "ordinal": 6,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/X2Rpf0BamlhOSudk5CDclkWdn2b"
     },
     {
       "source_number": 16,
@@ -859,7 +913,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "1f61c140-6f0f-5efc-9eef-22680d93e00b",
@@ -869,7 +923,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "718891ed-3ec0-5993-a3b5-6b74630413db",
@@ -879,7 +933,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "f4ba33ad-03f7-5d98-867c-e4df9f7aa892",
@@ -889,9 +943,10 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/U3A3fL8jelRNg9d2Q7ucLoobncc"
     },
     {
       "source_number": 17,
@@ -907,7 +962,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "1a388355-6af8-5f5d-bd7f-e997a50f0930",
@@ -917,7 +972,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "52274374-82bb-57a4-8b56-fb4908af64ea",
@@ -927,7 +982,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "f5d59064-790c-5ca7-8e80-dad5554c0934",
@@ -937,7 +992,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "b4e13fdb-80c9-5c3f-b6aa-2a95ffb11c5f",
@@ -947,7 +1002,7 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "c2f1d992-fdee-5bb8-8c8e-77e9d7a4815d",
@@ -957,9 +1012,10 @@
           "ordinal": 6,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/InWafdPOUlba2Cd0fSvc3W6TnKe"
     },
     {
       "source_number": 18,
@@ -975,7 +1031,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "8c145940-825a-56b9-9ab2-adc054a915be",
@@ -985,7 +1041,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "3af3afc8-5174-5da9-8bdf-8129ea075006",
@@ -995,7 +1051,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "821dc696-509b-57d4-a023-51ddd0682b87",
@@ -1005,9 +1061,10 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/VZggfihKFlIqjLdWRoSc4OOmnge"
     },
     {
       "source_number": 19,
@@ -1023,7 +1080,7 @@
           "ordinal": 1,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "0845260b-22b3-5df1-bba6-984e14b4d1df",
@@ -1033,7 +1090,7 @@
           "ordinal": 2,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "f175954d-e118-5cf0-8bc1-fae845821308",
@@ -1043,7 +1100,7 @@
           "ordinal": 3,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "73c5b70e-8320-577b-a492-4b7edf425063",
@@ -1053,7 +1110,7 @@
           "ordinal": 4,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         },
         {
           "id": "8c5557f5-7a34-54ba-91f4-43a427d5449a",
@@ -1063,9 +1120,69 @@
           "ordinal": 5,
           "revision": 1,
           "labeled_file": null,
-          "status": "awaiting_source_files"
+          "status": "bundle_ready"
         }
-      ]
+      ],
+      "source_folder": "https://nankai.feishu.cn/drive/folder/WsxVfqwlal7X1Ud8CuFcXGRknFh"
+    },
+    {
+      "source_number": 20,
+      "name": "综合实验楼C区",
+      "point_id": "16d2e605-c0eb-53d5-98c5-d374797479dc",
+      "floors": [
+        {
+          "id": "e462ff86-afae-5465-97cb-5b76b56cbf4d",
+          "map_id": "7677f142-c49e-5011-b961-d3ad4749cdf6",
+          "label": "1层",
+          "ordinal": 1,
+          "source_label": "一楼",
+          "revision": 1,
+          "status": "bundle_ready",
+          "labeled_file": null
+        },
+        {
+          "id": "7147e904-e3e0-5f91-9111-fdefe151d366",
+          "map_id": "daae0632-09dc-549c-911f-14b1480c4e57",
+          "label": "2层",
+          "ordinal": 2,
+          "source_label": "二楼",
+          "revision": 1,
+          "status": "bundle_ready",
+          "labeled_file": null
+        },
+        {
+          "id": "eed0d62d-140e-54fe-a86c-65c01048ce33",
+          "map_id": "eeededd4-4df3-5dd3-b57f-820c97f9cc35",
+          "label": "3层",
+          "ordinal": 3,
+          "source_label": "三楼",
+          "revision": 1,
+          "status": "bundle_ready",
+          "labeled_file": null
+        },
+        {
+          "id": "25bbcb2d-0c0c-5aa7-b06d-bd80337ae4eb",
+          "map_id": "370e0836-9fd6-59f3-881f-6ff1c7ffac7f",
+          "label": "4层",
+          "ordinal": 4,
+          "source_label": "四楼",
+          "revision": 1,
+          "status": "bundle_ready",
+          "labeled_file": null
+        },
+        {
+          "id": "cb9de5fb-2d35-589a-81ed-b625ac3568cf",
+          "map_id": "da731ef5-8fcf-5c60-a850-ec5951ad7654",
+          "label": "5层",
+          "ordinal": 5,
+          "source_label": "五楼",
+          "revision": 1,
+          "status": "bundle_ready",
+          "labeled_file": null
+        }
+      ],
+      "source_name": "20.综合实验楼C区",
+      "source_folder": "https://nankai.feishu.cn/drive/folder/Md7gfZHZ5lItoXdTLWrc3SZWn1g"
     }
   ]
 }

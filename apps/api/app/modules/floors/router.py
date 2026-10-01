@@ -1,11 +1,11 @@
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse
 
 from app.api import DB, ERRORS, envelope, get_point
-from app.contracts import Envelope, Floor
+from app.contracts import FLOOR_SECTION_PATTERN, Envelope, Floor
 from app.core.errors import DomainError
 from app.models import FloorRecord
 from app.modules.floors.service import as_floor, public_floors
@@ -75,12 +75,26 @@ def get_floor(floor_id: UUID, request: Request, db: DB):
     },
 )
 def get_image(
-    floor_id: UUID, revision: int, variant: Literal["labeled", "clean"], request: Request, db: DB
+    floor_id: UUID,
+    revision: int,
+    variant: Literal["labeled", "clean"],
+    request: Request,
+    db: DB,
+    section: str = Query(default="main", pattern=FLOOR_SECTION_PATTERN),
 ):
     record = require_floor(floor_id, request, db)
     if revision != record.revision or variant != "labeled":
         raise DomainError("NOT_FOUND", "楼层图版本不存在", 404)
-    asset = next((a for a in record.images if a["variant"] == variant), None)
+    asset = next(
+        (
+            a
+            for a in record.images
+            if a["variant"] == variant and a.get("section", "main") == section
+        ),
+        None,
+    )
+    if asset is None:
+        raise DomainError("NOT_FOUND", "楼层分区不存在", 404)
     root = request.app.state.settings.floor_assets_dir.resolve()
     directory = root / record.id / str(revision)
     path = (directory / asset["filename"]).resolve() if asset else root

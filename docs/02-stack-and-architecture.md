@@ -74,7 +74,7 @@ flowchart TD
 
 ## 6. 能力开关
 
-`system/status` 返回可用能力。M00 中 map/routing/vr/floors/chat/tours/admin 全部 false。前端不可通过随意改前端开关获得后端能力。
+`system/status` 返回当前实际可用能力。早期M00全部false是历史状态；当前地图/楼层/VR/后台按各自数据和服务端开关启用，chat/routing/tours仍未实现。最新扩展设计见[23](23-architecture-and-data.md)。前端不可通过随意改前端开关获得后端能力。
 
 某模块只有在代码完成、数据可用、必要的权限控制就绪及验收通过后才开启。第三方不可用须体现降级，而不是返回固定成功文本。聊天关闭不影响资料浏览。
 

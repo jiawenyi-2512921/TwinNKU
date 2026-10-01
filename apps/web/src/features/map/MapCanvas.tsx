@@ -7,8 +7,17 @@ import type {
   Point,
   RouteSegment,
 } from "../../shared/api/client";
-import { Icon } from "../../shared/ui/Icon";
+import type { RoutePickMode } from "./NavigationPanel";
 import { imageBounds, toMapPoint } from "./coordinates";
+import { appendMapLabelCorrections } from "./labelCorrections";
+import {
+  watchMapTiles,
+  type TileLoadController,
+  type TileLoadState,
+} from "./tileLoad";
+
+const EMPTY_ROUTE_SEGMENTS: RouteSegment[] = [];
+const EMPTY_POINT_IDS: string[] = [];
 
 type Props = {
   info: MapInfo;
@@ -17,6 +26,12 @@ type Props = {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   routeSegments?: RouteSegment[];
+  routePickMode?: RoutePickMode;
+  routeStartId?: string | null;
+  routeEndId?: string | null;
+  routeAvailablePointIds?: string[];
+  onRoutePick?: (id: string) => void;
+  onRoutePickCancel?: () => void;
 };
 
 export function MapCanvas({
@@ -25,18 +40,33 @@ export function MapCanvas({
   points,
   selectedId,
   onSelect,
-  routeSegments = [],
+  routeSegments = EMPTY_ROUTE_SEGMENTS,
+  routePickMode = null,
+  routeStartId = null,
+  routeEndId = null,
+  routeAvailablePointIds = EMPTY_POINT_IDS,
+  onRoutePick,
+  onRoutePickCancel,
 }: Props) {
   const element = useRef<HTMLDivElement>(null);
   const instance = useRef<L.Map | null>(null);
-  const tileLayer = useRef<L.TileLayer | null>(null);
+  const tileLoad = useRef<TileLoadController | null>(null);
   const select = useRef(onSelect);
   select.current = onSelect;
-  const [tileError, setTileError] = useState(false);
-  const [zoom, setZoom] = useState(0);
+  const [tileState, setTileState] = useState<TileLoadState>({
+    failed: 0,
+    retrying: false,
+  });
+  const routePick = useRef({
+    mode: routePickMode,
+    onRoutePick,
+    onRoutePickCancel,
+  });
+  routePick.current = { mode: routePickMode, onRoutePick, onRoutePickCancel };
 
   useEffect(() => {
     if (!element.current || !info.tiles) return;
+    setTileState({ failed: 0, retrying: false });
     const map = L.map(element.current, {
       crs: L.CRS.Simple,
       zoomControl: false,
@@ -59,18 +89,19 @@ export function MapCanvas({
       maxZoom: info.tiles.max_native_zoom + 1,
       keepBuffer: 1,
       updateWhenIdle: true,
-    }).addTo(map);
-    tileLayer.current = layer;
-    layer.on("tileerror", () => setTileError(true));
-    map.on("zoomend", () => setZoom(map.getZoom()));
+    });
+    const loading = watchMapTiles(layer, map, setTileState);
+    tileLoad.current = loading;
+    layer.addTo(map);
     const resize = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     resize.observe(element.current);
     map.fitBounds(imageBounds(info), { padding: [18, 18], animate: false });
     return () => {
       resize.disconnect();
+      loading.dispose();
       map.remove();
       instance.current = null;
-      tileLayer.current = null;
+      tileLoad.current = null;
     };
   }, [info]);
 
@@ -104,40 +135,60 @@ export function MapCanvas({
     )) {
       const point = byId.get(feature.point_id)!;
       const selected = selectedId === point.id;
+      const eligible = routeAvailablePointIds.includes(point.id);
+      const endpoint = routeStartId === point.id || routeEndId === point.id;
+      const showCandidate = Boolean(routePickMode && eligible);
+      const color = routeStartId === point.id ? "#18785f" : "#713573";
       const base = {
-        color: "#713573",
-        weight: selected ? 2.5 : 1.5,
-        opacity: selected ? 1 : 0,
-        fillColor: "#9251a1",
-        fillOpacity: selected ? 0.2 : 0,
+        color,
+        weight: selected || endpoint ? 2.5 : 1.5,
+        opacity: selected || endpoint || showCandidate ? 1 : 0,
+        fillColor: color,
+        fillOpacity: selected || endpoint ? 0.2 : showCandidate ? 0.12 : 0,
       };
       const polygon = L.polygon(
         feature.polygon.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
         { ...base, bubblingMouseEvents: false },
       ).addTo(outlines);
       const tooltip = document.createElement("span");
-      tooltip.textContent = point.name;
+      tooltip.textContent = routePickMode
+        ? `${point.name}${eligible ? ` · 设为${routePickMode === "start" ? "起点" : "终点"}` : " · 暂无可用入口"}`
+        : point.name;
       polygon.bindTooltip(tooltip, {
         direction: "top",
         className: "point-tooltip",
         sticky: true,
       });
-      polygon.on("click", () => select.current(point.id));
+      const activate = () => {
+        if (routePick.current.mode) {
+          // Never open details while choosing an endpoint. The panel validates
+          // availability again before accepting the clicked public point.
+          routePick.current.onRoutePick?.(point.id);
+        } else select.current(point.id);
+      };
+      polygon.on("click", activate);
       polygon.on("mouseover", () =>
         polygon.setStyle({ fillOpacity: 0.24, opacity: 1 }),
       );
       polygon.on("mouseout", () => polygon.setStyle(base));
       const path = polygon.getElement();
       if (path) {
-        path.setAttribute("tabindex", "0");
+        path.setAttribute("tabindex", routePickMode && !eligible ? "-1" : "0");
         path.setAttribute("role", "button");
-        path.setAttribute("aria-label", `查看${point.name}`);
-        path.setAttribute("aria-pressed", String(selected));
+        path.setAttribute(
+          "aria-label",
+          routePickMode
+            ? `${point.name}，${eligible ? `设为${routePickMode === "start" ? "起点" : "终点"}` : "暂无可用入口"}`
+            : `查看${point.name}`,
+        );
+        if (routePickMode && !eligible)
+          path.setAttribute("aria-disabled", "true");
+        path.setAttribute("aria-pressed", String(selected || endpoint));
         path.addEventListener("keydown", (event) => {
           const key = (event as KeyboardEvent).key;
           if (key === "Enter" || key === " ") {
             event.preventDefault();
-            select.current(point.id);
+            activate();
           }
         });
         path.addEventListener("focus", () => {
@@ -153,41 +204,106 @@ export function MapCanvas({
     return () => {
       outlines.remove();
     };
-  }, [info, features, points, selectedId]);
+  }, [
+    info,
+    features,
+    points,
+    selectedId,
+    routePickMode,
+    routeStartId,
+    routeEndId,
+    routeAvailablePointIds,
+  ]);
 
   useEffect(() => {
     const map = instance.current;
-    // The base image already contains every other name. Only add the newly
-    // requested statue, in image coordinates so its lettering scales with it.
-    const statueId = "82e888ca-59f8-5c55-b8ab-4b80175c6ceb";
-    const point = points.find((p) => p.id === statueId);
-    const feature = features.points.find((p) => p.point_id === statueId);
     if (
       !map ||
       !info.tiles ||
-      !point ||
-      !feature ||
       features.map_id !== info.id ||
-      features.map_revision !== info.revision ||
-      feature.map_id !== info.id ||
-      feature.map_revision !== info.revision
+      features.map_revision !== info.revision
     )
       return;
+    const markers = L.layerGroup().addTo(map);
+    for (const [id, label, kind] of [
+      [routeStartId, "起点", "start"],
+      [routeEndId, "终点", "end"],
+    ]) {
+      const feature = features.points.find(
+        (item) =>
+          item.point_id === id &&
+          item.map_id === info.id &&
+          item.map_revision === info.revision,
+      );
+      const point = points.find((item) => item.id === id);
+      if (!feature || !point) continue;
+      const badge = document.createElement("span");
+      badge.className = `map-route-badge ${kind}`;
+      badge.textContent = label!;
+      const marker = L.marker(
+        toMapPoint(feature.anchor, info.tiles.max_native_zoom),
+        {
+          icon: L.divIcon({
+            html: badge,
+            className: "map-route-marker",
+            iconSize: [36, 28],
+            iconAnchor: [18, 28],
+          }),
+          interactive: false,
+          keyboard: false,
+          zIndexOffset: 500,
+        },
+      ).addTo(markers);
+      const text = document.createElement("span");
+      text.textContent = `${label}：${point.name}`;
+      marker.bindTooltip(text);
+    }
+    return () => {
+      markers.remove();
+    };
+  }, [info, features, points, routeStartId, routeEndId]);
+
+  useEffect(() => {
+    const map = instance.current;
+    if (
+      !map ||
+      !info.tiles ||
+      features.map_id !== info.id ||
+      features.map_revision !== info.revision
+    )
+      return;
+    const byId = new Map(points.map((point) => [point.id, point]));
+    const labels = features.points.filter(
+      (feature) =>
+        feature.label_on_map &&
+        feature.map_id === info.id &&
+        feature.map_revision === info.revision &&
+        byId.has(feature.point_id),
+    );
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", `0 0 ${info.width_px} ${info.height_px}`);
     svg.setAttribute("preserveAspectRatio", "none");
     svg.setAttribute("aria-hidden", "true");
     svg.classList.add("map-image-annotation");
-    const text = document.createElementNS(ns, "text");
-    const referenceScale = info.width_px / 1536;
-    text.setAttribute("x", String(feature.anchor.x));
-    text.setAttribute("y", String(feature.anchor.y));
-    text.setAttribute("dy", ".37em");
-    text.setAttribute("font-size", String(11.3 * referenceScale));
-    text.setAttribute("stroke-width", String(2.4 * referenceScale));
-    text.textContent = point.name;
-    svg.appendChild(text);
+    const correctionCount = appendMapLabelCorrections(
+      svg,
+      info,
+      features,
+      points,
+    );
+    if (!labels.length && !correctionCount) return;
+    for (const feature of labels) {
+      const text = document.createElementNS(ns, "text");
+      const referenceScale = info.width_px / 1536;
+      text.setAttribute("x", String(feature.anchor.x));
+      text.setAttribute("y", String(feature.anchor.y));
+      text.setAttribute("dy", ".37em");
+      text.setAttribute("font-size", String(11.3 * referenceScale));
+      text.setAttribute("stroke-width", String(2.4 * referenceScale));
+      text.textContent = byId.get(feature.point_id)!.name;
+      svg.appendChild(text);
+    }
     const annotation = L.svgOverlay(svg, imageBounds(info), {
       interactive: false,
     }).addTo(map);
@@ -196,9 +312,14 @@ export function MapCanvas({
     };
   }, [info, features, points]);
 
+  const selectedFeature = features.points.find(
+    (p) => p.point_id === selectedId,
+  );
+  const selectedRegion = JSON.stringify(selectedFeature?.polygon ?? null);
+  const hasRoute = routeSegments.length > 0;
   useEffect(() => {
     const map = instance.current;
-    const feature = features.points.find((p) => p.point_id === selectedId);
+    const feature = selectedFeature;
     if (
       !map ||
       !feature ||
@@ -207,6 +328,7 @@ export function MapCanvas({
       feature.map_revision !== info.revision
     )
       return;
+    if (hasRoute || routePickMode) return;
     const bounds = L.latLngBounds(
       feature.polygon.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
     );
@@ -217,29 +339,64 @@ export function MapCanvas({
         paddingTopLeft: [40, 48],
         paddingBottomRight: narrow
           ? [40, Math.min(260, height * 0.5)]
-          : [370, 50],
+          : [410, 50],
         maxZoom: info.tiles!.max_native_zoom,
         animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       });
     const timer = window.setTimeout(fit, 30);
     return () => window.clearTimeout(timer);
-  }, [selectedId, info, features]);
+  }, [selectedId, info, selectedRegion, hasRoute, routePickMode]);
 
   useEffect(() => {
     const map = instance.current;
-    if (!map || !info.tiles) return;
+    if (!map || !info.tiles || !routeSegments.length) return;
     const layer = L.layerGroup().addTo(map);
+    const routeBounds = L.latLngBounds([]);
     for (const segment of routeSegments) {
       if (
         segment.map_id === info.id &&
         segment.map_revision === info.revision
       ) {
+        const coordinates = segment.path.map((p) =>
+          toMapPoint(p, info.tiles!.max_native_zoom),
+        );
+        coordinates.forEach((p) => routeBounds.extend(p));
+        L.polyline(coordinates, {
+          color: "#fff",
+          weight: 10,
+          opacity: 0.95,
+        }).addTo(layer);
+        for (const [index, p] of [
+          coordinates[0],
+          coordinates[coordinates.length - 1],
+        ].entries()) {
+          const label = document.createElement("span");
+          label.textContent = index === 0 ? "起点入口" : "终点入口";
+          L.circleMarker(p, {
+            radius: 7,
+            color: "#fff",
+            weight: 3,
+            fillColor: index === 0 ? "#267c6b" : "#74417f",
+            fillOpacity: 1,
+          })
+            .bindTooltip(label)
+            .addTo(layer);
+        }
         L.polyline(
           segment.path.map((p) => toMapPoint(p, info.tiles!.max_native_zoom)),
           { color: "#713573", weight: 5, opacity: 0.9 },
         ).addTo(layer);
       }
     }
+    if (routeBounds.isValid())
+      map.fitBounds(routeBounds, {
+        paddingTopLeft: [35, 50],
+        paddingBottomRight: window.matchMedia("(max-width: 760px)").matches
+          ? [35, Math.min(380, map.getSize().y * 0.62)]
+          : [410, 70],
+        maxZoom: info.tiles.max_native_zoom,
+        animate: false,
+      });
     return () => {
       layer.remove();
     };
@@ -248,60 +405,31 @@ export function MapCanvas({
   return (
     <>
       <div
-        className="map-canvas"
+        className={`map-canvas${routePickMode ? " is-route-picking" : ""}`}
         ref={element}
         role="region"
-        aria-label="津南校区交互地图，可拖动和缩放"
+        aria-label={
+          routePickMode
+            ? `津南校区地图，选择${routePickMode === "start" ? "起点" : "终点"}。可拖动，滚轮或双指缩放；Tab 切换地点，回车确认，Esc 取消。`
+            : "津南校区交互地图，可拖动，滚轮或双指缩放；方向键移动，加减键缩放。"
+        }
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && routePick.current.mode) {
+            event.preventDefault();
+            event.stopPropagation();
+            routePick.current.onRoutePickCancel?.();
+          }
+        }}
         tabIndex={0}
       />
-      <div className="map-context">
-        <span className="live-dot" /> 津南校区{" "}
-        <span className="context-divider" /> {points.length}个可探索地点
-      </div>
-      <div
-        className={`map-controls${selectedId ? " has-selection" : ""}`}
-        aria-label="地图工具"
-      >
-        <button
-          title="放大地图"
-          aria-label="放大地图"
-          disabled={zoom >= (info.tiles?.max_native_zoom ?? 0) + 1}
-          onClick={() => instance.current?.zoomIn()}
-        >
-          <Icon name="plus" />
-        </button>
-        <button
-          title="缩小地图"
-          aria-label="缩小地图"
-          disabled={zoom <= (info.tiles?.min_zoom ?? 0)}
-          onClick={() => instance.current?.zoomOut()}
-        >
-          <Icon name="minus" />
-        </button>
-        <span className="control-separator" />
-        <button
-          title="回到全图"
-          aria-label="回到全图"
-          onClick={() => {
-            select.current(null);
-            instance.current?.fitBounds(imageBounds(info), {
-              padding: [18, 18],
-            });
-          }}
-        >
-          <Icon name="focus" />
-        </button>
-      </div>
-      {tileError && (
+      {tileState.failed > 0 && (
         <div className="tile-warning" role="status">
           部分地图未加载{" "}
           <button
-            onClick={() => {
-              setTileError(false);
-              tileLayer.current?.redraw();
-            }}
+            disabled={tileState.retrying}
+            onClick={() => tileLoad.current?.retry()}
           >
-            重新加载
+            {tileState.retrying ? "正在重试…" : "重新加载"}
           </button>
         </div>
       )}

@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>问小开 · 比赛演示</title><link rel="stylesheet" href="/agent-demo/style.css"><script src="/agent-demo/app.js" defer></script></head>
+<body><main>
+<header><span class="badge">比赛演示</span><h1>和小开聊聊南开</h1><p>校园介绍、建筑用途与参观咨询</p></header>
+<section id="login"><form id="login-form"><label for="code">演示口令</label><input id="code" type="password" autocomplete="off" minlength="16" maxlength="128" required><button>开始对话</button></form></section>
+<section id="chat" hidden><div id="messages" role="log" aria-live="polite"></div><form id="chat-form"><label for="query">想了解什么？</label><textarea id="query" rows="2" maxlength="2000" placeholder="例如：第一次来南开，推荐参观哪些地方？" required></textarea><div class="actions"><button id="send">发送</button><button id="reset" type="button" class="secondary">新对话</button></div></form></section>
+<p id="status" role="status"></p><footer>回答由学校智能体生成，请以学校正式信息为准。此演示提供文字咨询；地图、楼层图和 VR 请从主页面打开。</footer>
+</main></body></html>

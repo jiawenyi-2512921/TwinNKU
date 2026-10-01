@@ -20,25 +20,39 @@ def build(intake_path: Path, output: Path, *, partial: bool = False):
     if output.exists():
         raise ValueError("output already exists; use a new directory")
     floors, copies, missing = [], [], []
-    excluded = set(intake.get("excluded_source_numbers", [20])) | {20}
+    excluded = set(intake.get("excluded_source_numbers", []))
     for building in intake["buildings"]:
         if building["source_number"] in excluded:
             continue
         for row in building["floors"]:
-            if not row.get("labeled_file"):
+            if row.get("labeled_file") and row.get("labeled_sections"):
+                raise ValueError("use labeled_file or labeled_sections, not both")
+            sources = row.get("labeled_sections") or (
+                [{"labeled_file": row["labeled_file"]}] if row.get("labeled_file") else []
+            )
+            if not sources or any(not image.get("labeled_file") for image in sources):
                 missing.append(f"{building['name']} {row['label']}")
                 continue
             images = []
-            for variant in ["labeled"]:
-                source = Path(row[f"{variant}_file"])
+            for image in sources:
+                source = Path(image["labeled_file"])
                 if not source.is_absolute():
                     source = intake_path.parent / source
                 source = source.resolve()
                 metadata = inspect_image(source)
                 extension = "png" if metadata["media_type"] == "image/png" else "jpg"
-                filename = f"{variant}.{extension}"
+                section = image.get("section", "main")
+                filename = f"labeled{'' if section == 'main' else '-' + section}.{extension}"
                 relative = f"{row['id']}/{row['revision']}/{filename}"
-                images.append({"variant": variant, "filename": filename, **metadata})
+                images.append(
+                    {
+                        "variant": "labeled",
+                        "filename": filename,
+                        "section": section,
+                        "section_label": image.get("section_label"),
+                        **metadata,
+                    }
+                )
                 copies.append((source, relative))
             floors.append(
                 {k: row[k] for k in ["id", "map_id", "label", "ordinal", "revision"]}
@@ -60,7 +74,9 @@ def build(intake_path: Path, output: Path, *, partial: bool = False):
             target = stage / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
-        (stage / "manifest.json").write_text(bundle.model_dump_json(indent=2) + "\n")
+        (stage / "manifest.json").write_text(
+            bundle.model_dump_json(indent=2, exclude_defaults=True) + "\n"
+        )
         stage.rename(output)
     finally:
         if stage.exists():
@@ -73,7 +89,9 @@ if __name__ == "__main__":
     parser.add_argument("intake", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument(
-        "--partial", action="store_true", help="Explicitly omit floors missing a labeled image and list them"
+        "--partial",
+        action="store_true",
+        help="Explicitly omit floors missing a labeled image and list them",
     )
     args = parser.parse_args()
     print(json.dumps(build(args.intake, args.output, partial=args.partial), ensure_ascii=False))

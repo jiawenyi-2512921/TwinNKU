@@ -1,0 +1,72 @@
+.road-command-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.road-command-bar .road-toolbar {
+  margin: 6px 0;
+  gap: 6px;
+}
+.road-workspace .road-draft-actions .ad-primary {
+  background: #704785;
+  border-color: #704785;
+  color: #fff;
+}
+.road-advanced-tools {
+  margin: 10px 0 12px;
+  border: 1px solid #e6e0ec;
+  border-radius: 10px;
+  background: #fff;
+}
+.road-advanced-tools summary {
+  cursor: pointer;
+  padding: 11px 14px;
+  color: #5f536a;
+  font-size: 13px;
+  font-weight: 600;
+}
+.road-advanced-tools summary small {
+  margin-left: 12px;
+  font-weight: 400;
+  color: #777181;
+}
+.road-advanced-tools[open] summary {
+  border-bottom: 1px solid #eee9f2;
+}
+.road-advanced-tools > .road-toolbar {
+  margin: 12px 14px;
+}
+.road-advanced-tools > .road-secondary {
+  margin-bottom: 14px;
+}
+.road-sketch-actions {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #f4eff8;
+  color: #5b376c;
+}
+.road-sketch-actions > span {
+  margin-right: auto;
+  font-size: 13px;
+}
+.road-advanced-tools summary:focus-visible {
+  outline: 3px solid #9d6cb4;
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .road-command-bar {
+    display: block;
+  }
+  .road-command-bar .road-toolbar {
+    margin: 8px 0;
+  }
+  .road-command-bar .road-toolbar button {
+    min-height: 42px;
+  }
+  .road-advanced-tools summary small {
+    display: block;
+    margin: 5px 0 0 15px;
+  }
+}

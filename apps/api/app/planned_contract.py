@@ -212,52 +212,6 @@ planned(
 )
 planned(
     "POST",
-    "/admin/points",
-    "createPointDraft",
-    "M01",
-    c.AdminPoint,
-    c.PointDraftInput,
-    auth="contributor",
-    status=201,
-)
-planned(
-    "PUT",
-    "/admin/points/{point_id}",
-    "updatePointDraft",
-    "M01",
-    c.AdminPoint,
-    c.PointDraftUpdate,
-    auth="contributor",
-)
-planned(
-    "POST",
-    "/admin/points/{point_id}/submit",
-    "submitPointReview",
-    "M01",
-    c.AdminPoint,
-    c.ReviewRequest,
-    auth="contributor",
-)
-planned(
-    "POST",
-    "/admin/points/{point_id}/publish",
-    "publishPoint",
-    "M01",
-    c.AdminPoint,
-    c.ReviewRequest,
-    auth="reviewer",
-)
-planned(
-    "POST",
-    "/admin/points/{point_id}/retire",
-    "retirePoint",
-    "M01",
-    c.AdminPoint,
-    c.ReviewRequest,
-    auth="reviewer",
-)
-planned(
-    "POST",
     "/admin/sources",
     "createSourceDraft",
     "M01",
@@ -332,8 +286,6 @@ planned(
     description="Fixed trailing 7 UTC days in v1; raw personal conversations are not returned.",
 )
 
-planned("GET", "/admin/points", "listAdminPoints", "M01", list[c.AdminPoint], auth="contributor")
-planned("GET", "/admin/points/{point_id}", "getAdminPoint", "M01", c.AdminPoint, auth="contributor")
 planned("GET", "/admin/sources", "listAdminSources", "M01", list[c.AdminSource], auth="contributor")
 planned(
     "GET", "/admin/sources/{source_id}", "getAdminSource", "M01", c.AdminSource, auth="contributor"

@@ -25,7 +25,14 @@ from app.contracts import (
 )
 from app.core.errors import DomainError, request_id
 from app.database import get_db
-from app.models import CampusRecord, FloorRecord, MapRecord, PointRecord
+from app.models import (
+    CampusRecord,
+    FloorRecord,
+    MapRecord,
+    PanoramaRecord,
+    PointRecord,
+    StaffUserRecord,
+)
 from app.modules.floors.service import public_floors
 
 router = APIRouter()
@@ -115,15 +122,49 @@ def system_status(request: Request, db: DB):
         )
         is not None
     )
+    from app.modules.guide_settings import policy_for
+    from app.modules.navigation import availability
+    guide_policy = policy_for(db)
+    map_ids = db.scalars(select(MapRecord.id).join(CampusRecord).where(
+        MapRecord.status == "published", MapRecord.visibility == "public", MapRecord.kind == "campus",
+        CampusRecord.is_active.is_(True),
+    )).all()
+    has_routes = request.app.state.settings.map_enabled and any(availability(db, mid).ready for mid in map_ids)
     return envelope(
         request,
         SystemStatus(
             version=request.app.state.settings.app_version,
             capabilities=Capabilities(
+                chat=request.app.state.settings.api_agent_configured and guide_policy.chat_enabled,
+                routing=has_routes,
+                chat_embed=request.app.state.settings.web_agent_configured,
                 map=has_map,
+                admin=bool(
+                    request.app.state.settings.admin_enabled
+                    and db.scalar(
+                        select(StaffUserRecord.id)
+                        .where(StaffUserRecord.role == "admin", StaffUserRecord.is_active.is_(True))
+                        .limit(1)
+                    )
+                ),
                 floors=bool(
                     request.app.state.settings.floors_enabled
                     and db.scalar(public_floors().with_only_columns(FloorRecord.id).limit(1))
+                ),
+                vr=bool(
+                    request.app.state.settings.vr_enabled
+                    and db.scalar(
+                        select(PanoramaRecord.id)
+                        .join(PointRecord)
+                        .join(CampusRecord)
+                        .where(
+                            PanoramaRecord.status == "published",
+                            PointRecord.status == "published",
+                            PointRecord.visibility == "public",
+                            CampusRecord.is_active.is_(True),
+                        )
+                        .limit(1)
+                    )
                 ),
             ),
         ),
@@ -184,10 +225,28 @@ def list_points(
         conditions.append(PointRecord.category == category.value)
     if q and q.strip():
         escaped = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        # Decode each JSON value before searching: casting JSON to text can leave
+        # Chinese aliases escaped as \uXXXX in SQLite and in PostgreSQL JSON.
+        if db.get_bind().dialect.name == "postgresql":
+            aliases = (
+                func.json_array_elements_text(PointRecord.aliases)
+                .table_valued("value")
+                .render_derived()
+            )
+        else:
+            aliases = func.json_each(PointRecord.aliases).table_valued("value")
+        alias_match = (
+            select(1)
+            .select_from(aliases)
+            .where(aliases.c.value.ilike(f"%{escaped}%", escape="\\"))
+            .correlate(PointRecord)
+            .exists()
+        )
         conditions.append(
             or_(
                 PointRecord.name.ilike(f"%{escaped}%", escape="\\"),
                 PointRecord.summary.ilike(f"%{escaped}%", escape="\\"),
+                alias_match,
             )
         )
     total = db.scalar(select(func.count()).select_from(PointRecord).where(*conditions)) or 0

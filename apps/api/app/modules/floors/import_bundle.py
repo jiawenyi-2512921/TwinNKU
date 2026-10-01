@@ -11,8 +11,9 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from PIL import Image
 from pydantic import Field, model_validator
+from sqlalchemy import select
 
-from app.contracts import DTO, Revision
+from app.contracts import DTO, FLOOR_SECTION_PATTERN, Revision
 from app.core.config import get_settings
 from app.database import SessionLocal
 from app.models import CampusRecord, FloorImportRecord, FloorRecord, MapRecord, PointRecord
@@ -23,7 +24,9 @@ MAX_PIXELS = 40_000_000
 
 class BundleImage(DTO):
     variant: Literal["labeled", "clean"]
-    filename: str = Field(pattern=r"^(labeled|clean)\.(png|jpg)$")
+    section: str = Field(default="main", pattern=FLOOR_SECTION_PATTERN)
+    section_label: str | None = Field(default=None, min_length=1, max_length=64)
+    filename: str = Field(pattern=r"^(labeled(-[a-z0-9][a-z0-9_-]{0,31})?|clean)\.(png|jpg)$")
     width_px: int = Field(gt=0, le=20000)
     height_px: int = Field(gt=0, le=20000)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -33,8 +36,13 @@ class BundleImage(DTO):
     @model_validator(mode="after")
     def consistent_file(self):
         extension = "png" if self.media_type == "image/png" else "jpg"
-        if self.filename != f"{self.variant}.{extension}":
-            raise ValueError("only explicitly paired clean/labeled images are accepted")
+        suffix = "" if self.section == "main" else f"-{self.section}"
+        if self.filename != f"{self.variant}{suffix}.{extension}":
+            raise ValueError("filename must match the image variant and section")
+        if self.section != "main" and (
+            self.variant != "labeled" or not (self.section_label or "").strip()
+        ):
+            raise ValueError("a section requires a labeled image and a section label")
         if self.width_px * self.height_px > MAX_PIXELS:
             raise ValueError("image pixel limit exceeded")
         return self
@@ -48,15 +56,22 @@ class BundleFloor(DTO):
     ordinal: int = Field(ge=-20, le=200)
     revision: Revision
     attribution: str = Field(min_length=1, max_length=2000)
-    images: list[BundleImage] = Field(min_length=1, max_length=2)
+    images: list[BundleImage] = Field(min_length=1, max_length=32)
 
     @model_validator(mode="after")
     def labeled_required(self):
-        variants = [i.variant for i in self.images]
-        if "labeled" not in variants or len(set(variants)) != len(variants):
-            raise ValueError("one labeled image is required; variants must be unique")
-        if len(self.images) == 2 and self.images[0].sha256 == self.images[1].sha256:
-            raise ValueError("clean and labeled roles must not use identical image bytes")
+        identities = [(i.variant, i.section) for i in self.images]
+        if not any(i.variant == "labeled" for i in self.images):
+            raise ValueError("a labeled image is required")
+        if len(set(identities)) != len(identities):
+            raise ValueError("image variant and section must be unique")
+        clean = next((i for i in self.images if i.variant == "clean"), None)
+        if clean:
+            main = next(
+                (i for i in self.images if i.variant == "labeled" and i.section == "main"), None
+            )
+            if main is None or clean.sha256 == main.sha256:
+                raise ValueError("identical image bytes or missing labeled main image")
         return self
 
 
@@ -91,7 +106,8 @@ def inspect_image(path: Path):
         mime = Image.MIME[image.format]
         image.verify()
     with Image.open(path) as image:
-        if image.getexif().get(274, 1) != 1:
+        # Some annotation tools write 0 (unspecified); preserve these original bytes.
+        if image.getexif().get(274, 1) not in (0, 1):
             raise ValueError("orientation metadata requires explicit source review")
         image.load()  # Reject truncated image data, even if the header is valid.
     return {
@@ -119,9 +135,20 @@ def import_bundle(
     bundle = FloorBundle.model_validate_json((source / "manifest.json").read_bytes())
     expected_files = {"manifest.json"}
     prepared = []
+    # Serialize CLI imports with browser edits for the same buildings.
+    points = {
+        p.id: p
+        for p in db.scalars(
+            select(PointRecord)
+            .where(PointRecord.id.in_(sorted({str(f.point_id) for f in bundle.floors})))
+            .order_by(PointRecord.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    }
     # Validate the complete batch before installing any assets or changing database rows.
     for floor in bundle.floors:
-        point = db.get(PointRecord, str(floor.point_id))
+        point = points.get(str(floor.point_id))
         if point is None:
             raise ValueError(f"building must be imported first: {floor.point_id}")
         if len(f"{point.name} · {floor.label}") > 120:
@@ -131,7 +158,8 @@ def import_bundle(
             point.status != "published" or point.visibility != "public" or not campus.is_active
         ):
             raise ValueError("publish requires a public building in an active campus")
-        digest = hashlib.sha256(floor.model_dump_json().encode()).hexdigest()
+        # New optional fields must not alter immutable legacy revision digests.
+        digest = hashlib.sha256(floor.model_dump_json(exclude_defaults=True).encode()).hexdigest()
         old = db.get(FloorRecord, str(floor.id))
         if old and (
             old.point_id != str(floor.point_id)
@@ -216,7 +244,7 @@ def import_bundle(
             )
         )
         db.flush()
-        values = floor.model_dump(mode="json")
+        values = floor.model_dump(mode="json", exclude_defaults=True)
         db.merge(
             FloorRecord(**values, status=status, visibility=visibility, manifest_sha256=digest)
         )

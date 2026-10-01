@@ -1,8 +1,10 @@
 import math
+import stat
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import or_, select
 
 from app.api import DB, ERRORS, envelope, require_campus
@@ -70,11 +72,19 @@ def as_map(record):
     responses=ERRORS,
     openapi_extra=IMPLEMENTED,
 )
-def list_maps(campus_id: CampusId, request: Request, db: DB):
+def list_maps(
+    campus_id: CampusId,
+    request: Request,
+    db: DB,
+    kind: Literal["campus", "floor"] | None = Query(
+        default=None, description="Only return maps of this kind; omit to include all public maps."
+    ),
+):
     require_campus(db, campus_id)
-    records = db.scalars(
-        public_maps(request).where(MapRecord.campus_id == campus_id).order_by(MapRecord.title)
-    ).all()
+    statement = public_maps(request).where(MapRecord.campus_id == campus_id)
+    if kind is not None:
+        statement = statement.where(MapRecord.kind == kind)
+    records = db.scalars(statement.order_by(MapRecord.title)).all()
     return envelope(request, [as_map(r) for r in records])
 
 
@@ -132,6 +142,9 @@ def get_features(map_id: UUID, request: Request, db: DB):
             "description": "An authorized PNG tile from the current map revision",
             "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}},
         },
+        304: {
+            "description": "The tile is still public and current; reuse the privately cached bytes."
+        },
     },
     openapi_extra=IMPLEMENTED,
 )
@@ -150,7 +163,34 @@ def get_tile(map_id: UUID, revision: int, z: int, x: int, y: int, request: Reque
         raise DomainError("NOT_FOUND", "图块不存在", 404)
     root = request.app.state.settings.map_assets_dir.resolve()
     path = (root / record.id / str(revision) / "tiles" / str(z) / str(x) / f"{y}.png").resolve()
-    if not path.is_relative_to(root) or not path.is_file():
+    if not path.is_relative_to(root):
         raise DomainError("MAP_ASSET_UNAVAILABLE", "地图图块暂时不可用", 404)
-    # Always re-authorize on the server, including after unpublishing a map.
-    return FileResponse(path, media_type="image/png")
+    try:
+        file_stat = path.stat()
+    except OSError as exc:
+        raise DomainError("MAP_ASSET_UNAVAILABLE", "地图图块暂时不可用", 404) from exc
+    if not stat.S_ISREG(file_stat.st_mode):
+        raise DomainError("MAP_ASSET_UNAVAILABLE", "地图图块暂时不可用", 404)
+
+    # no-cache permits byte reuse only after revalidation. The checks above must run
+    # before a 304, so withdrawing a map or replacing its revision cannot reuse a tile.
+    response = FileResponse(
+        path,
+        media_type="image/png",
+        stat_result=file_stat,
+        headers={"Cache-Control": "private, no-cache"},
+    )
+    candidates = ",".join(request.headers.getlist("if-none-match")).split(",")
+    if any(
+        candidate.strip() == "*"
+        or candidate.strip().removeprefix("W/") == response.headers["etag"]
+        for candidate in candidates
+    ):
+        return Response(
+            status_code=304,
+            headers={
+                key: response.headers[key]
+                for key in ("Cache-Control", "ETag", "Last-Modified")
+            },
+        )
+    return response

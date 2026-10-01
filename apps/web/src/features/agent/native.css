@@ -1,0 +1,440 @@
+/* The floating fairy does not resize the map or intercept surrounding gestures. */
+.agent-dock.native-dock {
+  width: 0;
+}
+.native-companion-cluster {
+  position: fixed;
+  z-index: 1066;
+  width: min(200px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.native-companion-cluster > .native-companion,
+.native-companion-cluster a,
+.native-companion-cluster button {
+  pointer-events: auto;
+}
+.native-companion-cluster .native-companion {
+  position: relative;
+  width: 164px;
+  height: 185px;
+  flex: none;
+  padding: 0;
+  touch-action: none;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.native-companion-cluster[data-dragging="true"] .native-companion {
+  cursor: grabbing;
+  filter: drop-shadow(0 6px 8px #5a376126);
+}
+.native-companion-cluster .native-companion:focus-visible {
+  outline: 2px solid #6e397a;
+  outline-offset: 3px;
+  border-radius: 24px;
+}
+.native-companion-cluster.is-minimized {
+  width: 72px;
+}
+.native-companion-cluster.is-minimized .native-companion {
+  width: 72px;
+  height: 82px;
+}
+.native-orbit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  max-width: 100%;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 3px;
+  pointer-events: auto;
+}
+.native-orbit-button {
+  position: relative;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  flex: none;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  border: 1px solid #ded2e7;
+  border-radius: 50%;
+  background: #fffefaf5;
+  color: #633573;
+  box-shadow: 0 3px 10px #34214412;
+  cursor: pointer;
+  transition:
+    background-color 140ms,
+    transform 140ms;
+}
+.native-orbit-button:hover {
+  background: #f5ecfa;
+}
+.native-orbit-button:active {
+  transform: scale(0.94);
+}
+.native-orbit-button:focus-visible {
+  outline: 2px solid #75428c;
+  outline-offset: 3px;
+}
+.native-orbit-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.native-microphone.is-active {
+  color: white;
+  background: #74427c;
+  border-color: #74427c;
+}
+.native-result-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #7a4a91;
+}
+.native-companion-cluster > .native-interrupt,
+.native-companion-cluster > .native-verified-vr {
+  position: absolute;
+  top: 18px;
+  right: 0;
+}
+.native-companion-cluster > .native-verified-vr {
+  top: 70px;
+  background: #f2edf8;
+  border-color: #b59bc9;
+}
+/* Position is measured against the visual viewport and moves with the fairy. */
+.native-subtitles {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 12px);
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - 32px));
+  max-height: var(--native-caption-max-height, min(120px, 32dvh));
+  pointer-events: auto;
+  border: 1px solid #e0d6e6;
+  border-radius: 18px;
+  background: #fffdf9f5;
+  color: #3a2b42;
+  box-shadow: 0 4px 20px #372b461a;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.native-subtitles p {
+  margin: 0;
+  box-sizing: border-box;
+  max-height: calc(var(--native-caption-max-height, min(120px, 32dvh)) - 2px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 10px 14px;
+  border-radius: inherit;
+}
+.native-subtitles::before {
+  display: none;
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  content: "";
+  background: #fffdf9;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.native-subtitles[data-side]::before {
+  display: block;
+}
+.native-subtitles[data-side="left"]::before {
+  top: calc(var(--native-caption-pointer) - 5px);
+  right: -6px;
+  border-top: 1px solid #e0d6e6;
+  border-right: 1px solid #e0d6e6;
+}
+.native-subtitles[data-side="right"]::before {
+  top: calc(var(--native-caption-pointer) - 5px);
+  left: -6px;
+  border-bottom: 1px solid #e0d6e6;
+  border-left: 1px solid #e0d6e6;
+}
+.native-subtitles[data-side="above"]::before {
+  left: calc(var(--native-caption-pointer) - 5px);
+  bottom: -6px;
+  border-right: 1px solid #e0d6e6;
+  border-bottom: 1px solid #e0d6e6;
+}
+.native-subtitles[data-side="below"]::before {
+  left: calc(var(--native-caption-pointer) - 5px);
+  top: -6px;
+  border-left: 1px solid #e0d6e6;
+  border-top: 1px solid #e0d6e6;
+}
+.native-subtitles.is-error {
+  border-color: #d2b9ae;
+}
+.native-agent {
+  position: fixed;
+  z-index: 1070;
+  right: 214px;
+  bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+  width: min(408px, calc(100vw - 40px));
+  height: min(660px, calc(100dvh - 112px));
+  max-height: calc(100dvh - 112px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dfd3e6;
+  border-radius: 22px;
+  background: #fffdfb;
+  color: #302b34;
+  box-shadow: 0 12px 42px #34203b24;
+}
+.native-agent.needs-auth {
+  height: auto;
+  overflow: auto;
+}
+.native-agent .agent-heading {
+  padding: 14px 12px 14px 18px;
+  gap: 7px;
+  background: #f9f5fb;
+}
+.native-agent .agent-heading h2 {
+  font-size: 17px;
+  letter-spacing: 0.06em;
+}
+.native-agent .agent-heading h2:focus {
+  outline: none;
+}
+.native-agent .agent-heading h2:focus-visible {
+  outline: 2px solid #81428c;
+  outline-offset: 3px;
+}
+.native-agent .agent-heading p {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.native-agent .agent-heading .icon-button {
+  width: 44px;
+  min-height: 44px;
+  flex: none;
+}
+.native-toolbar {
+  padding: 8px 12px;
+  border-top: 1px solid #eee7f0;
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.native-toolbar button {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  background: #f7f0fa;
+  color: #63376e;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 12px;
+}
+.native-voice-hint {
+  font-size: 10px;
+  color: #716778;
+  margin: 0;
+  padding: 0 14px 12px;
+  line-height: 1.6;
+}
+.native-messages {
+  flex: 1;
+  min-height: 80px;
+  overflow: auto;
+  padding: 12px 16px;
+}
+.native-login {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+.native-login h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.native-login p,
+.native-welcome p {
+  color: #716778;
+  line-height: 1.7;
+  margin: 0;
+}
+.native-login label {
+  display: grid;
+  gap: 8px;
+}
+.native-login input,
+.native-composer textarea {
+  border: 1px solid #ded5e2;
+  border-radius: 12px;
+  padding: 12px;
+  font: inherit;
+  max-width: 100%;
+}
+.native-turn {
+  margin: 0 0 24px;
+}
+.native-question {
+  margin-left: 24px;
+  background: #f1e9f4;
+  border-radius: 16px 16px 4px 16px;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.native-answer {
+  line-height: 1.85;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.native-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  white-space: normal;
+}
+.native-actions button,
+.native-welcome button {
+  border: 1px solid #d5bfdc;
+  background: #faf6fc;
+  border-radius: 12px;
+  padding: 10px;
+  min-height: 44px;
+  color: #63376e;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+}
+.native-welcome button {
+  display: block;
+  margin-top: 10px;
+}
+.native-turn details {
+  font-size: 12px;
+  margin-top: 12px;
+  color: #6c6172;
+}
+.native-turn details button {
+  display: block;
+  min-height: 40px;
+  padding: 8px;
+  margin-top: 4px;
+  border: 0;
+  background: transparent;
+  color: #69346d;
+  text-decoration: underline;
+  text-align: left;
+}
+.native-notice {
+  font-size: 12px;
+  line-height: 1.6;
+  background: #f7f2e9;
+  color: #79582c;
+  padding: 8px 12px;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.native-agent > .native-notice {
+  flex: none;
+  margin: 0 12px 8px;
+  border-radius: 10px;
+}
+.native-composer {
+  padding: 12px 14px;
+  border-top: 1px solid #ebe4ee;
+  display: grid;
+  gap: 8px;
+  flex: none;
+}
+.native-composer textarea {
+  resize: vertical;
+  max-height: 120px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 16px;
+}
+.native-composer > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.native-composer > div .primary-button {
+  margin-left: auto;
+}
+.native-composer > div > button:not(.primary-button) {
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: #68576f;
+  font-size: 12px;
+}
+.native-login > button:not(.primary-button) {
+  padding: 12px;
+  border: 0;
+  background: #f6f1f8;
+  border-radius: 10px;
+}
+
+.native-messages {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+@media (max-width: 760px) {
+  .native-companion-cluster .native-companion {
+    width: 144px;
+    height: 163px;
+  }
+  .native-agent {
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: calc(100vw - 20px);
+    height: min(620px, calc(100dvh - 108px));
+    max-height: calc(100dvh - 108px);
+    border-radius: 20px;
+  }
+  .native-subtitles {
+    font-size: 13px;
+  }
+}
+@media (max-height: 520px) {
+  .native-agent {
+    right: 10px;
+    bottom: 10px;
+    height: calc(100dvh - 92px);
+    max-height: calc(100dvh - 92px);
+    overflow: auto;
+  }
+  .native-messages {
+    flex: none;
+  }
+  .native-voice-hint {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .native-orbit-button {
+    transition: none;
+  }
+  .native-orbit-button:active {
+    transform: none;
+  }
+}
