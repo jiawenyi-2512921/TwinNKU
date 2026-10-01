@@ -89,6 +89,7 @@ function harness({
     navigation = 0,
     cancelledActions = 0,
     resolver,
+    chatResolver,
     response = reply,
     resourceResolver,
     blocked = false,
@@ -182,6 +183,7 @@ function harness({
   vm.runInNewContext(compiled, {
     exports,
     AbortController,
+    Error,
     crypto: { randomUUID },
     document,
     window: browser,
@@ -279,7 +281,8 @@ function harness({
           async post(path, body) {
             posts.push({ path, body });
             events.push(["post", path]);
-            if (path === "/agent/chat") return response;
+            if (path === "/agent/chat")
+              return chatResolver ? chatResolver(body) : response;
             if (path === "/agent/actions/resolve")
               return resolver ? resolver(body) : body.action;
             if (path === "/agent/login") return { csrf_token: "csrf" };
@@ -342,6 +345,9 @@ function harness({
     },
     setResolver(value) {
       resolver = value;
+    },
+    setChatResolver(value) {
+      chatResolver = value;
     },
     get navigation() {
       return navigation;
@@ -718,6 +724,35 @@ test("authenticated companion stays present with compact captions and optional t
   h.button("收起文字抽屉").props.onClick();
   assert.equal(find(h.render(), (node) => node.type === "companion").length, 1);
   assert.equal(find(h.render(), (node) => node.type === "textarea").length, 0);
+  h.unmount();
+});
+
+test("failed chat keeps safe diagnostics in a folded text-record section and out of companion captions", async () => {
+  const h = harness();
+  const requestId = "31636ab8-027d-4fa1-91cb-1b36c65fc541";
+  await h.open();
+  h.setChatResolver(async () => {
+    throw new NativeError("学校平台等待回答超时，请勿立即重复发送", 503, {
+      code: "AGENT_REPLY_TIMEOUT",
+      requestId,
+    });
+  });
+  await h.ask();
+  const diagnostics = find(
+    h.render(),
+    (node) => node.type === "details" && words(node).includes("问题排查信息"),
+  );
+  assert.equal(diagnostics.length, 1);
+  assert.equal(diagnostics[0].props.open, undefined);
+  assert.match(words(diagnostics[0]), /AGENT_REPLY_TIMEOUT/);
+  assert.ok(words(diagnostics[0]).includes(requestId));
+  assert.equal(h.posts.filter((post) => post.path === "/agent/chat").length, 1);
+  h.button("收起文字抽屉").props.onClick();
+  const caption = words(h.render());
+  assert.match(caption, /学校平台等待回答超时/);
+  assert.doesNotMatch(caption, /AGENT_REPLY_TIMEOUT|问题排查信息|请求编号/);
+  assert.ok(!caption.includes(requestId));
+  assert.equal(find(h.render(), (node) => node.type === "details").length, 0);
   h.unmount();
 });
 

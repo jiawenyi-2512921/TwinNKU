@@ -15,7 +15,7 @@ from sqlalchemy import select
 
 from app.api import DB, envelope, require_campus
 from app.contracts import DTO, Envelope, GuideLink
-from app.core.errors import DomainError
+from app.core.errors import DomainError, request_id
 from app.integrations.chat_runtime import COOKIE
 from app.models import FloorRecord, PanoramaRecord
 from app.modules.floors.service import public_floors
@@ -765,6 +765,7 @@ def chat(payload: GuideTurn, request: Request, response: Response, db: DB):
         prompt,
         visitor_limit=policy.visitor_turns_per_hour,
         total_limit=policy.total_turns_per_hour,
+        trace_id=request_id(request),
     )
     trimmed = raw.strip()
     if trimmed.startswith("```"):

@@ -1,4 +1,5 @@
 import json
+import logging
 from uuid import uuid4
 
 import pytest
@@ -184,11 +185,39 @@ def test_failed_upstream_is_not_replayed_and_users_are_isolated():
     _, a = runtime.login(CODE)
     _, b = runtime.login(CODE)
     assert a.user != b.user and a.csrf != b.csrf
-    with pytest.raises(Exception, match="响应超时"):
+    with pytest.raises(Exception, match="等待回答超时"):
         runtime.generate(a, "request", {"query": "q"}, "q")
     with pytest.raises(Exception, match="结果不确定"):
         runtime.generate(a, "request", {"query": "q"}, "q")
     assert len(calls) == 2 and b.conversation is None
+
+
+@pytest.mark.parametrize(
+    ("failed_stage", "error_code"),
+    [("create_conversation", "AGENT_CONVERSATION_TIMEOUT"),
+     ("chat_query_v2", "AGENT_REPLY_TIMEOUT")],
+)
+def test_upstream_timeout_log_uses_same_server_request_id_as_error_envelope(
+    client, db, caplog, failed_stage, error_code,
+):
+    _, m, points, _ = setup_roads(client, db)
+    enable(client, lambda: "not-used", [])
+
+    def upstream(endpoint, body, key, timeout):
+        if endpoint == failed_stage:
+            raise ProbeError("NETWORK_TIMEOUT")
+        return {"Conversation": {"AppConversationID": "private-conversation"}}
+
+    client.app.state.agent_runtime.upstream = upstream
+    with caplog.at_level(logging.INFO, logger="twinnku.agent"):
+        response = client.post("/api/v1/agent/chat", json=turn(m, points[0]))
+    assert response.status_code == 503
+    body = response.json()
+    assert body["error"]["code"] == error_code
+    trace_id = body["meta"]["request_id"]
+    assert response.headers["x-request-id"] == trace_id
+    assert f"request_id={trace_id} stage={failed_stage} reason=NETWORK_TIMEOUT" in caplog.text
+    assert CODE not in caplog.text and "test-only-key" not in caplog.text
 
 
 def test_admin_runtime_controls_are_enforced(client, db):

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
+import { withRequestDeadline } from "../src/shared/requestDeadline.ts";
 
 const compile = (file) =>
   ts.transpileModule(readFileSync(new URL(file, import.meta.url), "utf8"), {
@@ -149,7 +150,10 @@ function app(initialHref, options = {}) {
     return exports;
   }
   const nav = module(navCode),
-    native = module(nativeCode),
+    native = module(nativeCode, (name) => {
+      assert.equal(name, "../../shared/requestDeadline.ts");
+      return { withRequestDeadline };
+    }),
     labels = module(labelsCode),
     panorama = module(panoramaCode);
   const slots = [],

@@ -33,6 +33,7 @@ type Turn = {
   question: string;
   reply?: GuideReply;
   error?: string;
+  diagnostic?: { code?: string; requestId?: string };
 };
 type Props = {
   current: GuideContext | null;
@@ -637,8 +638,12 @@ export function NativeAgentDock({
     } catch (e) {
       if (!mounted.current) return null;
       const message = e instanceof Error ? e.message : "本次请求失败";
+      const diagnostic =
+        e instanceof NativeError && (e.code || e.requestId)
+          ? { code: e.code, requestId: e.requestId }
+          : undefined;
       setTurns((v) =>
-        v.map((t) => (t.id === id ? { ...t, error: message } : t)),
+        v.map((t) => (t.id === id ? { ...t, error: message, diagnostic } : t)),
       );
       setQuery(text);
       setError(message);
@@ -1094,6 +1099,21 @@ export function NativeAgentDock({
                       <p className="native-notice" role="alert">
                         {t.error}
                       </p>
+                    )}
+                    {t.diagnostic && (
+                      <details>
+                        <summary>问题排查信息</summary>
+                        {t.diagnostic.code && (
+                          <p>
+                            错误类型：<code>{t.diagnostic.code}</code>
+                          </p>
+                        )}
+                        {t.diagnostic.requestId && (
+                          <p>
+                            请求编号：<code>{t.diagnostic.requestId}</code>
+                          </p>
+                        )}
+                      </details>
                     )}
                   </article>
                 ))}

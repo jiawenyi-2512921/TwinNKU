@@ -1,4 +1,5 @@
 import type { components } from "../../shared/api/schema";
+import { withRequestDeadline } from "../../shared/requestDeadline.ts";
 export type GuideAction = components["schemas"]["GuideAction"];
 export type GuideContext = components["schemas"]["GuideContext"];
 export type GuideReply = components["schemas"]["GuideReply"];
@@ -7,11 +8,62 @@ export type NavigationAvailability =
   components["schemas"]["NavigationAvailability"];
 export type GuideActionOptions = { requestedPlayback?: boolean };
 
+const ERROR_CODES = new Set([
+  "AGENT_CONVERSATION_TIMEOUT",
+  "AGENT_REPLY_TIMEOUT",
+  "AGENT_UPSTREAM_CONNECTION_FAILED",
+  "AGENT_UPSTREAM_UNAVAILABLE",
+  "AGENT_PROXY_TIMEOUT",
+  "AGENT_CLIENT_TIMEOUT",
+  "REQUEST_CANCELLED",
+  "INVALID_RESPONSE",
+  "NETWORK_ERROR",
+  "LOGIN_FAILED",
+  "LOGIN_REQUIRED",
+  "RATE_LIMITED",
+  "REQUEST_IN_PROGRESS",
+  "REQUEST_ID_REUSED",
+  "RESULT_UNKNOWN",
+  "SESSION_FULL",
+  "SERVICE_BUSY",
+  "AGENT_DISABLED",
+  "CSRF_INVALID",
+  "ORIGIN_DENIED",
+  "MAP_UNAVAILABLE",
+  "STALE_CONTEXT",
+  "EMPTY_QUERY",
+  "ACTION_AMBIGUOUS",
+  "ACTION_DISABLED",
+  "ACTION_UNAVAILABLE",
+  "STALE_ACTION",
+  "VALIDATION_ERROR",
+  "NOT_FOUND",
+  "HTTP_ERROR",
+]);
+function safeRequestId(value: unknown): string | undefined {
+  return typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+    ? value
+    : undefined;
+}
 export class NativeError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code?: string;
+  requestId?: string;
+  constructor(
+    message: string,
+    status: number,
+    diagnostic: { code?: unknown; requestId?: unknown } = {},
+  ) {
     super(message);
     this.status = status;
+    this.code =
+      typeof diagnostic.code === "string" && ERROR_CODES.has(diagnostic.code)
+        ? diagnostic.code
+        : undefined;
+    this.requestId = safeRequestId(diagnostic.requestId);
   }
 }
 export async function post<T>(
@@ -20,35 +72,67 @@ export async function post<T>(
   csrf = "",
   signal?: AbortSignal,
 ): Promise<T> {
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  signal?.addEventListener("abort", abort, { once: true });
-  if (signal?.aborted) abort();
-  const timer = setTimeout(abort, 105_000);
+  let requestId: string | undefined;
   try {
-    const response = await fetch(`/api/v1${path}`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    const result = await response.json().catch(() => null);
-    if (!response.ok)
-      throw new NativeError(
-        result?.error?.message || `服务暂不可用（${response.status}）`,
-        response.status,
-      );
-    if (!result?.data || !result.meta?.request_id)
-      throw new Error("服务返回格式异常");
-    return result.data;
+    return await withRequestDeadline(
+      async (requestSignal) => {
+        const response = await fetch(`/api/v1${path}`, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+          body: JSON.stringify(body),
+          signal: requestSignal,
+        });
+        requestId = safeRequestId(response.headers.get("X-Request-ID"));
+        const result = await response.json().catch(() => null);
+        requestId = safeRequestId(result?.meta?.request_id) || requestId;
+        if (!response.ok) {
+          const proxyTimeout = response.status === 504 && !result?.error;
+          throw new NativeError(
+            typeof result?.error?.message === "string" && result.error.message
+              ? result.error.message
+              : proxyTimeout
+                ? "网站代理等待超时，处理结果未确认，请勿立即重复发送。"
+                : `服务暂不可用（${response.status}）`,
+            response.status,
+            {
+              code: proxyTimeout
+                ? "AGENT_PROXY_TIMEOUT"
+                : result?.error?.code || "HTTP_ERROR",
+              requestId,
+            },
+          );
+        }
+        if (!result?.data || !safeRequestId(result.meta?.request_id))
+          throw new NativeError("服务返回格式异常", response.status, {
+            code: "INVALID_RESPONSE",
+            requestId,
+          });
+        return result.data;
+      },
+      signal,
+      105_000,
+    );
   } catch (e) {
-    if (controller.signal.aborted)
-      throw new Error("请求等待已结束，未能确认回答结果，请勿立即重复发送。");
+    if (e instanceof DOMException && e.name === "TimeoutError")
+      throw new NativeError(
+        "网页等待请求已超时，处理结果未确认，请勿立即重复发送。",
+        408,
+        { code: "AGENT_CLIENT_TIMEOUT", requestId },
+      );
+    if (e instanceof DOMException && e.name === "AbortError")
+      throw new NativeError(
+        "请求已在网页取消，后台可能仍在处理；结果未确认，请勿立即重复发送。",
+        0,
+        { code: "REQUEST_CANCELLED", requestId },
+      );
+    if (e instanceof TypeError)
+      throw new NativeError(
+        "网页未能连接本站服务，处理结果未确认，请检查网络后再试。",
+        0,
+        { code: "NETWORK_ERROR", requestId },
+      );
     throw e;
-  } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener("abort", abort);
   }
 }
 

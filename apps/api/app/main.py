@@ -35,7 +35,33 @@ from app.modules.voice.router import router as voice_router
 logger = logging.getLogger("twinnku")
 
 
+def _fallback_log_filter(record: logging.LogRecord) -> bool:
+    # Keep propagation available for externally configured handlers (and caplog)
+    # without printing twice if a parent handler is installed after startup.
+    parent = logger.parent
+    while parent is not None:
+        if any(handler.level <= record.levelno for handler in parent.handlers):
+            return False
+        if not parent.propagate:
+            break
+        parent = parent.parent
+    return True
+
+
+def _configure_application_logging() -> None:
+    # Uvicorn's default configuration has no root handler. Enable only this
+    # application's safe metadata logs, leaving third-party loggers untouched.
+    if not logger.hasHandlers():
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
+        handler.addFilter(_fallback_log_filter)
+        logger.addHandler(handler)
+        if logger.level == logging.NOTSET:
+            logger.setLevel(logging.INFO)
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
+    _configure_application_logging()
     settings = settings or get_settings()
     production = settings.app_env == "production"
     app = FastAPI(

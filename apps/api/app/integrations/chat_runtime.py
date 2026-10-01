@@ -3,16 +3,59 @@
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
+from uuid import UUID
 
 from app.core.errors import DomainError
 from app.integrations.nk_api import ProbeError, request_json
 
 COOKIE = "twinnku_agent"
+logger = logging.getLogger("twinnku.agent")
+UPSTREAM_FAILURE_REASONS = frozenset(
+    {
+        "INVALID_ENDPOINT",
+        "INVALID_KEY_FORMAT",
+        "UNEXPECTED_HTTP_STATUS",
+        "NON_JSON_RESPONSE",
+        "SSO_REDIRECT",
+        "REDIRECT_BLOCKED",
+        "AUTH_FAILED",
+        "ACCESS_DENIED",
+        "ENDPOINT_NOT_FOUND",
+        "RATE_LIMITED",
+        "HTTP_ERROR",
+        "NETWORK_TIMEOUT",
+        "TLS_ERROR",
+        "NETWORK_ERROR",
+        "TRANSPORT_ERROR",
+        "RESPONSE_TOO_LARGE",
+        "INVALID_JSON",
+        "INVALID_RESPONSE_SHAPE",
+        "PLATFORM_ERROR",
+        "INVALID_CONVERSATION_RESPONSE",
+        "NO_FINAL_ANSWER",
+    }
+)
+
+
+def log_upstream(stage, reason, started, trace_id):
+    # Never log upstream exception text, credentials or conversation content.
+    safe_reason = reason if reason in UPSTREAM_FAILURE_REASONS else "UNKNOWN"
+    if reason == "SUCCESS":
+        safe_reason = reason
+    logger.log(
+        logging.INFO if reason == "SUCCESS" else logging.WARNING,
+        "agent_upstream request_id=%s stage=%s reason=%s duration_ms=%.1f",
+        str(trace_id) if isinstance(trace_id, UUID) else "-",
+        stage,
+        safe_reason,
+        (time.monotonic() - started) * 1000,
+    )
 
 
 @dataclass
@@ -73,7 +116,15 @@ class ChatRuntime:
             return session
 
     def generate(
-        self, session, request_id, fingerprint_body, prompt, *, visitor_limit=30, total_limit=120
+        self,
+        session,
+        request_id,
+        fingerprint_body,
+        prompt,
+        *,
+        visitor_limit=30,
+        total_limit=120,
+        trace_id: UUID | None = None,
     ):
         if not session.lock.acquire(blocking=False):
             raise DomainError("REQUEST_IN_PROGRESS", "上一条问题仍在处理中", 409)
@@ -100,6 +151,8 @@ class ChatRuntime:
                 self.throttle(session.turns, visitor_limit, 3600)
                 self.throttle(self.turns, total_limit, 3600)
             session.requests[str(request_id)] = (fingerprint, None)
+            stage = "create_conversation"
+            started = time.monotonic()
             if not session.conversation:
                 result = self.upstream(
                     "create_conversation",
@@ -111,10 +164,18 @@ class ChatRuntime:
                     self.key,
                     30,
                 )
-                cid = (result.get("Conversation") or {}).get("AppConversationID")
+                conversation = result.get("Conversation")
+                cid = (
+                    conversation.get("AppConversationID")
+                    if isinstance(conversation, dict)
+                    else None
+                )
                 if not isinstance(cid, str) or not 1 <= len(cid) <= 128:
                     raise ProbeError("INVALID_CONVERSATION_RESPONSE")
                 session.conversation = cid
+                log_upstream(stage, "SUCCESS", started, trace_id)
+            stage = "chat_query_v2"
+            started = time.monotonic()
             result = self.upstream(
                 "chat_query_v2",
                 {
@@ -135,15 +196,36 @@ class ChatRuntime:
             ):
                 raise ProbeError("NO_FINAL_ANSWER")
             session.requests[str(request_id)] = (fingerprint, answer)
+            log_upstream(stage, "SUCCESS", started, trace_id)
             return answer
         except ProbeError as e:
             code = str(e)
+            log_upstream(
+                stage, code if code in UPSTREAM_FAILURE_REASONS else "UNKNOWN", started, trace_id
+            )
+            if code == "NETWORK_TIMEOUT":
+                if stage == "create_conversation":
+                    raise DomainError(
+                        "AGENT_CONVERSATION_TIMEOUT",
+                        "学校对话服务创建会话超时，结果未确认，请勿立即重复发送",
+                        503,
+                    ) from None
+                raise DomainError(
+                    "AGENT_REPLY_TIMEOUT",
+                    "学校对话服务等待回答超时，结果未确认，请勿立即重复发送",
+                    503,
+                ) from None
+            if code in {"NETWORK_ERROR", "TLS_ERROR", "TRANSPORT_ERROR"}:
+                raise DomainError(
+                    "AGENT_UPSTREAM_CONNECTION_FAILED",
+                    "本站暂时无法连通学校对话服务，请联系维护者检查上游连接；地图、楼层和导航仍可使用",
+                    503,
+                ) from None
             message = {
                 "SSO_REDIRECT": "学校应用接口被登录认证拦截，请联系维护者核对应用授权",
                 "AUTH_FAILED": "学校应用密钥验证失败，请联系维护者",
                 "ACCESS_DENIED": "学校应用调用权限不足，请联系维护者",
                 "RATE_LIMITED": "学校平台请求额度已达上限，请稍后再试",
-                "NETWORK_TIMEOUT": "学校平台响应超时，结果未确认，请勿立即重复发送",
                 "NO_FINAL_ANSWER": "学校平台本次未返回有效回答，请换个问题或稍后重试",
             }.get(code, "学校对话服务暂不可用，地图、楼层和导航仍可使用")
             raise DomainError("AGENT_UPSTREAM_UNAVAILABLE", message, 503) from None
