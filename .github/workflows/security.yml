@@ -52,11 +52,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        component: [api, web]
+        component: [api, web, db]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false}
-      - run: docker build -f deploy/${{ matrix.component }}.Dockerfile -t twinnku-${{ matrix.component }}:security .
+      - if: matrix.component != 'db'
+        run: docker build -f deploy/${{ matrix.component }}.Dockerfile -t twinnku-${{ matrix.component }}:security .
+      - name: Pull the exact PostgreSQL 17 image deployed by Compose
+        if: matrix.component == 'db'
+        run: |
+          db_image=$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          compose = Path('compose.yaml').read_text(encoding='utf-8')
+          db = re.search(r'^  db:\n((?:^ {4}[^\n]*\n|^\n)+)', compose, re.MULTILINE)
+          if db is None:
+              raise SystemExit('Compose database service must be an explicit mapping')
+          images = re.findall(r'^    image: (\S+)$', db.group(1), re.MULTILINE)
+          if len(images) != 1 or re.fullmatch(r'postgres:17(?:\.\d+)?-alpine(?:\d+\.\d+)?@sha256:[0-9a-f]{64}', images[0]) is None:
+              raise SystemExit('Compose must pin one official PostgreSQL 17 Alpine image by digest')
+          print(images[0])
+          PY
+          )
+          docker pull "$db_image"
+          docker tag "$db_image" twinnku-db:security
       - name: Verify actual minimal probe and source-component vulnerability coverage
         if: matrix.component == 'api'
         run: |
