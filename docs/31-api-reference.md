@@ -6,7 +6,7 @@
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
 接口操作数：112；状态统计：{"implemented": 76, "planned": 36}。
-契约SHA256：`cbf56711cc220c99710329fd1289643091b78fb1f07c71bc61470b183b792a70`。
+契约SHA256：`7cc598fdf99c0d074e1b5a17b1445bea24afc294c866460b5a57bc6af7f488b1`。
 
 ## 1. 全部端点
 

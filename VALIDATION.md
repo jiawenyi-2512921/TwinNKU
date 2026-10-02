@@ -353,5 +353,6 @@
 - 后端受影响专项：体验 12 passed、审核工作台 6 passed。体验专项使用实际 ffmpeg/ffprobe 生成、上传、发布视频，与同地点打卡共同引用导览；覆盖未发布、错地点、参考素材下架、旧快照兼容与版本/权限检查。工具只安装在本地临时工作目录，未新增项目依赖。
 - Windows 广泛回归最终 376 passed、1 failed、7 PostgreSQL skipped、6 POSIX/符号链接用例 deselected，另 3 subtests passed。唯一剩余失败为既有学校探测工具的本地重定向测试，单独重跑该文件 5 passed；不把此广泛运行称为全绿。Windows 首轮还遇到原生扩展访问冲突，最终广泛运行仅在测试进程关闭 SQLAlchemy C 扩展，未改应用配置。完整 Linux/PostgreSQL/容器结果须核对最终 GitHub CI。
 - 旧演示 11 passed；Ruff、OpenAPI、前端生成类型、接口参考、学校只读插件与评测草案一致性、差异检查通过。生成时使用 UTF-8，避免 Windows 默认编码改变契约。
+- 首次远程 CI 的 Linux/PostgreSQL 后端 390 passed、旧演示 11 passed，容器地图检查通过；接口说明的原始字节哈希因 Windows 换行转换不一致而失败。已统一两个生成器输出 UTF-8/LF，并以规范换行重新生成说明；最终完整 CI 结果见本 PR 检查，不能沿用第一次部分成功。
 - 无对应建筑的 VR 已可使用真实 `landscape`/`public_area` 地点，后台文案改为地点；“VR 全景”按需目录为方案建议，未实现新公众目录、创建生产地点或修改地图坐标。保持 HTTPS 原网站新标签页。
 - 更新与双账号/设备验收见 [55](docs/55-review-tours-and-outdoor-vr.md)。本批未登录服务器、部署、合并 PR 或审核发布生产内容；真实浏览器视觉与线上素材需部署后验收。
