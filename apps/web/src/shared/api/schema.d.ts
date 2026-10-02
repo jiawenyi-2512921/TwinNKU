@@ -1140,6 +1140,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/campuses/{campus_id}/panoramas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Panorama Directory */
+        get: operations["listCampusPanoramas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/campuses/{campus_id}/points": {
         parameters: {
             query?: never;
@@ -2618,6 +2635,12 @@ export interface components {
             data: components["schemas"]["OfficialChannel"][];
             meta: components["schemas"]["Meta"];
         };
+        /** Envelope[list[PanoramaDirectoryItem]] */
+        Envelope_list_PanoramaDirectoryItem__: {
+            /** Data */
+            data: components["schemas"]["PanoramaDirectoryItem"][];
+            meta: components["schemas"]["Meta"];
+        };
         /** Envelope[list[Panorama]] */
         Envelope_list_Panorama__: {
             /** Data */
@@ -3529,6 +3552,41 @@ export interface components {
              * @enum {string}
              */
             kind: "panorama";
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** PanoramaDirectoryItem */
+        PanoramaDirectoryItem: {
+            /** Campus Id */
+            campus_id: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @default panorama
+             * @constant
+             */
+            kind: "panorama";
+            point_category: components["schemas"]["PointCategory"];
+            /**
+             * Point Id
+             * Format: uuid
+             */
+            point_id: string;
+            /** Point Name */
+            point_name: string;
+            /** Revision */
+            revision: number;
             /** Title */
             title: string;
             /** Url */
@@ -10045,6 +10103,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listCampusPanoramas: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                campus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_PanoramaDirectoryItem__"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

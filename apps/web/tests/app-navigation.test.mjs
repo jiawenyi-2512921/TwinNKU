@@ -70,6 +70,7 @@ const componentNames = [
   "NavigationPanel",
   "AgentDock",
   "PlaceDirectory",
+  "PanoramaDirectory",
   "PanoramaOverlay",
 ];
 const components = Object.fromEntries(
@@ -236,7 +237,7 @@ function app(initialHref, options = {}) {
         reconcileCatalog: (_, next) => next,
         availableSelection: (c, id) =>
           c.points.some((p) => p.id === id) ? id : null,
-        loadCatalog: () => catalog,
+        loadCatalog: () => options.catalog ?? catalog,
       };
     if (name.endsWith("/catalogSync"))
       return {
@@ -245,7 +246,7 @@ function app(initialHref, options = {}) {
           return () => catalogWatchers.delete(callback);
         },
         createCatalogRefresh: ({ apply }) => ({
-          refresh: () => apply(catalog),
+          refresh: () => apply(options.catalog ?? catalog),
           dispose() {},
         }),
       };
@@ -312,6 +313,77 @@ const videoAction = {
   resource_id: experienceId,
   resource_revision: 3,
 };
+
+test("VR directory locates only current map geometry and selects the real point without changing labels", () => {
+  const options = {
+    catalog: {
+      ...catalog,
+      features: {
+        map_id: "map",
+        map_revision: 3,
+        points: [
+          { point_id: pointA, map_id: "map", map_revision: 2 },
+          { point_id: pointB, map_id: "map", map_revision: 3 },
+          { point_id: "unpublished-point", map_id: "map", map_revision: 3 },
+        ],
+      },
+    },
+  };
+  const testApp = app(
+    baseHref.replace("#map", `&experience=${experienceId}#map`),
+    options,
+  );
+  let tree = testApp.render();
+  const browse = () =>
+    walk(
+      tree,
+      (n) => n.type === "button" && n.props.className === "browse-button",
+    )[0];
+  browse().props.onClick();
+  tree = testApp.render();
+  testApp.node("PlaceDirectory").props.onMode("vr");
+  tree = testApp.render();
+  const directory = testApp.node("PlaceDirectory");
+  assert.equal(directory.props.mode, "vr");
+  const vr = directory.props.panoramas;
+  assert.equal(vr.type, components.PanoramaDirectory);
+  assert.equal(vr.props.campus.id, "nku-jinnan");
+  assert.deepEqual([...vr.props.locatedPointIds], [pointB]);
+  assert.equal(
+    walk(tree, (n) => n.type === "input")[0].props.placeholder,
+    "搜索景点或场景编号",
+  );
+  vr.props.onLocate(pointA);
+  testApp.render();
+  assert.equal(
+    new URL(testApp.browser.location.href).searchParams.get("point"),
+    pointA,
+  );
+  vr.props.onLocate(pointB);
+  tree = testApp.render();
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
+  assert.equal(testApp.node("PointDetails").props.point.id, pointB);
+  assert.equal(testApp.node("PlaceDirectory"), undefined);
+  assert.equal(testApp.node("ExperiencePanel"), undefined);
+  assert.equal(
+    new URL(testApp.browser.location.href).searchParams.has("experience"),
+    false,
+  );
+  assert.equal(testApp.node("MapCanvas").props.points[1].name, points[1].name);
+  browse().props.onClick();
+  testApp.render();
+  options.catalog = {
+    ...options.catalog,
+    features: { ...options.catalog.features, map_revision: 2 },
+  };
+  testApp.refreshCatalogs();
+  testApp.render();
+  assert.equal(
+    testApp.node("PlaceDirectory").props.panoramas.props.locatedPointIds.length,
+    0,
+  );
+  testApp.dispose();
+});
 
 test("only a resolved explicit video action creates a cancellable playback request; URLs and browsing do not", async () => {
   const testApp = app(

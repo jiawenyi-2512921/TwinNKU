@@ -11,6 +11,8 @@ export type RouteSegment = components["schemas"]["RouteSegment"];
 export type SystemStatus = components["schemas"]["SystemStatus"];
 export type Floor = components["schemas"]["Floor"];
 export type Panorama = components["schemas"]["Panorama"];
+export type PanoramaDirectoryItem =
+  components["schemas"]["PanoramaDirectoryItem"];
 export type FloorImage = components["schemas"]["FloorImage"];
 export type AgentWebConfig = components["schemas"]["AgentWebConfig"];
 type Meta = components["schemas"]["Meta"];
@@ -90,6 +92,11 @@ export const api = {
     get<MapFeatures>(`/maps/${encodeURIComponent(id)}/features`, signal),
   panoramas: (pointId: string, signal?: AbortSignal) =>
     get<Panorama[]>(`/points/${encodeURIComponent(pointId)}/panoramas`, signal),
+  campusPanoramas: (campusId: string, signal?: AbortSignal, page = 1) =>
+    get<PanoramaDirectoryItem[]>(
+      `/campuses/${encodeURIComponent(campusId)}/panoramas?${new URLSearchParams({ page: String(page), page_size: "100" })}`,
+      signal,
+    ),
   floors: (pointId: string, signal?: AbortSignal) =>
     get<Floor[]>(`/points/${encodeURIComponent(pointId)}/floors`, signal),
 };

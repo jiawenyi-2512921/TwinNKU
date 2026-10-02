@@ -758,6 +758,12 @@ class Panorama(PanoramaContent):
     revision: Revision
 
 
+class PanoramaDirectoryItem(Panorama):
+    campus_id: CampusId
+    point_name: str
+    point_category: PointCategory
+
+
 class GuideLink(DTO):
     kind: Literal["focus_point", "show_floor", "open_vr"]
     label: str
