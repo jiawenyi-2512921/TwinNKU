@@ -185,14 +185,20 @@ export function RoadWorkspace({
   session,
   onDirty,
   onUpdate,
+  reviewMode = false,
+  initialMapId,
+  onReview,
 }: {
   maps: MapInfo[];
   session: StaffSession;
   onDirty: (dirty: boolean, busy?: boolean) => void;
   onUpdate: () => void;
+  reviewMode?: boolean;
+  initialMapId?: string;
+  onReview?: (id: string) => void;
 }) {
   const eligible = maps.filter((m) => m.kind === "campus");
-  const [mapId, setMapId] = useState(eligible[0]?.id ?? ""),
+  const [mapId, setMapId] = useState(initialMapId ?? eligible[0]?.id ?? ""),
     [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [graph, setGraph] = useState<Graph>(blank(1)),
     [points, setPoints] = useState<Point[]>([]);
@@ -227,6 +233,7 @@ export function RoadWorkspace({
     if (!mapId && eligible[0]) setMapId(eligible[0].id);
   }, [maps, mapId]);
   const editable =
+    !reviewMode &&
     !!workspace &&
     !busy &&
     workspace.state !== "in_review" &&
@@ -563,7 +570,7 @@ export function RoadWorkspace({
       }}
     >
       <div className="ad-eyebrow">CAMPUS NETWORK</div>
-      <h1>道路与导航</h1>
+      <h1>{reviewMode ? "路网审核与发布" : "道路与导航"}</h1>
       <p className="road-info">
         从已经整理的规划图路网开始，精修道路形状与建筑入口。系统辅助连接与检查，人工确认通行后发布，小开与前台导航同步使用。
       </p>
@@ -572,7 +579,7 @@ export function RoadWorkspace({
           校园地图{" "}
           <select
             value={mapId}
-            disabled={busy}
+            disabled={busy || reviewMode}
             onChange={(e) => {
               if (
                 (!dirty && !sketchCount) ||
@@ -1291,7 +1298,7 @@ export function RoadWorkspace({
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
-            {workspace.state !== "in_review" && (
+            {!reviewMode && workspace.state !== "in_review" && (
               <button
                 disabled={!editable || dirty || !workspace.draft}
                 onClick={() => void review("submit")}
@@ -1301,15 +1308,17 @@ export function RoadWorkspace({
             )}
             {workspace.state === "in_review" && (
               <>
-                {["admin", "editor"].includes(session.user.role) && (
-                  <button
-                    disabled={busy}
-                    onClick={() => void review("withdraw")}
-                  >
-                    撤回修改
-                  </button>
-                )}
-                {["admin", "reviewer"].includes(session.user.role) &&
+                {!reviewMode &&
+                  ["admin", "editor"].includes(session.user.role) && (
+                    <button
+                      disabled={busy}
+                      onClick={() => void review("withdraw")}
+                    >
+                      撤回修改
+                    </button>
+                  )}
+                {reviewMode &&
+                  ["admin", "reviewer"].includes(session.user.role) &&
                   !workspace.contributor_ids.includes(session.user.id) && (
                     <>
                       <button
@@ -1326,6 +1335,14 @@ export function RoadWorkspace({
                       </button>
                     </>
                   )}
+                {!reviewMode && onReview && (
+                  <button
+                    disabled={busy || dirty}
+                    onClick={() => onReview(mapId)}
+                  >
+                    去审核中心
+                  </button>
+                )}
               </>
             )}
           </div>

@@ -89,12 +89,12 @@ def main():
     target = ROOT / "contracts/openapi.json"
     content = json.dumps(build(), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     if args.check:
-        if not target.exists() or target.read_text() != content:
+        if not target.exists() or target.read_text(encoding="utf-8") != content:
             raise SystemExit("Contract drift: regenerate contracts/openapi.json")
         print("Contract is synchronized.")
     else:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content)
+        target.write_text(content, encoding="utf-8", newline="\n")
         print("Updated contracts/openapi.json")
 
 

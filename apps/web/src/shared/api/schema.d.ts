@@ -1855,17 +1855,14 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "point" | "floor" | "panorama";
+            kind: "point" | "floor" | "panorama" | "media" | "checkin" | "tour" | "navigation";
             /**
              * Operation
              * @enum {string}
              */
             operation: "upsert" | "retire";
-            /**
-             * Point Id
-             * Format: uuid
-             */
-            point_id: string;
+            /** Point Id */
+            point_id: string | null;
             /** Point Name */
             point_name: string;
             /** Review Note */
@@ -2743,6 +2740,8 @@ export interface components {
         };
         /** ExperienceStop */
         ExperienceStop: {
+            /** Checkin Id */
+            checkin_id?: string | null;
             /**
              * Narrative
              * @default
@@ -4874,7 +4873,8 @@ export interface operations {
         parameters: {
             query?: {
                 state?: ("draft" | "in_review" | "rejected" | "published" | "discarded") | null;
-                kind?: ("point" | "floor" | "panorama") | null;
+                kind?: ("point" | "floor" | "panorama" | "media" | "checkin" | "tour" | "navigation") | null;
+                item_id?: string | null;
                 q?: string;
                 mine?: boolean;
                 order?: "oldest" | "newest";
@@ -4970,6 +4970,7 @@ export interface operations {
                 kind?: ("media" | "checkin" | "tour") | null;
                 state?: ("draft" | "in_review" | "rejected" | "published" | "discarded") | null;
                 campus_id?: string | null;
+                referenceable?: boolean;
                 q?: string;
             };
             header?: never;

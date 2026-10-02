@@ -35,12 +35,16 @@ export function ResourceWorkspace({
   onUpdate,
   initialId,
   focused = false,
+  review = false,
+  onReview,
 }: {
   session: StaffSession;
   onDirty: (dirty: boolean, busy?: boolean) => void;
   onUpdate?: () => void;
   initialId?: string;
   focused?: boolean;
+  review?: boolean;
+  onReview?: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
   const [pointPage, setPointPage] = useState(1);
@@ -109,9 +113,10 @@ export function ResourceWorkspace({
     if (page > lastPage) setPage(lastPage);
   }, [resources.data, page]);
   const canEdit =
+    !review &&
     session.permissions.includes("points.edit") &&
     selected?.draft?.state !== "in_review";
-  const canReview = session.permissions.includes("points.review");
+  const canReview = review && session.permissions.includes("points.review");
   const selfReview =
     !!selected?.draft &&
     (selected.draft.contributor_ids.includes(session.user.id) ||
@@ -429,7 +434,7 @@ export function ResourceWorkspace({
         <div>
           <div className="ad-eyebrow">RESOURCE LIBRARY</div>
           <h1>资料中心</h1>
-          <p>跨地点查找楼层原图与全景，或选择建筑添加资料。</p>
+          <p>跨地点查找楼层原图与全景，或选择地点添加资料。</p>
         </div>
         <button
           disabled={busy}
@@ -466,21 +471,21 @@ export function ResourceWorkspace({
             </button>
             <h2>按地点管理</h2>
             <label>
-              搜索建筑
+              搜索地点
               <input
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setPointPage(1);
                 }}
-                placeholder="输入建筑名称"
+                placeholder="输入地点名称"
               />
             </label>
             <ErrorBox
               text={points.error}
               onRetry={() => setPointRevision((v) => v + 1)}
             />
-            {points.loading && <p role="status">正在查找建筑…</p>}
+            {points.loading && <p role="status">正在查找地点…</p>}
             {points.data?.data.map((p) => (
               <button
                 key={p.point.id}
@@ -496,11 +501,11 @@ export function ResourceWorkspace({
             ))}
             {points.data && points.data.data.length === 0 && (
               <Empty
-                title="没有匹配建筑"
+                title="没有匹配地点"
                 detail="请换一个名称；这里只显示你获授权的点位。"
               />
             )}
-            <nav aria-label="建筑列表分页">
+            <nav aria-label="地点列表分页">
               <Pager
                 page={points.data?.meta.pagination}
                 onChange={setPointPage}
@@ -513,7 +518,7 @@ export function ResourceWorkspace({
             <div className="ad-card">
               <div className="ad-card-heading">
                 <h2 ref={listHeading} tabIndex={-1}>
-                  {globalView ? "全部地点资料" : pointName || "请选择建筑"}
+                  {globalView ? "全部地点资料" : pointName || "请选择地点"}
                 </h2>
                 {pointId &&
                   !globalView &&
@@ -1041,7 +1046,9 @@ export function ResourceWorkspace({
                 >
                   <summary>
                     {selected.draft?.state === "in_review"
-                      ? "审核与发布"
+                      ? review
+                        ? "审核与发布"
+                        : "已提交，等待审核"
                       : "其他操作：撤回或申请下架"}
                   </summary>
                   {dirty ? (
@@ -1104,6 +1111,16 @@ export function ResourceWorkspace({
                             </button>
                           </>
                         )}
+                        {!review &&
+                          onReview &&
+                          selected.draft?.state === "in_review" && (
+                            <button
+                              disabled={busy || dirty}
+                              onClick={() => onReview(selected.id)}
+                            >
+                              去审核中心
+                            </button>
+                          )}
                         {session.permissions.includes("points.edit") &&
                           selected.status === "published" &&
                           !active(selected) && (

@@ -616,3 +616,6 @@
     width: 100%;
   }
 }
+.ad-experience-workspace.is-focused .ad-experience-layout {
+  grid-template-columns: minmax(0, 1fr);
+}

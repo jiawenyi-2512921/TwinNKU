@@ -205,11 +205,11 @@ def main():
     target = ROOT / "docs/31-api-reference.md"
     result = render()
     if args.check:
-        if not target.exists() or target.read_text() != result:
+        if not target.exists() or target.read_text(encoding="utf-8") != result:
             raise SystemExit("API reference is stale; run scripts/render_api_reference.py")
         print("API reference matches the contract")
     else:
-        target.write_text(result)
+        target.write_text(result, encoding="utf-8", newline="\n")
         print(f"Wrote {target.relative_to(ROOT)}")
 
 

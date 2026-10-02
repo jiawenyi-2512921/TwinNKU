@@ -49,7 +49,8 @@ function harness(code, context = {}, overrides = {}) {
   const slots = [],
     effects = [],
     persisted = new Map(),
-    calls = [];
+    calls = [],
+    resources = [];
   let cursor = 0,
     effectCursor = 0;
   const react = {
@@ -142,15 +143,22 @@ function harness(code, context = {}, overrides = {}) {
         return {
           Empty: () => null,
           ErrorBox: () => null,
-          useResource: (path) => ({
-            data: {
-              data: path.startsWith("/experiences")
-                ? (overrides.rows ?? [])
-                : [],
-            },
-            loading: false,
-            error: "",
-          }),
+          useResource: (path) => {
+            resources.push(path);
+            return {
+              data: {
+                data: path.startsWith("/experiences")
+                  ? path.includes("referenceable=true")
+                    ? path.includes("kind=checkin")
+                      ? (overrides.checkinRows ?? overrides.rows ?? [])
+                      : (overrides.mediaRows ?? overrides.rows ?? [])
+                    : (overrides.rows ?? [])
+                  : [],
+              },
+              loading: false,
+              error: "",
+            };
+          },
         };
       throw new Error(name);
     },
@@ -159,6 +167,7 @@ function harness(code, context = {}, overrides = {}) {
     exports,
     persisted,
     calls,
+    resources,
     flushEffects() {
       for (const effect of effects)
         if (effect.pending) {
@@ -542,6 +551,7 @@ test("retirement is explicitly labeled and independent submitter cannot review o
       permissions: ["points.read", "points.review"],
     },
     onDirty() {},
+    review: true,
   };
   let tree = h.render("ExperienceWorkspace", props);
   find(
@@ -777,4 +787,194 @@ test("save-and-submit uses the returned revision and retains a saved draft when 
         node.props.text.includes("草稿已保存，但提交审核未完成"),
     ).length,
   );
+});
+
+function publishedResource(id, published, overrides = {}) {
+  return {
+    id,
+    campus_id: published.point_id === "p3" ? "campus-b" : "campus-a",
+    revision: 3,
+    published_revision: 1,
+    state: "published",
+    status: "published",
+    operation: "upsert",
+    content: published,
+    published_content: published,
+    contributor_ids: ["another"],
+    submitted_by: null,
+    review_note: "",
+    ...overrides,
+  };
+}
+const routeVideo = publishedResource("route-video", {
+  ...media.content,
+  title: "校园视频甲",
+});
+const routeCheckin = publishedResource("route-checkin", {
+  kind: "checkin",
+  point_id: "p1",
+  title: "校园打卡甲",
+  description: "已核实打卡说明",
+  source_note: "测试夹具",
+  image_id: null,
+});
+
+test("route composer adds a published video with its point and combines a matching checkin", async () => {
+  const { h, render } = await routeEditor({
+    mediaRows: [
+      routeVideo,
+      publishedResource("wrong-campus", {
+        ...media.content,
+        point_id: "p3",
+        title: "其他校区视频",
+      }),
+      publishedResource(
+        "private-video",
+        { ...media.content, title: "待审视频" },
+        { status: "draft", published_content: null },
+      ),
+    ],
+    checkinRows: [
+      routeCheckin,
+      publishedResource("wrong-point", {
+        ...routeCheckin.published_content,
+        point_id: "p2",
+        title: "其他地点打卡",
+      }),
+    ],
+  });
+  let tree = render();
+  field(tree, "添加来源").props.onChange({ target: { value: "videos" } });
+  tree = render();
+  const candidates = find(
+    tree,
+    (node) => node.props?.className === "ad-tour-candidates",
+  )[0];
+  assert.match(labelText(candidates), /校园视频甲/);
+  assert.doesNotMatch(labelText(candidates), /其他校区视频|待审视频/);
+  button(tree, "校园视频甲测试地点甲 · ＋ 加入路线").props.onClick();
+  tree = render();
+  assert.equal(field(tree, "本站地点").props.value, "p1");
+  assert.equal(field(tree, "本站视频").props.value, "route-video");
+  assert.match(labelText(field(tree, "本站打卡")), /校园打卡甲/);
+  assert.doesNotMatch(labelText(field(tree, "本站打卡")), /其他地点打卡/);
+  field(tree, "本站打卡").props.onChange({
+    target: { value: "route-checkin" },
+  });
+  tree = render();
+  for (const [label, value] of [
+    ["标题", "组合路线"],
+    ["来源与公开依据", "已核对"],
+  ]) {
+    field(tree, label).props.onChange({ target: { value } });
+    tree = render();
+  }
+  button(tree, "保存草稿").props.onClick();
+  await new Promise((resolve) => setImmediate(resolve));
+  const stop = h.calls.find(
+    ([path, method]) => path === "/experiences" && method === "POST",
+  )[2].content.stops[0];
+  assert.equal(stop.point_id, "p1");
+  assert.equal(stop.video_id, "route-video");
+  assert.equal(stop.checkin_id, "route-checkin");
+  assert.ok(h.resources.includes("/experiences?kind=media&referenceable=true"));
+  assert.ok(
+    h.resources.includes("/experiences?kind=checkin&referenceable=true"),
+  );
+});
+
+test("an independent checkin can add its station and changing the point clears resource references", async () => {
+  const checkin = publishedResource("checkin-p2", {
+    ...routeCheckin.published_content,
+    point_id: "p2",
+    title: "独立地点打卡",
+  });
+  const { render } = await routeEditor({ checkinRows: [checkin] });
+  let tree = render();
+  field(tree, "添加来源").props.onChange({ target: { value: "checkins" } });
+  tree = render();
+  button(tree, "独立地点打卡测试地点乙 · ＋ 加入路线").props.onClick();
+  tree = render();
+  assert.equal(field(tree, "本站地点").props.value, "p2");
+  assert.equal(field(tree, "本站打卡").props.value, "checkin-p2");
+  field(tree, "本站地点").props.onChange({ target: { value: "p1" } });
+  tree = render();
+  assert.equal(field(tree, "本站打卡").props.value, "");
+  assert.equal(field(tree, "本站视频").props.value, "");
+});
+
+test("tour displays the referenced checkin without implying automatic participation", () => {
+  const checkin = {
+    id: routeCheckin.id,
+    revision: 1,
+    content: routeCheckin.published_content,
+  };
+  const h = harness(publicCode);
+  const linkedTour = {
+    ...tour,
+    content: {
+      ...tour.content,
+      stops: [{ ...tour.content.stops[0], checkin_id: checkin.id }],
+    },
+  };
+  const props = {
+    item: linkedTour,
+    items: [media, checkin],
+    onSelectPoint() {},
+  };
+  button(h.render("TourPlayer", props), "开始导览").props.onClick();
+  let tree = h.render("TourPlayer", props);
+  const card = find(tree, (node) => node.type === h.exports.CheckinCard)[0];
+  assert.equal(card.props.item, checkin);
+  assert.equal(h.persisted.has("twinnku:checkin:route-checkin"), false);
+  props.items = [
+    media,
+    { ...checkin, content: { ...checkin.content, point_id: "p2" } },
+  ];
+  tree = h.render("TourPlayer", props);
+  assert.equal(
+    find(tree, (node) => node.type === h.exports.CheckinCard).length,
+    0,
+  );
+  assert.match(labelText(tree), /本站打卡暂时不可用/);
+});
+
+test("experience publication controls exist only in the focused review center", async () => {
+  const record = {
+    ...routeCheckin,
+    state: "in_review",
+    submitted_by: "another",
+  };
+  const session = {
+    user: { id: "admin", role: "admin" },
+    permissions: ["points.edit", "points.review"],
+  };
+  const calls = [];
+  const props = {
+    session,
+    initialId: record.id,
+    onDirty() {},
+    onReview: (id) => calls.push(id),
+  };
+  const editor = harness(adminCode, {}, { record });
+  editor.render("ExperienceWorkspace", props);
+  editor.flushEffects();
+  await new Promise((resolve) => setImmediate(resolve));
+  let tree = editor.render("ExperienceWorkspace", props);
+  assert.equal(button(tree, "审核通过并发布"), undefined);
+  assert.equal(button(tree, "退回修改"), undefined);
+  button(tree, "去审核中心").props.onClick();
+  assert.deepEqual(calls, [record.id]);
+  const reviewer = harness(adminCode, {}, { record });
+  const reviewProps = { ...props, review: true, focused: true };
+  reviewer.render("ExperienceWorkspace", reviewProps);
+  reviewer.flushEffects();
+  await new Promise((resolve) => setImmediate(resolve));
+  tree = reviewer.render("ExperienceWorkspace", reviewProps);
+  assert.equal(find(tree, (node) => node.type === "aside").length, 0);
+  assert.equal(button(tree, "＋打卡点"), undefined);
+  assert.equal(button(tree, "保存草稿"), undefined);
+  assert.equal(button(tree, "撤回草稿"), undefined);
+  assert.equal(button(tree, "审核通过并发布").props.disabled, false);
+  assert.ok(button(tree, "退回修改"));
 });

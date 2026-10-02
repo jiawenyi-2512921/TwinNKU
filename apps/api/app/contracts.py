@@ -726,8 +726,8 @@ class FloorUpload(DTO):
 
 class AdminChangeItem(DTO):
     id: UUID
-    kind: Literal["point", "floor", "panorama"]
-    point_id: UUID
+    kind: Literal["point", "floor", "panorama", "media", "checkin", "tour", "navigation"]
+    point_id: UUID | None
     campus_id: CampusId
     point_name: str
     title: str

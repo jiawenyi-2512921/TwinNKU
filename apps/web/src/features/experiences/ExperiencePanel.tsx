@@ -514,11 +514,13 @@ export function CheckinCard({
   const [saved, setSaved] = useState(true);
   if (item.content.kind !== "checkin") return null;
   const imageId = item.content.image_id;
+  const pointId = item.content.point_id;
   const image = items.find(
     (row) =>
       row.id === imageId &&
       row.content.kind === "media" &&
-      row.content.media_type === "image",
+      row.content.media_type === "image" &&
+      row.content.point_id === pointId,
   );
   return (
     <div className="experience-checkin">
@@ -576,7 +578,14 @@ export function TourPlayer({
     (row) =>
       row.id === stop.video_id &&
       row.content.kind === "media" &&
-      row.content.media_type === "video",
+      row.content.media_type === "video" &&
+      row.content.point_id === stop.point_id,
+  );
+  const checkin = items.find(
+    (row) =>
+      row.id === stop.checkin_id &&
+      row.content.kind === "checkin" &&
+      row.content.point_id === stop.point_id,
   );
   const videoPrompt =
     !progress.paused &&
@@ -697,6 +706,20 @@ export function TourPlayer({
         )}
         {!progress.paused && stop.video_id && !video && (
           <p>本站视频暂时不可用，仍可继续浏览。</p>
+        )}
+        {!progress.paused && checkin && (
+          <section aria-label="本站打卡">
+            <h4>{checkin.content.title}</h4>
+            <p className="experience-prose">{checkin.content.description}</p>
+            <CheckinCard
+              key={`${checkin.id}:${checkin.revision}:${progress.index}`}
+              item={checkin}
+              items={items}
+            />
+          </section>
+        )}
+        {!progress.paused && stop.checkin_id && !checkin && (
+          <p>本站打卡暂时不可用，请刷新路线资料后继续。</p>
         )}
       </section>
       <div className="experience-step-controls">

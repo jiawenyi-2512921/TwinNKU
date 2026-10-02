@@ -79,6 +79,8 @@ function inbox(initial) {
   };
   const PointWorkspace = () => null,
     ResourceWorkspace = () => null,
+    ExperienceWorkspace = () => null,
+    RoadWorkspace = () => null,
     Pager = () => null;
   const exports = {};
   vm.runInNewContext(inboxCode, {
@@ -106,6 +108,7 @@ function inbox(initial) {
           Pager,
           timestamp: (v) => v,
           useResource(path) {
+            if (!path) return { data: null, error: "", loading: false };
             reads.push(path);
             return {
               data: {
@@ -119,6 +122,8 @@ function inbox(initial) {
         };
       if (name === "./PointWorkspace") return { PointWorkspace };
       if (name === "./ResourceWorkspace") return { ResourceWorkspace };
+      if (name === "./ExperienceWorkspace") return { ExperienceWorkspace };
+      if (name === "./RoadWorkspace") return { RoadWorkspace };
       throw new Error(name);
     },
   });
@@ -137,6 +142,8 @@ function inbox(initial) {
     reads,
     PointWorkspace,
     ResourceWorkspace,
+    ExperienceWorkspace,
+    RoadWorkspace,
     Pager,
     render() {
       index = 0;
@@ -160,12 +167,59 @@ test("the unified inbox loads all kinds and opens the exact VR resource directly
   const detail = find(h.render(), (n) => n.type === h.ResourceWorkspace)[0];
   assert.equal(detail.props.initialId, "vr-1");
   assert.equal(detail.props.focused, true);
+  assert.equal(detail.props.review, true);
 });
 
 test("point tasks open the point editor, preserving the selected point id", () => {
   const h = inbox({ item: { ...vr, kind: "point", id: "point-1" } });
   const detail = find(h.render(), (n) => n.type === h.PointWorkspace)[0];
   assert.equal(detail.props.initialId, "point-1");
+  assert.equal(detail.props.review, true);
+});
+
+test("all seven review kinds open the matching read-only workspace inside the center", () => {
+  for (const kind of [
+    "point",
+    "floor",
+    "panorama",
+    "media",
+    "checkin",
+    "tour",
+    "navigation",
+  ]) {
+    const h = inbox({ item: { ...vr, kind, id: `${kind}-id` } });
+    const expected =
+      kind === "point"
+        ? h.PointWorkspace
+        : kind === "navigation"
+          ? h.RoadWorkspace
+          : ["media", "checkin", "tour"].includes(kind)
+            ? h.ExperienceWorkspace
+            : h.ResourceWorkspace;
+    const detail = find(h.render(), (node) => node.type === expected)[0];
+    assert.ok(detail, kind);
+    assert.equal(
+      detail.props.initialId ?? detail.props.initialMapId,
+      `${kind}-id`,
+    );
+    assert.equal(detail.props.review ?? detail.props.reviewMode, true);
+    if (["media", "checkin", "tour"].includes(kind)) {
+      assert.equal(detail.props.focused, true);
+      assert.equal(
+        detail.props.kindScope,
+        kind === "tour" ? "tours" : "places",
+      );
+    }
+  }
+});
+
+test("editor links target the exact queued item using the scoped inbox", () => {
+  const h = inbox({ target: { id: "tour-id", kind: "tour" } });
+  h.render();
+  const path = h.reads.find((value) => value.includes("item_id="));
+  const params = new URLSearchParams(path.split("?")[1]);
+  assert.equal(params.get("item_id"), "tour-id");
+  assert.equal(params.get("kind"), "tour");
 });
 
 test("returning from review preserves filters and paging, with unsaved and processing guards", () => {
