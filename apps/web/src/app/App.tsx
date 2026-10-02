@@ -22,6 +22,7 @@ import {
 import { usePlaceMemory } from "../features/places/usePlaceMemory";
 import { findPlaces, type PlaceScope } from "../features/places/search";
 import { PlaceDirectory } from "../features/places/PlaceDirectory";
+import { PanoramaDirectory } from "../features/places/PanoramaDirectory";
 import { MapCanvas } from "../features/map/MapCanvas";
 import { correctedDisplayName } from "../features/map/labelCorrections";
 import { AgentDock, type AgentRequest } from "../features/agent/AgentDock";
@@ -121,6 +122,7 @@ export function App() {
   );
   const selectedRef = useRef(selectedId);
   const [showList, setShowList] = useState(false);
+  const [directoryMode, setDirectoryMode] = useState<"places" | "vr">("places");
   const [showHelp, setShowHelp] = useState(false);
   const search = useRef<HTMLInputElement>(null);
   const browseButton = useRef<HTMLButtonElement>(null);
@@ -370,6 +372,19 @@ export function App() {
     [points, query, category, scope, memory.places],
   );
   const selected = points.find((p) => p.id === selectedId);
+  const locatedPointIds =
+    catalog?.map &&
+    catalog.features?.map_id === catalog.map.id &&
+    catalog.features.map_revision === catalog.map.revision
+      ? catalog.features.points
+          .filter(
+            (feature) =>
+              feature.map_id === catalog.map!.id &&
+              feature.map_revision === catalog.map!.revision &&
+              points.some((point) => point.id === feature.point_id),
+          )
+          .map((feature) => feature.point_id)
+      : [];
   const recordPlace = memory.dispatch;
   useEffect(() => {
     if (selected?.id) recordPlace({ type: "visit", id: selected.id });
@@ -607,19 +622,30 @@ export function App() {
             role="search"
             onSubmit={(e) => {
               e.preventDefault();
-              if (filtered[0]) explorePoint(filtered[0].id);
+              if (directoryMode === "places" && filtered[0])
+                explorePoint(filtered[0].id);
+              else
+                document
+                  .querySelector<HTMLButtonElement>(
+                    "[data-place-result]:not(:disabled)",
+                  )
+                  ?.focus();
             }}
           >
             <Icon name="search" size={20} />
             <label htmlFor="place-search" className="sr-only">
-              搜索校园地点
+              {directoryMode === "vr" ? "搜索 VR 全景" : "搜索校园地点"}
             </label>
             <input
               id="place-search"
               ref={search}
               value={query}
               maxLength={120}
-              placeholder="搜索地点，如图书馆"
+              placeholder={
+                directoryMode === "vr"
+                  ? "搜索景点或场景编号"
+                  : "搜索地点，如图书馆"
+              }
               autoComplete="off"
               aria-controls="place-directory"
               aria-expanded={showList}
@@ -635,7 +661,9 @@ export function App() {
                 if (e.key === "ArrowDown" && !e.nativeEvent.isComposing) {
                   e.preventDefault();
                   document
-                    .querySelector<HTMLButtonElement>("[data-place-result]")
+                    .querySelector<HTMLButtonElement>(
+                      "[data-place-result]:not(:disabled)",
+                    )
                     ?.focus();
                 }
                 if (e.key === "Enter" && e.nativeEvent.isComposing)
@@ -788,6 +816,26 @@ export function App() {
               }}
               onRetry={() => refresh.current()}
               onClose={closeList}
+              mode={directoryMode}
+              onMode={setDirectoryMode}
+              panoramas={
+                directoryMode === "vr" ? (
+                  <PanoramaDirectory
+                    campus={catalog?.campus ?? null}
+                    campusStatus={status}
+                    onRetryCampus={() => refresh.current()}
+                    query={query}
+                    locatedPointIds={locatedPointIds}
+                    onLocate={(id) => {
+                      if (!locatedPointIds.includes(id)) return;
+                      setNavigation(null);
+                      setRoute(null);
+                      setPickMode(null);
+                      explorePoint(id);
+                    }}
+                  />
+                ) : undefined
+              }
             />
           )}
           {placeMessage && (

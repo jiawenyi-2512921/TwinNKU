@@ -1,0 +1,135 @@
+.directory-modes {
+  display: flex;
+  gap: 5px;
+  padding: 0 16px 10px;
+}
+.directory-modes button {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid #ded5e0;
+  border-radius: 9px;
+  background: #fff;
+  color: #584a60;
+  font: inherit;
+  cursor: pointer;
+}
+.directory-modes button[aria-pressed="true"] {
+  color: #692b73;
+  border-color: #a982ae;
+  background: #f5edf7;
+  font-weight: 650;
+}
+.vr-directory {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.vr-directory > .point-list-scroll {
+  flex: 1;
+}
+.vr-directory .category-filters button,
+.vr-directory .text-button {
+  min-height: 44px;
+}
+.vr-campus-heading {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 2px 18px 12px;
+  font-size: 13px;
+  color: #675d70;
+}
+.vr-list {
+  list-style: none;
+  padding: 0 12px 12px;
+  margin: 0;
+}
+.vr-card {
+  margin-bottom: 10px;
+  padding: 14px;
+  border: 1px solid #e5dee8;
+  border-radius: 13px;
+  background: #fff;
+}
+.vr-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #793a80;
+}
+.vr-card-heading > div {
+  min-width: 0;
+}
+.vr-card h3 {
+  font-size: 15px;
+  margin: 0 0 5px;
+  overflow-wrap: anywhere;
+  color: #37273f;
+}
+.vr-card p {
+  font-size: 12px;
+  margin: 0 0 5px;
+  color: #77697e;
+  overflow-wrap: anywhere;
+}
+.vr-card small {
+  font-size: 11px;
+  color: #88758d;
+}
+.vr-description {
+  margin-top: 10px !important;
+  white-space: pre-line;
+}
+.vr-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.vr-card-actions button,
+.vr-card-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 5px;
+  min-height: 44px;
+  padding: 7px;
+  border: 1px solid #dfd2e4;
+  background: #f8f4fa;
+  border-radius: 8px;
+  color: #683171;
+  font: inherit;
+  font-size: 12px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.vr-card-actions a {
+  background: #74357d;
+  color: #fff;
+  border-color: #74357d;
+}
+.vr-card-actions button:disabled,
+.vr-card-actions a[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+.vr-unlocated {
+  display: block;
+  margin-top: 8px;
+}
+.vr-card-actions a:focus-visible,
+.vr-card-actions button:focus-visible,
+.directory-modes button:focus-visible {
+  outline: 3px solid #b88dc1;
+  outline-offset: 2px;
+}
+@media (max-width: 560px) {
+  .vr-card {
+    padding: 12px;
+  }
+  .vr-card-actions button,
+  .vr-card-actions a {
+    min-height: 44px;
+  }
+}

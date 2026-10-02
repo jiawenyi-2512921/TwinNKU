@@ -2307,6 +2307,27 @@
         "title": "Envelope[list[OfficialChannel]]",
         "type": "object"
       },
+      "Envelope_list_PanoramaDirectoryItem__": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PanoramaDirectoryItem"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[PanoramaDirectoryItem]]",
+        "type": "object"
+      },
       "Envelope_list_Panorama__": {
         "additionalProperties": false,
         "properties": {
@@ -4619,6 +4640,74 @@
           "url"
         ],
         "title": "PanoramaContent",
+        "type": "object"
+      },
+      "PanoramaDirectoryItem": {
+        "additionalProperties": false,
+        "properties": {
+          "campus_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+            "title": "Campus Id",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "panorama",
+            "default": "panorama",
+            "title": "Kind",
+            "type": "string"
+          },
+          "point_category": {
+            "$ref": "#/components/schemas/PointCategory"
+          },
+          "point_id": {
+            "format": "uuid",
+            "title": "Point Id",
+            "type": "string"
+          },
+          "point_name": {
+            "title": "Point Name",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url",
+          "id",
+          "point_id",
+          "revision",
+          "campus_id",
+          "point_name",
+          "point_category"
+        ],
+        "title": "PanoramaDirectoryItem",
         "type": "object"
       },
       "Point": {
@@ -15479,6 +15568,74 @@
         "x-auth": "public",
         "x-implementation-status": "implemented",
         "x-module": "M01"
+      }
+    },
+    "/api/v1/campuses/{campus_id}/panoramas": {
+      "get": {
+        "operationId": "listCampusPanoramas",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campus_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+              "title": "Campus Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_PanoramaDirectoryItem__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Panorama Directory",
+        "tags": [
+          "resources"
+        ],
+        "x-implementation-status": "implemented",
+        "x-module": "M02"
       }
     },
     "/api/v1/campuses/{campus_id}/points": {

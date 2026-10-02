@@ -14,11 +14,12 @@ from uuid import UUID, uuid4, uuid5
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse
 from PIL import Image
-from sqlalchemy import select
+from sqlalchemy import func, select
 
-from app.api import DB, envelope, get_point
+from app.api import DB, envelope, get_point, require_campus
 from app.contracts import (
     AdminResource,
+    CampusId,
     Envelope,
     FloorContent,
     FloorImage,
@@ -26,6 +27,7 @@ from app.contracts import (
     Pagination,
     Panorama,
     PanoramaContent,
+    PanoramaDirectoryItem,
     ResourceChange,
     ResourceDraftData,
     ResourceDraftSave,
@@ -780,3 +782,50 @@ def public_panoramas(point_id: UUID, request: Request, db: DB):
         .order_by(PanoramaRecord.title, PanoramaRecord.id)
     )
     return envelope(request, [Panorama.model_validate(r) for r in rows])
+
+
+@router.get(
+    "/api/v1/campuses/{campus_id}/panoramas",
+    response_model=Envelope[list[PanoramaDirectoryItem]],
+    operation_id="listCampusPanoramas",
+    openapi_extra={"x-implementation-status": "implemented", "x-module": "M02"},
+)
+def public_panorama_directory(
+    campus_id: CampusId,
+    request: Request,
+    db: DB,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=100),
+):
+    require_campus(db, campus_id)
+    query = (
+        select(PanoramaRecord, PointRecord)
+        .join(PointRecord)
+        .where(
+            PointRecord.campus_id == campus_id,
+            PointRecord.status == "published",
+            PointRecord.visibility == "public",
+            PanoramaRecord.status == "published",
+        )
+    )
+    if not request.app.state.settings.vr_enabled:
+        return envelope(request, [], Pagination(page=page, page_size=page_size, total=0))
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    rows = db.execute(
+        query.order_by(PointRecord.name, PanoramaRecord.title, PanoramaRecord.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    return envelope(
+        request,
+        [
+            PanoramaDirectoryItem(
+                **Panorama.model_validate(panorama).model_dump(),
+                campus_id=point.campus_id,
+                point_name=point.name,
+                point_category=point.category,
+            )
+            for panorama, point in rows
+        ],
+        Pagination(page=page, page_size=page_size, total=total),
+    )

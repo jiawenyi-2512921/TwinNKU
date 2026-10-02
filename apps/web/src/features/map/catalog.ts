@@ -20,6 +20,7 @@ export async function loadCatalog(
   // The public map endpoint already enforces capability/publication checks.
   // An unrelated status request must not block an otherwise readable map.
   const campuses = await source.campuses(signal);
+  signal.throwIfAborted();
   const campus =
     campuses.data.find((c) => c.id === "nku-jinnan") ?? campuses.data[0];
   if (!campus) return null;
@@ -37,6 +38,7 @@ export async function loadCatalog(
     })(),
     source.points(campus.id, "", signal),
   ]);
+  signal.throwIfAborted();
   if (
     map &&
     features.data &&
@@ -48,10 +50,20 @@ export async function loadCatalog(
   const total = first.meta.pagination?.total ?? first.data.length;
   for (let page = 2; all.length < total; page++) {
     const next = await source.points(campus.id, "", signal, page);
+    signal.throwIfAborted();
     // Never replace a complete catalog with a truncated response.
-    if (!next.data.length) throw new Error("Incomplete point catalog");
+    if (
+      !next.data.length ||
+      (next.meta.pagination && next.meta.pagination.total !== total)
+    )
+      throw new Error("Incomplete point catalog");
     all.push(...next.data);
   }
+  if (
+    all.length !== total ||
+    new Set(all.map((point) => point.id)).size !== all.length
+  )
+    throw new Error("Point catalog changed during read");
   const mapped = new Set(features.data?.points.map((p) => p.point_id) ?? []);
   const points = all
     .filter((p) => !map || mapped.has(p.id))

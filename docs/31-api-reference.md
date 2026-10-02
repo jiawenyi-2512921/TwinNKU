@@ -5,8 +5,8 @@
 业务约束见21—29；接口上线前必须先处理24中的协议缺口和旧角色命名，不能猜学校平台API。
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
-接口操作数：112；状态统计：{"implemented": 76, "planned": 36}。
-契约SHA256：`7cc598fdf99c0d074e1b5a17b1445bea24afc294c866460b5a57bc6af7f488b1`。
+接口操作数：113；状态统计：{"implemented": 77, "planned": 36}。
+契约SHA256：`4caa4472816b781096395881c2182534d86bfd8e8b460deed616f57251e2a0c5`。
 
 ## 1. 全部端点
 
@@ -86,6 +86,7 @@
 | GET | `/api/v1/campuses` | listCampuses | implemented | 未标记 | — | 200: application/json Envelope_list_Campus__ |
 | GET | `/api/v1/campuses/{campus_id}` | getCampus | implemented | 未标记 | — | 200: application/json Envelope_Campus_ |
 | GET | `/api/v1/campuses/{campus_id}/maps` | listMaps | implemented | public | — | 200: application/json Envelope_list_MapInfo__ |
+| GET | `/api/v1/campuses/{campus_id}/panoramas` | listCampusPanoramas | implemented | 未标记 | — | 200: application/json Envelope_list_PanoramaDirectoryItem__ |
 | GET | `/api/v1/campuses/{campus_id}/points` | listPoints | implemented | 未标记 | — | 200: application/json Envelope_list_Point__ |
 | GET | `/api/v1/campuses/{campus_id}/tours` | listTourTemplates | planned | public | — | 200: application/json Envelope_list_TourTemplate__ |
 | POST | `/api/v1/chat/sessions` | createChatSession | planned | guest_session | application/json: ChatSessionRequest | 201: application/json Envelope_ChatSession_ |
@@ -576,6 +577,14 @@
 | --- | --- | --- | --- | --- |
 | campus_id | path | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
 | kind | query | 否 | campus / floor / null | Only return maps of this kind; omit to include all public maps.; —; — |
+
+### GET /api/v1/campuses/{campus_id}/panoramas
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| campus_id | path | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
+| page | query | 否 | integer | 最小: 1; 默认: 1 |
+| page_size | query | 否 | integer | 最小: 1; 最大: 100; 默认: 100 |
 
 ### GET /api/v1/campuses/{campus_id}/points
 
@@ -1618,6 +1627,15 @@
 | data | 是 | array<OfficialChannel> | — |
 | meta | 是 | Meta | — |
 
+### Envelope_list_PanoramaDirectoryItem__
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | array<PanoramaDirectoryItem> | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_list_Panorama__
 
 未知字段：拒绝。
@@ -2248,6 +2266,23 @@
 | --- | --- | --- | --- |
 | description | 否 | string | 最长: 2000; 默认: "" |
 | kind | 否 | 'panorama' | 默认: "panorama" |
+| title | 是 | string | 最短: 1; 最长: 120 |
+| url | 是 | string | 最短: 1; 最长: 2048 |
+
+### PanoramaDirectoryItem
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| campus_id | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
+| description | 否 | string | 最长: 2000; 默认: "" |
+| id | 是 | string (uuid) | — |
+| kind | 否 | 'panorama' | 默认: "panorama" |
+| point_category | 是 | PointCategory | — |
+| point_id | 是 | string (uuid) | — |
+| point_name | 是 | string | — |
+| revision | 是 | integer | 最小: 1.0 |
 | title | 是 | string | 最短: 1; 最长: 120 |
 | url | 是 | string | 最短: 1; 最长: 2048 |
 
