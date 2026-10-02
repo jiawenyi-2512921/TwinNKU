@@ -80,6 +80,7 @@ class SystemStatus(DTO):
 
 class AgentWebConfig(DTO):
     enabled: bool
+    public_enabled: bool = False
     auto_actions: bool = True
     provider: Literal["nk-genios-websdk", "nk-genios-api"] = "nk-genios-websdk"
     display_name: Literal["小开"] = "小开"
@@ -596,6 +597,10 @@ class StaffSession(DTO):
     permissions: list[str]
     csrf_token: str
     expires_at: datetime
+    mfa_verified: bool = False
+    mfa_enforced: bool = False
+    mfa_enrolled: bool = False
+    recent_mfa_until: datetime | None = None
 
 
 class ActionResult(DTO):

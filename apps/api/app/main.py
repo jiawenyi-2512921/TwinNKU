@@ -74,7 +74,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.agent_runtime = ChatRuntime(
-        settings.nk_genios_api_key.get_secret_value(), settings.agent_access_code.get_secret_value()
+        settings.nk_genios_api_key.get_secret_value(),
+        settings.agent_access_code.get_secret_value() if settings.agent_access_code else "",
     ) if settings.api_agent_configured else None
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
     app.add_exception_handler(DomainError, domain_error_handler)

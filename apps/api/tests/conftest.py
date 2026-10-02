@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from app.api import expected_migration_heads
 from app.core.config import Settings
 from app.database import get_db
 from app.main import create_app
@@ -20,7 +21,8 @@ def db():
         connection.execute(
             text("CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY)")
         )
-        connection.execute(text("INSERT INTO alembic_version VALUES ('0008_campus_tours')"))
+        for revision in expected_migration_heads():
+            connection.execute(text("INSERT INTO alembic_version VALUES (:revision)"), {"revision": revision})
     with Session(engine) as session:
         session.add(
             CampusRecord(id="nku-jinnan", name="南开大学津南校区", description="校园文化导览")

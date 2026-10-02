@@ -18,9 +18,19 @@ class Settings(BaseSettings):
     floors_enabled: bool = True
     vr_enabled: bool = True
     floor_assets_dir: Path = Path("var/floor-assets")
+    upload_actor_budget_bytes: int = Field(default=1073741824, ge=104857600)
+    upload_campus_budget_bytes: int = Field(default=5368709120, ge=104857600)
+    upload_max_concurrency: int = Field(default=2, ge=1, le=2)
+    upload_parser_timeout_seconds: int = Field(default=20, ge=1, le=60)
+    upload_parser_memory_bytes: int = Field(default=536870912, ge=134217728)
+    upload_parser_cpu_seconds: int = Field(default=15, ge=1, le=30)
+    upload_reservation_minutes: int = Field(default=20, ge=5, le=60)
+    upload_orphan_days: int = Field(default=7, ge=7)
     admin_enabled: bool = False
     admin_public_origin: str | None = None
     admin_session_hours: int = Field(default=8, ge=1, le=24)
+    admin_mfa_enforced: bool = False
+    admin_session_idle_minutes: int = Field(default=30, ge=5, le=120)
     database_url: SecretStr | None = None
     db_host: str = "db"
     db_port: int = Field(default=5432, ge=1, le=65535)
@@ -31,10 +41,27 @@ class Settings(BaseSettings):
     nk_genios_api_key: SecretStr | None = None
     nk_genios_api_enabled: bool = False
     agent_access_code: SecretStr | None = None
+    agent_public_enabled: bool = False
+    agent_session_seconds: int = Field(default=3600, ge=300, le=86400)
+    agent_trusted_proxy_ips: list[str] = []
+    agent_ip_requests_per_hour: int = Field(default=180, ge=1)
+    agent_ip_requests_per_day: int = Field(default=1080, ge=1)
+    agent_http_requests_per_hour: int = Field(default=2400, ge=1)
+    agent_http_requests_per_day: int = Field(default=14400, ge=1)
+    agent_supplier_requests_per_day: int = Field(default=1920, ge=1)
+    agent_model_requests_per_day: int = Field(default=720, ge=1)
+    agent_voice_requests_per_day: int = Field(default=1200, ge=1)
+    agent_supplier_characters_per_day: int = Field(default=360000, ge=1)
+    agent_supplier_ip_requests_per_day: int = Field(default=1080, ge=1)
+    agent_supplier_session_requests_per_day: int = Field(default=450, ge=1)
+    agent_model_concurrency: int = Field(default=4, ge=1, le=16)
+    agent_voice_concurrency: int = Field(default=4, ge=1, le=16)
 
     @property
     def api_agent_configured(self) -> bool:
-        return bool(self.nk_genios_api_enabled and self.nk_genios_api_key and self.agent_access_code)
+        return bool(self.nk_genios_api_enabled and self.nk_genios_api_key and (
+            self.agent_public_enabled or self.agent_access_code
+        ))
     # WebSDK appKey is a browser-visible embed identifier, never a server API token.
     nk_genios_web_enabled: bool = False
     nk_genios_web_app_key: SecretStr | None = None
@@ -50,6 +77,9 @@ class Settings(BaseSettings):
     voice_cache_ttl_seconds: int = Field(default=86400, ge=0, le=2592000)
     voice_visitor_requests_per_hour: int = Field(default=45, ge=1, le=1000)
     voice_total_requests_per_hour: int = Field(default=200, ge=1, le=10000)
+    voice_allowed_audio_hosts: list[str] = []
+    voice_max_audio_bytes: int = Field(default=8 * 1024 * 1024, ge=1024, le=32 * 1024 * 1024)
+    voice_cache_max_bytes: int = Field(default=64 * 1024 * 1024, ge=1024, le=256 * 1024 * 1024)
 
     @property
     def web_agent_configured(self) -> bool:
@@ -73,8 +103,10 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def production_is_explicit(self):
         if self.nk_genios_api_enabled and (
-            not self.nk_genios_api_key or not self.agent_access_code
-            or len(self.agent_access_code.get_secret_value()) < 16
+            not self.nk_genios_api_key or (not self.agent_public_enabled and (
+                not self.agent_access_code
+                or len(self.agent_access_code.get_secret_value()) < 16
+            ))
         ):
             raise ValueError("NK_GENIOS_API_ENABLED requires API key and 16+ character AGENT_ACCESS_CODE")
         origin = urlsplit(self.public_site_origin)
@@ -120,6 +152,8 @@ class Settings(BaseSettings):
             ):
                 raise ValueError("ADMIN_PUBLIC_ORIGIN must be an exact origin without path")
         if self.app_env == "production":
+            if self.admin_mfa_enforced and self.admin_public_origin != "https://2512921.cn":
+                raise ValueError("enforced WebAuthn requires ADMIN_PUBLIC_ORIGIN=https://2512921.cn")
             if self.admin_enabled and (
                 not self.admin_public_origin or not self.admin_public_origin.startswith("https://")
             ):

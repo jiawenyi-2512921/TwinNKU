@@ -3,6 +3,7 @@ export type TourProgress = {
   index: number;
   completed: number[];
   paused: boolean;
+  segmentId?: string;
 };
 export function normalizeProgress(
   raw: unknown,
@@ -27,6 +28,9 @@ export function normalizeProgress(
         ]
       : [],
     paused: true,
+    ...(typeof value.segmentId === "string"
+      ? { segmentId: value.segmentId }
+      : {}),
   };
 }
 export function advanceProgress(

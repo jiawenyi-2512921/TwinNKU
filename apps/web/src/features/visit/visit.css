@@ -1,0 +1,167 @@
+.tour-narrator {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid #e9dfe9;
+  background: #fffdfb;
+  border-radius: 18px;
+  padding: 1rem;
+  margin: 0.6rem 0;
+  color: #342d38;
+  box-shadow: 0 4px 18px #30153708;
+  flex-wrap: wrap;
+}
+.tour-narrator > div {
+  flex: 1;
+  min-width: 180px;
+}
+.tour-narrator p {
+  margin: 0.4rem 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.tour-narrator small {
+  flex-basis: 100%;
+  color: #66536b;
+}
+.tour-narrator button,
+.visit-share button {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid #dacee0;
+  background: #fff;
+  color: #59285f;
+  padding: 0.6rem 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.visit-share {
+  position: relative;
+  margin: 0.6rem 0;
+}
+.visit-share > section {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  z-index: 25;
+  width: min(300px, 85vw);
+  background: white;
+  border: 1px solid #ddd2e0;
+  border-radius: 18px;
+  padding: 1rem;
+  box-shadow: 0 12px 45px #30153725;
+}
+.visit-share img {
+  display: block;
+  margin: auto;
+  max-width: 100%;
+  height: auto;
+}
+.visit-share p {
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.visit-share input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem;
+  border: 1px solid #ddd2e0;
+  border-radius: 10px;
+  margin-bottom: 0.6rem;
+}
+.visit-share small {
+  display: block;
+  margin-top: 0.5rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-narrator {
+    scroll-behavior: auto;
+  }
+}
+.visit-resource-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 28;
+  background: #fffdfb;
+  overflow: auto;
+  padding: 24px;
+  max-width: 1100px;
+  margin: auto;
+  box-shadow: 0 0 0 100vmax #2a163b55;
+}
+.visit-return {
+  min-height: 44px;
+  border: 1px solid #dfd3e3;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 18px;
+  color: #5c2c65;
+  margin-bottom: 20px;
+}
+.visit-resource-layer img,
+.visit-resource-layer video {
+  max-width: 100%;
+  max-height: 75vh;
+  object-fit: contain;
+}
+.visit-controls {
+  position: absolute;
+  bottom: 14px;
+  left: 20px;
+  z-index: 24;
+  max-width: min(660px, calc(100% - 420px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.visit-controls > p {
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+}
+.visit-handoff {
+  position: absolute;
+  inset: 20%;
+  z-index: 30;
+  background: #fffdfb;
+  box-shadow: 0 0 0 100vmax #23112b90;
+  border-radius: 24px;
+  padding: 35px;
+  max-height: 320px;
+}
+.visit-handoff > strong {
+  font-size: 1.5rem;
+}
+.visit-handoff button {
+  min-height: 44px;
+  margin: 10px;
+  padding: 10px 22px;
+  border-radius: 12px;
+  background: #63316b;
+  color: #fff;
+  border: 0;
+}
+@media (max-width: 760px) {
+  .visit-controls {
+    left: 12px;
+    bottom: 8px;
+    max-width: calc(100% - 24px);
+  }
+  .visit-handoff {
+    inset: 15% 6%;
+    padding: 24px;
+  }
+  .visit-resource-layer {
+    padding: 16px;
+  }
+  .visit-controls .tour-narrator {
+    font-size: 0.8rem;
+    padding: 0.7rem;
+  }
+  .visit-controls .tour-narrator > div {
+    min-width: 150px;
+  }
+}
+.visit-controls[hidden] {
+  display: none;
+}

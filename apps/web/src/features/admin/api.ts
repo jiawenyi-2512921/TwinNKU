@@ -19,6 +19,9 @@ let csrf = "";
 export function rememberSession(session: StaffSession | null) {
   csrf = session?.csrf_token ?? "";
 }
+export function rememberCsrf(token: string) {
+  csrf = token;
+}
 export async function request<T>(
   path: string,
   method = "GET",
@@ -64,6 +67,8 @@ async function performRequest<T>(
   if (signal?.aborted)
     throw new DOMException("Request cancelled", "AbortError");
   if (!response.ok) {
+    if (result?.error?.code === "MFA_STEP_UP_REQUIRED")
+      window.dispatchEvent(new Event("staff-mfa-required"));
     if (response.status === 401 && path !== "/auth/login")
       window.dispatchEvent(new Event("staff-session-expired"));
     throw new ApiError(

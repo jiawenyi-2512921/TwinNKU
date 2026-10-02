@@ -465,6 +465,10 @@ def save(map_id: UUID, payload: RoadDraft, request: Request, actor: Actor, db: D
     openapi_extra=STAFF,
 )
 def review(map_id: UUID, payload: RoadReview, request: Request, actor: Actor, db: DB):
+    if payload.action == "publish":
+        from app.modules.admin.security import require_recent_mfa
+
+        require_recent_mfa(actor)
     m = scoped_map(db, actor, map_id)
     row = db.scalar(
         select(NavigationRecord).where(NavigationRecord.map_id == m.id).with_for_update()

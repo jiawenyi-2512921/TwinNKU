@@ -27,14 +27,13 @@ def web_config(request: Request, db: DB):
     return envelope(
         request,
         AgentWebConfig(
-            enabled=(settings.web_agent_configured or settings.api_agent_configured) and policy.chat_enabled,
+            enabled=settings.api_agent_configured and policy.chat_enabled,
+            public_enabled=settings.agent_public_enabled,
             auto_actions=policy.auto_actions,
-            provider="nk-genios-api" if settings.api_agent_configured else "nk-genios-websdk",
-            app_key=settings.nk_genios_web_app_key.get_secret_value()
-            if settings.web_agent_configured and not settings.api_agent_configured
-            else None,
+            provider="nk-genios-api",
+            app_key=None,
             hide_sidebar=settings.nk_genios_web_hide_sidebar,
-            context_enabled=settings.api_agent_configured or settings.nk_genios_web_context_enabled,
+            context_enabled=settings.api_agent_configured,
             public_site_origin=settings.public_site_origin,
         ),
     )

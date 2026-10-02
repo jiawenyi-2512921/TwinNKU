@@ -1,274 +1,304 @@
-"""Endpoint tests for cloud voice synthesis.
+"""Paid voice authorization, persisted budgets and byte-bounded cache tests."""
 
-Covers the behaviours that keep the guide usable: graceful fallback when
-voice is unconfigured, audio caching for repeated copy, and rate limiting.
-"""
-
-from __future__ import annotations
-
+import asyncio
 import base64
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
+from pydantic import SecretStr
+from sqlalchemy import select
+from test_voice_rotation import WAV
 
-from app.core.config import Settings
-from app.main import create_app
-from app.modules.voice import rotation as voice_rotation_module
-from app.modules.voice import router as voice_router_module
-
-KEY = "sk-ws-synthetic-test-key"
+from app.integrations.public_agent_security import PublicAgentSession, issue
+from app.modules.voice import rotation as rotation_module
+from app.modules.voice import router as voice_module
+from app.modules.voice.rotation import SynthesisResult
 
 
 @pytest.fixture(autouse=True)
-def _clear_voice_state():
-    voice_router_module._AUDIO_CACHE.clear()
-    voice_router_module._RATE_WINDOWS.clear()
-    voice_router_module._GLOBAL_WINDOW.clear()
+def clean_cache():
+    voice_module._AUDIO_CACHE.clear()
+    voice_module._INFLIGHT.clear()
     yield
-    voice_router_module._AUDIO_CACHE.clear()
-    voice_router_module._RATE_WINDOWS.clear()
-    voice_router_module._GLOBAL_WINDOW.clear()
+    voice_module._AUDIO_CACHE.clear()
+    voice_module._INFLIGHT.clear()
 
 
-def _settings(**overrides) -> Settings:
-    base = {
-        "app_env": "test",
-        "voice_enabled": True,
-        "voice_api_key": KEY,
-        "voice_base_url": "https://example.invalid",
-    }
-    base.update(overrides)
-    return Settings(**base)
+def cloud(client, monkeypatch, handler=None):
+    cfg = client.app.state.settings
+    cfg.agent_public_enabled = True
+    cfg.voice_enabled = True
+    cfg.voice_api_key = SecretStr("synthetic-only-key")
+    cfg.voice_base_url = "https://example.invalid"
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        if handler:
+            return handler(request)
+        return httpx.Response(
+            200, json={"output": {"audio": {"data": base64.b64encode(WAV).decode()}}}
+        )
+
+    original = httpx.AsyncClient
+
+    def mock(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(respond)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(rotation_module.httpx, "AsyncClient", mock)
+    client.headers["origin"] = "http://testserver"
+    response = client.post("/api/v1/agent/guest")
+    assert response.status_code == 200, response.text
+    client.headers["x-csrf-token"] = response.json()["data"]["csrf_token"]
+    return cfg, calls
 
 
-def _client(settings: Settings) -> TestClient:
-    return TestClient(create_app(settings))
-
-
-def _install_transport(monkeypatch, handler) -> None:
-    """Route the synthesizer's httpx clients through a mock transport.
-
-    Patched on the rotation module: that is where the real network call lives.
-    """
-    real_client = httpx.AsyncClient
-
-    def fake_client(*args, **kwargs):
-        kwargs["transport"] = httpx.MockTransport(handler)
-        return real_client(*args, **kwargs)
-
-    monkeypatch.setattr(voice_rotation_module.httpx, "AsyncClient", fake_client)
-
-
-def _ok_handler(calls: list[str]):
-    def handler(request: httpx.Request) -> httpx.Response:
-        calls.append(str(request.url))
-        payload = base64.b64encode(b"RIFF-audio-payload").decode()
-        return httpx.Response(200, json={"output": {"audio": {"data": payload}}})
-
-    return handler
-
-
-def test_status_reports_browser_when_unconfigured():
-    body = _client(Settings(app_env="test")).get("/api/v1/voice/status").json()
-
-    assert body["enabled"] is False
-    assert body["provider"] == "browser"
-    assert body["tiers"] == []
-
-
-def test_status_reports_configured_tiers():
-    body = _client(_settings()).get("/api/v1/voice/status").json()
-
-    assert body["enabled"] is True
-    assert body["provider"] == "bailian"
-    assert body["tiers"] == ["primary", "backup"]
-    assert body["models"][0] == "qwen3-tts-flash"
-
-
-def test_speech_unavailable_when_not_configured():
-    response = _client(Settings(app_env="test")).post(
-        "/api/v1/voice/speech", json={"text": "欢迎来到南开大学"}
+def answer(db, text="欢迎来到南开大学"):
+    session = db.scalar(select(PublicAgentSession))
+    permit = issue(
+        db, session.token_hash, "speech", {"source": {"kind": "agent_answer"}, "chunks": [text]}
     )
-
-    assert response.status_code == 503
-    assert response.json()["error"]["code"] == "VOICE_UNAVAILABLE"
+    return {"permit": permit, "chunk_index": 0}
 
 
-def test_speech_returns_audio(monkeypatch):
-    calls: list[str] = []
-    _install_transport(monkeypatch, _ok_handler(calls))
-
-    response = _client(_settings()).post("/api/v1/voice/speech", json={"text": "图书馆在正前方"})
-
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "audio/wav"
-    assert response.headers["x-voice-cache"] == "miss"
-    assert response.headers["x-voice-tier"] == "primary"
-    assert response.content == b"RIFF-audio-payload"
-    assert len(calls) == 1
-
-
-def test_repeated_text_is_served_from_cache(monkeypatch):
-    """Guide copy repeats heavily, so repeats must never be billed twice."""
-    calls: list[str] = []
-    _install_transport(monkeypatch, _ok_handler(calls))
-    client = _client(_settings())
-
-    first = client.post("/api/v1/voice/speech", json={"text": "欢迎来到南开大学津南校区"})
-    second = client.post("/api/v1/voice/speech", json={"text": "欢迎来到南开大学津南校区"})
-
-    assert first.headers["x-voice-cache"] == "miss"
-    assert second.headers["x-voice-cache"] == "hit"
-    assert first.content == second.content
-    assert len(calls) == 1, "cached copy must not reach the provider"
-
-
-def test_distinct_text_is_a_separate_call(monkeypatch):
-    calls: list[str] = []
-    _install_transport(monkeypatch, _ok_handler(calls))
-    client = _client(_settings())
-
-    client.post("/api/v1/voice/speech", json={"text": "图书馆"})
-    client.post("/api/v1/voice/speech", json={"text": "马蹄湖"})
-
-    assert len(calls) == 2
-
-
-def test_degraded_tier_is_surfaced_to_the_client(monkeypatch):
-    def handler(request: httpx.Request) -> httpx.Response:
-        import json
-
-        model = json.loads(request.content)["model"]
-        if model == "qwen3-tts-flash":
-            return httpx.Response(400, json={"code": "Arrearage"})
-        payload = base64.b64encode(b"RIFF-backup-audio").decode()
-        return httpx.Response(200, json={"output": {"audio": {"data": payload}}})
-
-    _install_transport(monkeypatch, handler)
-
-    response = _client(_settings()).post("/api/v1/voice/speech", json={"text": "西南门怎么走"})
-
-    assert response.status_code == 200
-    assert response.headers["x-voice-tier"] == "backup"
-    assert response.headers["x-voice-degraded"] == "1"
-    assert response.content == b"RIFF-backup-audio"
-
-
-def test_all_tiers_exhausted_returns_503(monkeypatch):
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(400, json={"code": "Arrearage"})
-
-    _install_transport(monkeypatch, handler)
-
-    response = _client(_settings()).post("/api/v1/voice/speech", json={"text": "马蹄湖在哪"})
-
-    assert response.status_code == 503
-    assert response.json()["error"]["code"] == "VOICE_SYNTHESIS_FAILED"
-
-
-def test_text_longer_than_limit_is_rejected(monkeypatch):
-    calls: list[str] = []
-    _install_transport(monkeypatch, _ok_handler(calls))
-
-    response = _client(_settings(voice_max_characters=10)).post(
-        "/api/v1/voice/speech", json={"text": "这是一个明显超过十个字的测试文本内容"}
-    )
-
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "VOICE_TEXT_TOO_LONG"
-    assert calls == [], "an over-long request must not reach the provider"
-
-
-def test_rate_limit_blocks_excessive_calls(monkeypatch):
-    calls: list[str] = []
-    _install_transport(monkeypatch, _ok_handler(calls))
-    client = _client(_settings(voice_visitor_requests_per_hour=2))
-
-    texts = ["图书馆", "马蹄湖", "西南门"]
-    codes = [client.post("/api/v1/voice/speech", json={"text": t}).status_code for t in texts]
-
-    assert codes == [200, 200, 429]
-    assert len(calls) == 2
-
-
-def test_cache_hits_do_not_consume_rate_limit(monkeypatch):
-    """A repeated phrase should stay available even after the visitor's quota is spent."""
-    calls: list[str] = []
-    _install_transport(monkeypatch, _ok_handler(calls))
-    client = _client(_settings(voice_visitor_requests_per_hour=1))
-
-    first = client.post("/api/v1/voice/speech", json={"text": "欢迎来到南开大学"})
-    repeat = client.post("/api/v1/voice/speech", json={"text": "欢迎来到南开大学"})
-    other = client.post("/api/v1/voice/speech", json={"text": "马蹄湖"})
-
-    assert first.status_code == 200
-    assert repeat.status_code == 200, "cache hit should bypass the limiter"
-    assert repeat.headers["x-voice-cache"] == "hit"
-    assert other.status_code == 429
-
-
-def test_global_limit_stops_a_caller_rotating_addresses(monkeypatch):
-    """Per-visitor limits are bypassable by changing address; the global cap is not."""
-    calls: list[str] = []
-    _install_transport(monkeypatch, _ok_handler(calls))
-    client = _client(_settings(voice_visitor_requests_per_hour=50, voice_total_requests_per_hour=3))
-
-    texts = ["图书馆", "马蹄湖", "西南门", "主楼", "学生活动中心"]
-    codes = [
+def test_public_voice_requires_session_origin_csrf_and_permit(client, db, monkeypatch):
+    _, calls = cloud(client, monkeypatch)
+    payload = answer(db)
+    assert client.post("/api/v1/voice/speech", json={"text": "arbitrary"}).status_code == 422
+    assert (
         client.post(
-            "/api/v1/voice/speech",
-            json={"text": text},
-            headers={"x-forwarded-for": f"10.0.0.{index}"},
+            "/api/v1/voice/speech", json=payload, headers={"origin": "https://other.invalid"}
         ).status_code
-        for index, text in enumerate(texts)
-    ]
-
-    assert codes[:3] == [200, 200, 200]
-    assert codes[3:] == [429, 429], "global ceiling must apply across addresses"
-    assert len(calls) == 3
-
-
-def test_global_limit_message_differs_from_visitor_limit(monkeypatch):
-    calls: list[str] = []
-    _install_transport(monkeypatch, _ok_handler(calls))
-    client = _client(_settings(voice_visitor_requests_per_hour=50, voice_total_requests_per_hour=1))
-
-    client.post(
-        "/api/v1/voice/speech",
-        json={"text": "图书馆"},
-        headers={"x-forwarded-for": "10.1.1.1"},
+        == 403
     )
-    blocked = client.post(
-        "/api/v1/voice/speech",
-        json={"text": "马蹄湖"},
-        headers={"x-forwarded-for": "10.1.1.2"},
+    assert (
+        client.post(
+            "/api/v1/voice/speech", json=payload, headers={"x-csrf-token": "bad"}
+        ).status_code
+        == 403
     )
+    client.cookies.clear()
+    assert client.post("/api/v1/voice/speech", json=payload).status_code == 401
+    assert not calls
 
-    assert blocked.status_code == 429
-    assert blocked.json()["error"]["code"] == "VOICE_CAPACITY_REACHED"
 
-
-def test_cache_hits_do_not_consume_the_global_budget(monkeypatch):
-    calls: list[str] = []
-    _install_transport(monkeypatch, _ok_handler(calls))
-    client = _client(_settings(voice_visitor_requests_per_hour=50, voice_total_requests_per_hour=1))
-
-    first = client.post("/api/v1/voice/speech", json={"text": "同一句话"})
-    repeat = client.post("/api/v1/voice/speech", json={"text": "同一句话"})
-
-    assert first.status_code == 200
-    assert repeat.status_code == 200
-    assert repeat.headers["x-voice-cache"] == "hit"
+def test_voice_response_is_private_and_valid_audio(client, db, monkeypatch):
+    _, calls = cloud(client, monkeypatch)
+    response = client.post("/api/v1/voice/speech", json=answer(db))
+    assert response.status_code == 200, response.text
+    assert response.content == WAV
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.headers["cache-control"] == "no-store"
     assert len(calls) == 1
 
 
-def test_upstream_timeout_returns_recoverable_error_without_raw_details(monkeypatch):
-    def handler(request):
-        raise httpx.ReadTimeout("synthetic private upstream detail", request=request)
+def test_cache_hit_uses_http_budget_but_no_paid_attempt(client, db, monkeypatch):
+    cfg, calls = cloud(client, monkeypatch)
+    cfg.voice_visitor_requests_per_hour = 1
+    cfg.agent_http_requests_per_hour = 3  # guest + miss + hit
+    payload = answer(db)
+    first = client.post("/api/v1/voice/speech", json=payload)
+    repeat = client.post("/api/v1/voice/speech", json=payload)
+    limited = client.post("/api/v1/voice/speech", json=payload)
+    assert first.status_code == repeat.status_code == 200
+    assert repeat.headers["x-voice-cache"] == "hit"
+    assert limited.status_code == 429
+    assert len(calls) == 1
 
-    _install_transport(monkeypatch, handler)
-    response = _client(_settings()).post("/api/v1/voice/speech", json={"text": "测试语音"})
-    assert response.status_code == 503
-    assert response.json()["error"]["code"] == "VOICE_SYNTHESIS_FAILED"
-    assert "private upstream" not in response.text
+
+def test_paid_limit_survives_process_cache_restart(client, db, monkeypatch):
+    cfg, calls = cloud(client, monkeypatch)
+    cfg.voice_total_requests_per_hour = 1
+    assert client.post("/api/v1/voice/speech", json=answer(db, "first")).status_code == 200
+    voice_module._AUDIO_CACHE.clear()
+    assert client.post("/api/v1/voice/speech", json=answer(db, "second")).status_code == 429
+    assert len(calls) == 1
+
+
+def test_retry_is_reserved_as_an_actual_paid_attempt(client, db, monkeypatch):
+    cfg, calls = cloud(
+        client, monkeypatch, lambda req: httpx.Response(503, json={"code": "ServiceUnavailable"})
+    )
+    cfg.voice_total_requests_per_hour = 1
+    response = client.post("/api/v1/voice/speech", json=answer(db))
+    assert response.status_code == 429
+    assert len(calls) == 1  # the same-tier retry never bypasses the budget
+
+
+def test_speech_permit_cannot_cross_session(client, db, monkeypatch):
+    _, calls = cloud(client, monkeypatch)
+    payload = answer(db)
+    client.cookies.clear()
+    response = client.post("/api/v1/agent/guest")
+    client.headers["x-csrf-token"] = response.json()["data"]["csrf_token"]
+    assert client.post("/api/v1/voice/speech", json=payload).status_code == 403
+    assert not calls
+
+
+def test_logout_revokes_voice_capabilities(client, db, monkeypatch):
+    _, calls = cloud(client, monkeypatch)
+    payload = answer(db)
+    assert client.post("/api/v1/agent/logout").status_code == 200
+    assert client.post("/api/v1/voice/speech", json=payload).status_code == 401
+    assert not calls
+
+
+def test_arbitrary_draft_source_is_not_a_public_prepare(client, db, monkeypatch):
+    from uuid import uuid4
+
+    _, calls = cloud(client, monkeypatch)
+    response = client.post(
+        "/api/v1/voice/prepare",
+        json={
+            "source": {
+                "kind": "draft_segment",
+                "tour_id": str(uuid4()),
+                "draft_revision": 1,
+                "stop_index": 0,
+            }
+        },
+    )
+    assert response.status_code == 422
+    assert not calls
+
+
+def test_cache_is_bounded_by_bytes():
+    voice_module._write_cache("one", b"a" * 6, 10)
+    voice_module._write_cache("two", b"b" * 6, 10)
+    assert list(voice_module._AUDIO_CACHE) == ["two"]
+    voice_module._write_cache("huge", b"c" * 11, 10)
+    assert sum(len(entry[1]) for entry in voice_module._AUDIO_CACHE.values()) <= 10
+
+
+def test_status_discloses_no_key(client, monkeypatch):
+    cloud(client, monkeypatch)
+    response = client.get("/api/v1/voice/status")
+    assert response.json()["enabled"] is True
+    assert "synthetic-only-key" not in response.text
+
+
+def test_disabling_public_service_revokes_existing_guest_paid_access(client, db, monkeypatch):
+    cfg, calls = cloud(client, monkeypatch)
+    payload = answer(db)
+    cfg.agent_public_enabled = False
+    assert client.post("/api/v1/voice/speech", json=payload).status_code == 503
+    assert client.get("/api/v1/agent/session").status_code == 503
+    assert not calls
+
+
+@pytest.mark.anyio
+async def test_duplicate_clip_shares_attempt_and_cancelled_waiter_is_cleaned(
+    client, db, monkeypatch
+):
+    from starlette.requests import Request
+
+    from app.core.errors import DomainError
+
+    cloud(client, monkeypatch)
+    session = db.scalar(select(PublicAgentSession))
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "scheme": "http",
+            "server": ("testserver", 80),
+            "path": "/api/v1/voice/speech",
+            "headers": [],
+            "client": ("127.0.0.1", 1000),
+            "app": client.app,
+        }
+    )
+    started, finish = asyncio.Event(), asyncio.Event()
+    attempts = []
+
+    class MockSynthesizer:
+        def __init__(self, reserve):
+            self.reserve = reserve
+
+        async def synthesize(self, text):
+            self.reserve()
+            attempts.append(text)
+            started.set()
+            await finish.wait()
+            return SynthesisResult(WAV, "audio/wav", "mock-model", "mock-tier", False, len(text))
+
+    monkeypatch.setattr(
+        voice_module, "_synthesizer_for", lambda config, reserve: MockSynthesizer(reserve)
+    )
+    payload = voice_module.SpeechRequest(**answer(db))
+    first = asyncio.create_task(voice_module._speech(payload, request, db, session.token_hash))
+    await started.wait()
+    second = asyncio.create_task(voice_module._speech(payload, request, db, session.token_hash))
+    await asyncio.sleep(0)
+    other = voice_module.SpeechRequest(**answer(db, "another distinct clip"))
+    with pytest.raises(DomainError) as failure:
+        await voice_module._speech(other, request, db, session.token_hash)
+    assert failure.value.code == "REQUEST_IN_PROGRESS"
+    second.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await second
+    finish.set()
+    assert (await first).body == WAV
+    await asyncio.sleep(0)
+    assert not voice_module._INFLIGHT
+    assert len(attempts) == 1
+    assert (await voice_module._speech(payload, request, db, session.token_hash)).body == WAV
+    assert len(attempts) == 1
+
+
+def test_staff_draft_voice_remains_private_revision_scoped_and_revocable(
+    client, db, monkeypatch, tmp_path
+):
+    from test_admin import login, seed_staff
+    from test_experiences import content, save
+    from test_resources import make_resource_point
+
+    _, calls = cloud(client, monkeypatch)
+    seed_staff(client, db)
+    point = make_resource_point(db)
+    login(client)
+    draft = save(
+        client,
+        content(
+            point,
+            "tour",
+            stops=[
+                {
+                    "point_id": point.id,
+                    "segments": [{"id": "draft-one", "text": "尚未公开的测试讲解"}],
+                }
+            ],
+        ),
+    )
+    source = {
+        "kind": "draft_segment",
+        "tour_id": draft["id"],
+        "draft_revision": draft["revision"],
+        "stop_index": 0,
+        "segment_id": "draft-one",
+    }
+    prepared = client.post("/api/v1/admin/voice/prepare", json={"source": source})
+    assert prepared.status_code == 200, prepared.text
+    payload = {"permit": prepared.json()["data"]["permit"], "chunk_index": 0}
+    assert client.post("/api/v1/admin/voice/speech", json=payload).status_code == 200
+    assert all(not key.startswith("public:") for key in voice_module._AUDIO_CACHE)
+    saved = save(
+        client,
+        content(
+            point,
+            "tour",
+            stops=[
+                {
+                    "point_id": point.id,
+                    "segments": [{"id": "draft-one", "text": "更新后的测试讲解"}],
+                }
+            ],
+        ),
+        draft,
+    )
+    assert saved["revision"] > draft["revision"]
+    assert client.post("/api/v1/admin/voice/speech", json=payload).status_code == 409
+    assert len(calls) == 1
+    client.cookies.clear()
+    assert client.post("/api/v1/admin/voice/speech", json=payload).status_code == 401

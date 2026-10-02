@@ -33,6 +33,13 @@ export function experienceLocation(
   const url = new URL(href);
   url.searchParams.delete("experience");
   url.searchParams.delete("experience_point");
+  if (
+    !selection?.id ||
+    selection.id !== new URL(href).searchParams.get("experience")
+  ) {
+    for (const key of ["revision", "stop", "segment", "mode"])
+      url.searchParams.delete(key);
+  }
   if (selection) {
     for (const key of ["floor", "floor_section", "panorama"])
       url.searchParams.delete(key);
@@ -90,6 +97,8 @@ export function pointLocation(
   if (!preserveExperience) {
     url.searchParams.delete("experience");
     url.searchParams.delete("experience_point");
+    for (const key of ["revision", "stop", "segment", "mode"])
+      url.searchParams.delete(key);
   }
   if (!pointId || url.searchParams.get("point") !== pointId) {
     url.searchParams.delete("panorama");

@@ -5,17 +5,32 @@
 业务约束见21—29；接口上线前必须先处理24中的协议缺口和旧角色命名，不能猜学校平台API。
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
-接口操作数：113；状态统计：{"implemented": 77, "planned": 36}。
-契约SHA256：`4caa4472816b781096395881c2182534d86bfd8e8b460deed616f57251e2a0c5`。
+接口操作数：134；状态统计：{"implemented": 98, "planned": 36}。
+契约SHA256：`f4e0b66f6f19b72b28c8634564b910f2f97e52baaf79da13c6df0aec8894a02b`。
 
 ## 1. 全部端点
 
 | 方法 | 路径 | operation_id | 状态 | 权限标签 | 请求 | 成功响应 |
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/api/v1/admin/audit` | listAdminAudit | implemented | staff | — | 200: application/json Envelope_list_AuditEvent__ |
-| POST | `/api/v1/admin/auth/login` | staffLogin | implemented | public | application/json: StaffLogin | 200: application/json Envelope_StaffSession_ |
+| POST | `/api/v1/admin/auth/login` | staffLogin | implemented | public | application/json: StaffLogin | 200: application/json Envelope_Union_StaffSession__StaffMfaPending__ |
 | POST | `/api/v1/admin/auth/logout` | staffLogout | implemented | staff | — | 200: application/json Envelope_ActionResult_ |
+| GET | `/api/v1/admin/auth/mfa` | status_api_v1_admin_auth_mfa_get | implemented | staff | — | 200: application/json Envelope_StaffMfaStatus_ |
+| POST | `/api/v1/admin/auth/mfa/activity` | activity_api_v1_admin_auth_mfa_activity_post | implemented | staff | — | 200: application/json Envelope_ActionResult_ |
+| POST | `/api/v1/admin/auth/mfa/authentication/options` | authentication_options_api_v1_admin_auth_mfa_authentication_options_post | implemented | staff | — | 200: application/json Envelope_StaffMfaOptions_ |
+| POST | `/api/v1/admin/auth/mfa/authentication/verify` | authentication_verify_api_v1_admin_auth_mfa_authentication_verify_post | implemented | staff | application/json: StaffMfaProof | 200: application/json Envelope_StaffSession_ |
+| DELETE | `/api/v1/admin/auth/mfa/credentials/{credential_id}` | remove_credential_api_v1_admin_auth_mfa_credentials__credential_id__delete | implemented | staff | — | 200: application/json Envelope_StaffSession_ |
+| POST | `/api/v1/admin/auth/mfa/enrollment` | begin_enrollment_api_v1_admin_auth_mfa_enrollment_post | implemented | staff | application/json: StaffMfaPassword | 200: application/json Envelope_StaffMfaPending_ |
+| POST | `/api/v1/admin/auth/mfa/pending/password` | pending_password_api_v1_admin_auth_mfa_pending_password_post | implemented | staff | application/json: StaffPasswordChange | 200: application/json Envelope_StaffMfaPending_ |
+| POST | `/api/v1/admin/auth/mfa/recovery` | recover_api_v1_admin_auth_mfa_recovery_post | implemented | staff | application/json: StaffMfaRecovery | 200: application/json Envelope_StaffMfaPending_ |
+| POST | `/api/v1/admin/auth/mfa/recovery-codes` | recovery_codes_api_v1_admin_auth_mfa_recovery_codes_post | implemented | staff | — | 200: application/json Envelope_StaffMfaRecoveryCodes_ |
+| POST | `/api/v1/admin/auth/mfa/registration/options` | registration_options_api_v1_admin_auth_mfa_registration_options_post | implemented | staff | application/json: StaffMfaRegistration | 200: application/json Envelope_StaffMfaOptions_ |
+| POST | `/api/v1/admin/auth/mfa/registration/verify` | registration_verify_api_v1_admin_auth_mfa_registration_verify_post | implemented | staff | application/json: StaffMfaProof | 200: application/json Envelope_StaffMfaPending_ |
+| POST | `/api/v1/admin/auth/mfa/step-up` | step_up_api_v1_admin_auth_mfa_step_up_post | implemented | staff | — | 200: application/json Envelope_StaffMfaPending_ |
 | POST | `/api/v1/admin/auth/password` | changeStaffPassword | implemented | staff | application/json: StaffPasswordChange | 200: application/json Envelope_ActionResult_ |
+| GET | `/api/v1/admin/auth/sessions` | listOwnStaffSessions | implemented | staff | — | 200: application/json Envelope_StaffSessionInventory_ |
+| POST | `/api/v1/admin/auth/sessions/revoke-others` | revokeOtherOwnStaffSessions | implemented | staff | — | 200: application/json Envelope_StaffSessionRevocation_ |
+| DELETE | `/api/v1/admin/auth/sessions/{session_id}` | revokeOwnStaffSession | implemented | staff | — | 200: application/json Envelope_StaffSessionRevocation_ |
 | GET | `/api/v1/admin/campuses` | listStaffCampuses | implemented | staff | — | 200: application/json Envelope_list_Campus__ |
 | GET | `/api/v1/admin/changes` | listAdminChanges | implemented | staff | — | 200: application/json Envelope_list_AdminChangeItem__ |
 | GET | `/api/v1/admin/experience-media/{upload_id}` | previewExperienceMedia | implemented | staff | — | 见契约响应 |
@@ -23,6 +38,7 @@
 | POST | `/api/v1/admin/experiences` | createExperience | implemented | staff | application/json: ExperienceSave | 201: application/json Envelope_AdminExperience_ |
 | GET | `/api/v1/admin/experiences/{experience_id}` | getAdminExperience | implemented | staff | — | 200: application/json Envelope_AdminExperience_ |
 | PUT | `/api/v1/admin/experiences/{experience_id}` | saveExperience | implemented | staff | application/json: ExperienceSave | 200: application/json Envelope_AdminExperience_ |
+| GET | `/api/v1/admin/experiences/{experience_id}/preview` | previewExperienceTour | implemented | staff | — | 200: application/json Envelope_PublicExperience_ |
 | POST | `/api/v1/admin/experiences/{experience_id}/retire` | retireExperience | implemented | staff | application/json: ResourceRetireRequest | 200: application/json Envelope_AdminExperience_ |
 | POST | `/api/v1/admin/experiences/{experience_id}/review/{action}` | reviewExperience | implemented | staff | application/json: ReviewRequest | 200: application/json Envelope_AdminExperience_ |
 | GET | `/api/v1/admin/floor-images/{upload_id}` | previewUploadedFloor | implemented | staff | — | 见契约响应 |
@@ -74,10 +90,14 @@
 | GET | `/api/v1/admin/users` | listStaffUsers | implemented | staff | — | 200: application/json Envelope_list_StaffUser__ |
 | POST | `/api/v1/admin/users` | createStaffUser | implemented | staff | application/json: StaffUserCreate | 201: application/json Envelope_StaffUser_ |
 | PUT | `/api/v1/admin/users/{user_id}` | updateStaffUser | implemented | staff | application/json: StaffUserUpdate | 200: application/json Envelope_StaffUser_ |
+| POST | `/api/v1/admin/voice/prepare` | prepareDraftVoice | implemented | staff | application/json: DraftVoicePrepare | 200: application/json Envelope_VoiceManifest_ |
+| POST | `/api/v1/admin/voice/speech` | createDraftVoiceSpeech | implemented | staff | application/json: SpeechRequest | 200: application/json object; 200: audio/wav object |
 | GET | `/api/v1/admin/workbench` | getAdminWorkbench | implemented | staff | — | 200: application/json Envelope_AdminWorkbench_ |
 | POST | `/api/v1/agent/actions/resolve` | resolveGuideAction | implemented | agent | application/json: ResolveAction | 200: application/json Envelope_GuideAction_ |
 | POST | `/api/v1/agent/chat` | chatNativeAgent | implemented | agent | application/json: GuideTurn | 200: application/json Envelope_GuideReply_ |
+| POST | `/api/v1/agent/guest` | createPublicAgentSession | implemented | public | — | 200: application/json Envelope_AgentSession_ |
 | POST | `/api/v1/agent/login` | loginNativeAgent | implemented | public | application/json: AgentLogin | 200: application/json Envelope_AgentSession_ |
+| POST | `/api/v1/agent/logout` | endPublicAgentSession | implemented | agent | — | 200: application/json object |
 | GET | `/api/v1/agent/session` | getNativeAgentSession | implemented | agent | — | 200: application/json Envelope_AgentSession_ |
 | GET | `/api/v1/agent/web-config` | getAgentWebConfig | implemented | public | — | 200: application/json Envelope_AgentWebConfig_ |
 | POST | `/api/v1/auth/guest-session` | createGuestSession | planned | public | — | 201: application/json Envelope_GuestSession_ |
@@ -121,6 +141,7 @@
 | POST | `/api/v1/tour-plans` | createTourPlan | planned | guest_session | application/json: TourPlanRequest | 201: application/json Envelope_TourPlan_ |
 | GET | `/api/v1/tour-plans/{plan_id}` | getTourPlan | planned | owner | — | 200: application/json Envelope_TourPlan_ |
 | PATCH | `/api/v1/tour-plans/{plan_id}` | adjustTourPlan | planned | owner | application/json: TourAdjustment | 200: application/json Envelope_TourPlan_ |
+| POST | `/api/v1/voice/prepare` | preparePublicVoice | implemented | 未标记 | application/json: VoicePrepare | 200: application/json Envelope_VoiceManifest_ |
 | POST | `/api/v1/voice/speech` | createVoiceSpeech | implemented | 未标记 | application/json: SpeechRequest | 200: application/json object; 200: audio/wav object |
 | GET | `/api/v1/voice/status` | getVoiceStatus | implemented | 未标记 | — | 200: application/json object |
 | GET | `/health/live` | healthLive | implemented | 未标记 | — | 200: application/json Health |
@@ -153,10 +174,92 @@
 | Origin | header | 是 | string | — |
 | X-CSRF-Token | header | 是 | string | — |
 
+### POST /api/v1/admin/auth/mfa/activity
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/mfa/authentication/options
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/mfa/authentication/verify
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### DELETE /api/v1/admin/auth/mfa/credentials/{credential_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| credential_id | path | 是 | string | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/mfa/enrollment
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/mfa/pending/password
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/mfa/recovery
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/mfa/recovery-codes
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/mfa/registration/options
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/mfa/registration/verify
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/mfa/step-up
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
 ### POST /api/v1/admin/auth/password
 
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
+| Origin | header | 是 | string | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/auth/sessions/revoke-others
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| Origin | header | 是 | string | — |
+| X-CSRF-Token | header | 是 | string | — |
+
+### DELETE /api/v1/admin/auth/sessions/{session_id}
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| session_id | path | 是 | string (uuid) | — |
 | Origin | header | 是 | string | — |
 | X-CSRF-Token | header | 是 | string | — |
 
@@ -210,6 +313,13 @@
 | experience_id | path | 是 | string (uuid) | — |
 | Origin | header | 是 | string | — |
 | X-CSRF-Token | header | 是 | string | — |
+
+### GET /api/v1/admin/experiences/{experience_id}/preview
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| experience_id | path | 是 | string (uuid) | — |
+| expected_revision | query | 是 | integer | 最小: 1 |
 
 ### POST /api/v1/admin/experiences/{experience_id}/retire
 
@@ -547,6 +657,18 @@
 | Origin | header | 是 | string | — |
 | X-CSRF-Token | header | 是 | string | — |
 
+### POST /api/v1/admin/voice/prepare
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/admin/voice/speech
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
 ### POST /api/v1/agent/actions/resolve
 
 | 字段 | 位置 | 必填 | 类型 | 约束 |
@@ -554,6 +676,12 @@
 | X-CSRF-Token | header | 是 | string | — |
 
 ### POST /api/v1/agent/chat
+
+| 字段 | 位置 | 必填 | 类型 | 约束 |
+| --- | --- | --- | --- | --- |
+| X-CSRF-Token | header | 是 | string | — |
+
+### POST /api/v1/agent/logout
 
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
@@ -808,6 +936,18 @@
 | reason | 是 | ok / stale_context / user_declined / resource_unavailable / playback_blocked | — |
 | status | 是 | applied / skipped / failed | — |
 
+### ActionReceipt
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| action_id | 是 | string (uuid) | — |
+| context_revision | 是 | integer | 最小: 0.0 |
+| resource_id | 否 | string (uuid) / null | —; — |
+| resource_revision | 否 | integer / null | 最小: 1.0; — |
+| result | 是 | opened / playing / paused / ended / blocked / failed / cancelled / external_requested | — |
+
 ### ActionResult
 
 未知字段：拒绝。
@@ -997,6 +1137,7 @@
 | enabled | 是 | boolean | — |
 | hide_sidebar | 否 | boolean | 默认: true |
 | provider | 否 | nk-genios-websdk / nk-genios-api | 默认: "nk-genios-websdk" |
+| public_enabled | 否 | boolean | 默认: false |
 | public_site_origin | 是 | string | — |
 | sdk_url | 否 | 'https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js' | 默认: "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js" |
 
@@ -1104,6 +1245,26 @@
 ### ContentStatus
 
 类型：draft / in_review / published / retired；—。
+
+### DraftSpeechSource
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| draft_revision | 是 | integer | 最小: 1.0 |
+| kind | 是 | 'draft_segment' | — |
+| segment_id | 否 | string / null | 最长: 64; — |
+| stop_index | 是 | integer | 最小: 0.0; 最大: 49.0 |
+| tour_id | 是 | string (uuid) | — |
+
+### DraftVoicePrepare
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| source | 是 | DraftSpeechSource | — |
 
 ### Envelope_ActionAck_
 
@@ -1447,6 +1608,60 @@
 | data | 是 | SourceDraft | — |
 | meta | 是 | Meta | — |
 
+### Envelope_StaffMfaOptions_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | StaffMfaOptions | — |
+| meta | 是 | Meta | — |
+
+### Envelope_StaffMfaPending_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | StaffMfaPending | — |
+| meta | 是 | Meta | — |
+
+### Envelope_StaffMfaRecoveryCodes_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | StaffMfaRecoveryCodes | — |
+| meta | 是 | Meta | — |
+
+### Envelope_StaffMfaStatus_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | StaffMfaStatus | — |
+| meta | 是 | Meta | — |
+
+### Envelope_StaffSessionInventory_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | StaffSessionInventory | — |
+| meta | 是 | Meta | — |
+
+### Envelope_StaffSessionRevocation_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | StaffSessionRevocation | — |
+| meta | 是 | Meta | — |
+
 ### Envelope_StaffSession_
 
 未知字段：拒绝。
@@ -1483,6 +1698,15 @@
 | data | 是 | TourPlan | — |
 | meta | 是 | Meta | — |
 
+### Envelope_Union_StaffSession__StaffMfaPending__
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | StaffSession / StaffMfaPending | —; — |
+| meta | 是 | Meta | — |
+
 ### Envelope_UploadedFile_
 
 未知字段：拒绝。
@@ -1490,6 +1714,15 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | data | 是 | UploadedFile | — |
+| meta | 是 | Meta | — |
+
+### Envelope_VoiceManifest_
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| data | 是 | VoiceManifest | — |
 | meta | 是 | Meta | — |
 
 ### Envelope_list_AdminChangeItem__
@@ -1766,6 +1999,8 @@
 | narrative | 否 | string | 最长: 8000; 默认: "" |
 | point_id | 是 | string (uuid) | — |
 | prompt_timing | 否 | on_arrival / after_intro / manual | 默认: "manual" |
+| segments | 否 | array<TourSegment> / null | 至少项数: 1; 最多项数: 50; — |
+| title | 否 | string / null | 最长: 120; — |
 | video_id | 否 | string (uuid) / null | —; — |
 
 ### ExperienceTourContent
@@ -1775,6 +2010,8 @@
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
 | campus_id | 是 | string | 格式: ^[a-z0-9][a-z0-9-]{1,63}$ |
+| cover_image_id | 否 | string (uuid) / null | —; — |
+| cover_image_revision | 否 | integer / null | 最小: 1.0; — |
 | description | 否 | string | 最长: 8000; 默认: "" |
 | kind | 否 | 'tour' | 默认: "tour" |
 | source_note | 是 | string | 最短: 1; 最长: 2000 |
@@ -1915,8 +2152,10 @@
 | map_id | 是 | string (uuid) | — |
 | map_revision | 是 | integer | 最小: 1.0 |
 | point_id | 否 | string (uuid) / null | —; — |
+| resource | 否 | GuideResource / null | —; — |
 | revision | 是 | integer | 最小: 0.0 |
 | start_point_id | 否 | string (uuid) / null | —; — |
+| visit | 否 | GuideVisit / null | —; — |
 
 ### GuideLink
 
@@ -1994,6 +2233,19 @@
 | context_revision | 是 | integer | — |
 | materials | 是 | array<GuideLink> | — |
 | notices | 是 | array<string> | — |
+| speech_chunks | 否 | array<string> | — |
+| speech_permit | 否 | string / null | —; — |
+
+### GuideResource
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| id | 是 | string (uuid) | — |
+| kind | 是 | image / floor / vr / video / checkin | — |
+| revision | 是 | integer | 最小: 1.0 |
+| section | 否 | string / null | 最长: 32; — |
 
 ### GuideTurn
 
@@ -2001,9 +2253,21 @@
 
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
+| action_receipts | 否 | array<ActionReceipt> | 最多项数: 16 |
 | context | 是 | GuideContext | — |
 | query | 是 | string | 最短: 1; 最长: 2000 |
 | request_id | 是 | string (uuid) | — |
+
+### GuideVisit
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| segment_id | 否 | string / null | 最长: 64; — |
+| stop_index | 是 | integer | 最小: 0.0; 最大: 49.0 |
+| tour_id | 是 | string (uuid) | — |
+| tour_revision | 是 | integer | 最小: 1.0 |
 
 ### HTTPValidationError
 
@@ -2721,7 +2985,8 @@
 
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
-| text | 是 | string | 最短: 1; 最长: 2000 |
+| chunk_index | 是 | integer | 最小: 0.0; 最大: 1024.0 |
+| permit | 是 | string | 最短: 16; 最长: 128 |
 
 ### StaffLogin
 
@@ -2731,6 +2996,91 @@
 | --- | --- | --- | --- |
 | password | 是 | string (password) | 最短: 1; 最长: 128 |
 | username | 是 | string | 格式: ^[a-z][a-z0-9._-]{2,63}$ |
+
+### StaffMfaCredential
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| created_at | 是 | string | — |
+| id | 是 | string | — |
+| last_used_at | 是 | string / null | —; — |
+| name | 是 | string | — |
+| verified | 是 | boolean | — |
+
+### StaffMfaOptions
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| public_key | 是 | object | — |
+
+### StaffMfaPassword
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| password | 是 | string (password) | 最短: 1; 最长: 128 |
+
+### StaffMfaPending
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| csrf_token | 是 | string | — |
+| expires_at | 是 | string (date-time) | — |
+| must_change_password | 是 | boolean | — |
+| status | 是 | mfa_required / enrollment_required / recovery_required | — |
+
+### StaffMfaProof
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| credential | 是 | object | — |
+
+### StaffMfaRecovery
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| code | 是 | string (password) | 最短: 20; 最长: 128 |
+
+### StaffMfaRecoveryCodes
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| codes | 是 | array<string> | — |
+| session | 是 | StaffSession | — |
+
+### StaffMfaRegistration
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| name | 是 | string | 最短: 1; 最长: 80 |
+
+### StaffMfaStatus
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| credentials | 是 | array<StaffMfaCredential> | — |
+| enforced | 是 | boolean | — |
+| enforcement_ready | 是 | boolean | — |
+| enrolled | 是 | boolean | — |
+| recovery_codes_remaining | 是 | integer | — |
+| verified | 是 | boolean | — |
 
 ### StaffPasswordChange
 
@@ -2749,8 +3099,43 @@
 | --- | --- | --- | --- |
 | csrf_token | 是 | string | — |
 | expires_at | 是 | string (date-time) | — |
+| mfa_enforced | 否 | boolean | 默认: false |
+| mfa_enrolled | 否 | boolean | 默认: false |
+| mfa_verified | 否 | boolean | 默认: false |
 | permissions | 是 | array<string> | — |
+| recent_mfa_until | 否 | string (date-time) / null | —; — |
 | user | 是 | StaffUser | — |
+
+### StaffSessionInfo
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| created_at | 是 | string (date-time) | — |
+| expires_at | 是 | string (date-time) | — |
+| id | 是 | string (uuid) | — |
+| idle_expires_at | 是 | string (date-time) | — |
+| is_current | 是 | boolean | — |
+| last_activity_at | 是 | string (date-time) | — |
+| mfa_verified | 是 | boolean | — |
+
+### StaffSessionInventory
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| server_time | 是 | string (date-time) | — |
+| sessions | 是 | array<StaffSessionInfo> | — |
+
+### StaffSessionRevocation
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| revoked_count | 是 | integer | — |
 
 ### StaffUser
 
@@ -2820,6 +3205,24 @@
 | point_id | 否 | string (uuid) / null | —; — |
 | theme | 否 | string / null | 最短: 1; 最长: 100; — |
 
+### TourAssetView
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| id | 是 | string (uuid) | — |
+| revision | 是 | integer | 最小: 1.0 |
+| type | 是 | image / floor | — |
+
+### TourMapView
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| type | 否 | 'map' | 默认: "map" |
+
 ### TourPlan
 
 未知字段：拒绝。
@@ -2849,6 +3252,40 @@
 | preferred_point_ids | 否 | array<string (uuid)> | 最多项数: 20 |
 | start | 否 | RouteEndpoint / null | —; — |
 | theme | 是 | string | 最短: 1; 最长: 100 |
+
+### TourResource
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| id | 是 | string (uuid) | — |
+| revision | 是 | integer | 最小: 1.0 |
+| type | 是 | image / floor / video / vr / checkin | — |
+
+### TourSegment
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| id | 是 | string | 格式: ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$ |
+| main_view | 否 | TourMapView / TourAssetView | —; — |
+| resources | 否 | array<TourResource> | 最多项数: 25 |
+| source_note | 否 | string | 最长: 2000; 默认: "" |
+| text | 否 | string | 最长: 8000; 默认: "" |
+
+### TourSpeechSource
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| kind | 是 | 'tour_segment' | — |
+| segment_id | 否 | string / null | 最长: 64; — |
+| stop_index | 是 | integer | 最小: 0.0; 最大: 49.0 |
+| tour_id | 是 | string (uuid) | — |
+| tour_revision | 是 | integer | 最小: 1.0 |
 
 ### TourStop
 
@@ -2914,6 +3351,23 @@
 ### Visibility
 
 类型：public / internal / restricted；—。
+
+### VoiceManifest
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| chunks | 否 | array<string> | — |
+| permit | 否 | string / null | —; — |
+
+### VoicePrepare
+
+未知字段：拒绝。
+
+| 字段 | 必填 | 类型/枚举 | 约束/默认 |
+| --- | --- | --- | --- |
+| source | 是 | TourSpeechSource | — |
 
 ### XY
 

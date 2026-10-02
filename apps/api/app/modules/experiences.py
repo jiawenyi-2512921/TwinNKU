@@ -4,21 +4,17 @@ Tour stops describe a presentation sequence, never an invented walking path.
 Owned media is served through authorization on every request, including ranges.
 """
 
+import asyncio
 import hashlib
-import json
 import shutil
-import subprocess
 import unicodedata
-import warnings
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import FileResponse
-from PIL import Image
 from pydantic import Field, TypeAdapter, field_validator, model_validator
 from sqlalchemy import select
-from starlette.concurrency import run_in_threadpool
 
 from app.api import DB, envelope
 from app.contracts import (
@@ -35,6 +31,8 @@ from app.models import (
     CampusRecord,
     ExperienceRecord,
     ExperienceUploadRecord,
+    FloorRecord,
+    PanoramaRecord,
     PointRecord,
     now_utc,
 )
@@ -42,6 +40,8 @@ from app.modules.admin.router import STAFF, WRITE
 from app.modules.admin.security import Actor, audit, require_point
 from app.modules.admin.service import conflict
 from app.modules.floors.import_bundle import contained
+from app.modules.floors.service import public_floors
+from app.modules.uploads import inspect_upload, storage_guard, upload_slot
 
 router = APIRouter(tags=["experiences"])
 PUBLIC = {"x-implementation-status": "implemented", "x-module": "M06", "x-auth": "public"}
@@ -97,8 +97,44 @@ class ExperienceCheckinContent(ExperienceBase):
     image_id: UUID | None = None
 
 
+class TourResource(DTO):
+    type: Literal["image", "floor", "video", "vr", "checkin"]
+    id: UUID
+    revision: int = Field(ge=1)
+
+
+class TourMapView(DTO):
+    type: Literal["map"] = "map"
+
+
+class TourAssetView(DTO):
+    type: Literal["image", "floor"]
+    id: UUID
+    revision: int = Field(ge=1)
+
+
+class TourSegment(DTO):
+    id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+    text: str = Field(default="", max_length=8000)
+    source_note: str = Field(default="", max_length=2000)
+    main_view: Annotated[TourMapView | TourAssetView, Field(discriminator="type")] = Field(
+        default_factory=TourMapView
+    )
+    resources: list[TourResource] = Field(default_factory=list, max_length=25)
+
+    @model_validator(mode="after")
+    def unique_resources(self):
+        keys = [(resource.type, resource.id) for resource in self.resources]
+        if len(keys) != len(set(keys)):
+            raise ValueError("segment resource references must be unique")
+        return self
+
+
 class ExperienceStop(DTO):
     point_id: UUID
+    title: str | None = Field(default=None, max_length=120)
+    # None preserves the original narrative/media timing. An explicit sequence is ordered.
+    segments: list[TourSegment] | None = Field(default=None, min_length=1, max_length=50)
     narrative: str = Field(default="", max_length=8000)
     video_id: UUID | None = None
     checkin_id: UUID | None = None
@@ -109,6 +145,17 @@ class ExperienceTourContent(ExperienceBase):
     campus_id: CampusId
     kind: Literal["tour"] = "tour"
     stops: list[ExperienceStop] = Field(min_length=1, max_length=50)
+    cover_image_id: UUID | None = None
+    cover_image_revision: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def segment_identity(self):
+        ids = [segment.id for stop in self.stops for segment in (stop.segments or [])]
+        if len(ids) != len(set(ids)):
+            raise ValueError("segment IDs must be unique across the tour")
+        if (self.cover_image_id is None) != (self.cover_image_revision is None):
+            raise ValueError("cover image ID and revision must be supplied together")
+        return self
 
 
 ExperienceContent = Annotated[
@@ -236,11 +283,7 @@ def public_record(db, key):
     if isinstance(content, ExperienceCheckinContent) and content.image_id:
         referenced_media(db, content.image_id, "image", content.point_id)
     elif isinstance(content, ExperienceTourContent):
-        for stop in content.stops:
-            if stop.video_id:
-                referenced_media(db, stop.video_id, "video", stop.point_id)
-            if stop.checkin_id:
-                referenced_checkin(db, stop.checkin_id, stop.point_id)
+        validate_tour_resources(db, content)
     return record, content
 
 
@@ -272,6 +315,63 @@ def referenced_checkin(db, key, point_id):
     if str(content.point_id) != str(point_id):
         raise DomainError("CHECKIN_NOT_PUBLIC", "打卡所属地点与路线站点不匹配", 409)
     return record, content
+
+
+def referenced_tour_resource(db, resource, point_id):
+    """Every reference is point-bound, public and pinned to the currently reviewed revision."""
+    if resource.type in {"image", "video"}:
+        record, _ = referenced_media(db, resource.id, resource.type, point_id)
+        revision = record.published_revision
+    elif resource.type == "checkin":
+        record, _ = referenced_checkin(db, resource.id, point_id)
+        revision = record.published_revision
+    elif resource.type == "floor":
+        record = db.scalar(public_floors().where(FloorRecord.id == str(resource.id)))
+        if not record or record.point_id != str(point_id):
+            raise DomainError("RESOURCE_NOT_PUBLIC", "楼层未公开或与站点不匹配", 409)
+        revision = record.revision
+    else:
+        record = db.get(PanoramaRecord, str(resource.id))
+        if (
+            not record
+            or record.status != "published"
+            or record.point_id != str(point_id)
+            or not public_point(db, point_id)
+        ):
+            raise DomainError("RESOURCE_NOT_PUBLIC", "VR未公开或与站点不匹配", 409)
+        revision = record.revision
+    if revision != resource.revision:
+        raise DomainError("RESOURCE_REVISION_CHANGED", "引用资料已更新，请重新选择当前版本", 409)
+    return record
+
+
+def validate_tour_resources(db, content):
+    if content.cover_image_id:
+        cover = db.get(ExperienceRecord, str(content.cover_image_id))
+        if not cover or cover.kind != "media":
+            raise DomainError("INVALID_COVER", "封面须为路线站点的已发布图片", 409)
+        record, image = public_record(db, content.cover_image_id)
+        if (
+            not isinstance(image, ExperienceMediaContent)
+            or image.media_type != "image"
+            or str(image.point_id) not in content_points(content)
+            or record.campus_id != content.campus_id
+        ):
+            raise DomainError("INVALID_COVER", "封面须为路线站点的已发布图片", 409)
+        if record.published_revision != content.cover_image_revision:
+            raise DomainError("RESOURCE_REVISION_CHANGED", "封面图片已更新，请重新选择", 409)
+    for stop in content.stops:
+        if stop.segments is None:
+            if stop.video_id:
+                referenced_media(db, stop.video_id, "video", stop.point_id)
+            if stop.checkin_id:
+                referenced_checkin(db, stop.checkin_id, stop.point_id)
+            continue
+        for segment in stop.segments:
+            if segment.main_view.type != "map":
+                referenced_tour_resource(db, segment.main_view, stop.point_id)
+            for resource in segment.resources:
+                referenced_tour_resource(db, resource, stop.point_id)
 
 
 def public_view(record, content):
@@ -361,11 +461,7 @@ def validate_candidate(db, actor, content, settings):
     elif isinstance(content, ExperienceCheckinContent) and content.image_id:
         referenced_media(db, content.image_id, "image", content.point_id)
     elif isinstance(content, ExperienceTourContent):
-        for stop in content.stops:
-            if stop.video_id:
-                referenced_media(db, stop.video_id, "video", stop.point_id)
-            if stop.checkin_id:
-                referenced_checkin(db, stop.checkin_id, stop.point_id)
+        validate_tour_resources(db, content)
     return contributors
 
 
@@ -393,77 +489,6 @@ def admin_view(record):
     )
 
 
-def inspect_media(path, mime):
-    if mime.startswith("image/"):
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", Image.DecompressionBombWarning)
-                with Image.open(path) as image:
-                    expected = "PNG" if mime == "image/png" else "JPEG"
-                    if image.format != expected or image.width * image.height > 40_000_000:
-                        raise ValueError("image type or dimensions")
-                    image.verify()
-                with Image.open(path) as image:
-                    image.load()
-        except (
-            OSError,
-            ValueError,
-            SyntaxError,
-            Image.DecompressionBombError,
-            Image.DecompressionBombWarning,
-        ) as exc:
-            raise DomainError("INVALID_MEDIA", "图片无效、过大或类型不匹配", 422) from exc
-        return
-    with path.open("rb") as source:
-        header = source.read(16)
-    if (mime == "video/mp4" and header[4:8] != b"ftyp") or (
-        mime == "video/webm" and header[:4] != b"\x1a\x45\xdf\xa3"
-    ):
-        raise DomainError("INVALID_MEDIA", "视频文件头与声明类型不匹配", 422)
-    executable = shutil.which("ffprobe")
-    if not executable:
-        raise DomainError("VIDEO_VALIDATION_UNAVAILABLE", "服务器尚未安装视频校验组件", 503)
-    try:
-        result = subprocess.run(
-            [
-                executable,
-                "-v",
-                "error",
-                "-protocol_whitelist",
-                "file",
-                "-format_whitelist",
-                "mov,matroska,webm",
-                "-show_entries",
-                "format=format_name,duration:stream=codec_type,codec_name",
-                "-of",
-                "json",
-                str(path),
-            ],
-            capture_output=True,
-            timeout=15,
-            check=True,
-        )
-        info = json.loads(result.stdout)
-        formats = info.get("format", {}).get("format_name", "").split(",")
-        valid_format = "mp4" in formats if mime == "video/mp4" else "webm" in formats
-        valid_video = any(
-            s.get("codec_type") == "video"
-            and s.get("codec_name")
-            in ({"h264", "hevc", "av1"} if mime == "video/mp4" else {"vp8", "vp9", "av1"})
-            for s in info.get("streams", [])
-        )
-        if (
-            not valid_format
-            or not valid_video
-            or float(info.get("format", {}).get("duration", 0)) <= 0
-        ):
-            raise ValueError("invalid video container")
-    except (subprocess.SubprocessError, ValueError, OSError) as exc:
-        raise DomainError(
-            "INVALID_MEDIA", "视频无效或格式不支持，请使用MP4或WebM视频", 422
-        ) from exc
-
-
 @router.post(
     "/api/v1/admin/points/{point_id}/experience-media",
     status_code=201,
@@ -483,40 +508,48 @@ async def upload_media(point_id: UUID, request: Request, actor: Actor, db: DB):
     key = str(uuid4())
     root = request.app.state.settings.floor_assets_dir.resolve()
     folder = root / ".experience-media" / key
-    folder.mkdir(parents=True)
     filename = "original." + MIME_EXTENSIONS[mime]
     path = folder / filename
     total, digest = 0, hashlib.sha256()
     try:
-        with path.open("xb") as target:
-            async for chunk in request.stream():
-                total += len(chunk)
-                if total > MAX_MEDIA_BYTES:
-                    raise DomainError("UPLOAD_TOO_LARGE", "单个媒体文件不能超过100MiB", 413)
-                digest.update(chunk)
-                target.write(chunk)
-        if not total:
-            raise DomainError("INVALID_MEDIA", "文件为空", 422)
-        await run_in_threadpool(inspect_media, path, mime)
-        upload = ExperienceUploadRecord(
-            id=key,
-            point_id=point.id,
-            uploaded_by=actor.user.id,
-            media_type="image" if mime.startswith("image/") else "video",
-            mime_type=mime,
-            filename=filename,
-            size_bytes=total,
-            sha256=digest.hexdigest(),
-        )
-        db.add(upload)
-        audit(
-            db,
-            actor.user,
-            "experience.uploaded",
-            point=point,
-            details={"upload_id": key, "mime_type": mime, "size_bytes": total},
-        )
-        db.commit()
+        settings = request.app.state.settings
+        with upload_slot(
+            db, settings, actor.user, point, kind="media", upload_id=key, max_bytes=MAX_MEDIA_BYTES
+        ) as slot:
+            async with asyncio.timeout(slot.timeout_seconds):
+                folder.mkdir(parents=True)
+                with path.open("xb") as target:
+                    async for chunk in request.stream():
+                        total += len(chunk)
+                        if total > MAX_MEDIA_BYTES:
+                            raise DomainError("UPLOAD_TOO_LARGE", "单个媒体文件不能超过100MiB", 413)
+                        digest.update(chunk)
+                        target.write(chunk)
+                if not total:
+                    raise DomainError("INVALID_MEDIA", "文件为空", 422)
+                await inspect_upload(path, mime, kind="media", settings=settings)
+                upload = ExperienceUploadRecord(
+                    id=key,
+                    point_id=point.id,
+                    uploaded_by=actor.user.id,
+                    media_type="image" if mime.startswith("image/") else "video",
+                    mime_type=mime,
+                    filename=filename,
+                    size_bytes=total,
+                    sha256=digest.hexdigest(),
+                )
+                db.add(upload)
+                audit(
+                    db,
+                    actor.user,
+                    "experience.uploaded",
+                    point=point,
+                    details={"upload_id": key, "mime_type": mime, "size_bytes": total},
+                )
+                slot.complete(db, total)
+                db.commit()
+    except TimeoutError as exc:
+        raise DomainError("UPLOAD_TIMEOUT", "上传超过处理时限，请重新上传", 408) from exc
     except BaseException:
         shutil.rmtree(folder, ignore_errors=True)
         raise
@@ -669,7 +702,44 @@ def get_admin(experience_id: UUID, request: Request, actor: Actor, db: DB):
     return envelope(request, admin_view(require_record(db, actor, experience_id)))
 
 
+@router.get(
+    "/api/v1/admin/experiences/{experience_id}/preview",
+    response_model=Envelope[PublicExperience],
+    operation_id="previewExperienceTour",
+    openapi_extra=EXPERIENCE_STAFF,
+)
+def preview_tour(
+    experience_id: UUID,
+    request: Request,
+    actor: Actor,
+    db: DB,
+    expected_revision: int = Query(ge=1),
+):
+    actor.require("points.read")
+    record = require_record(db, actor, experience_id)
+    if record.revision != expected_revision:
+        conflict()
+    payload = record.draft if record.state in ACTIVE else record.published
+    if not payload:
+        raise DomainError("NOT_FOUND", "没有可预览的路线", 404)
+    content = stored_content(record, payload)
+    if not isinstance(content, ExperienceTourContent):
+        raise DomainError("TOUR_REQUIRED", "此入口仅预览校园导览", 422)
+    validate_candidate(db, actor, content, request.app.state.settings)
+    return envelope(
+        request,
+        PublicExperience(
+            id=record.id, campus_id=record.campus_id, revision=record.revision, content=content
+        ),
+    )
+
+
 def save_experience(key, payload, request, actor, db):
+    with storage_guard(request.app.state.settings):
+        return _save_experience(key, payload, request, actor, db)
+
+
+def _save_experience(key, payload, request, actor, db):
     actor.require("points.edit")
     record = require_record(db, actor, key, lock=True) if key else None
     if payload.expected_revision != (
@@ -762,6 +832,11 @@ def update(experience_id: UUID, payload: ExperienceSave, request: Request, actor
 def retire(
     experience_id: UUID, payload: ResourceRetireRequest, request: Request, actor: Actor, db: DB
 ):
+    with storage_guard(request.app.state.settings):
+        return _retire(experience_id, payload, request, actor, db)
+
+
+def _retire(experience_id, payload, request, actor, db):
     actor.require("points.edit")
     record = require_record(db, actor, experience_id, lock=True)
     if (
@@ -804,6 +879,11 @@ def review(
     actor: Actor,
     db: DB,
 ):
+    with storage_guard(request.app.state.settings):
+        return _review(experience_id, action, payload, request, actor, db)
+
+
+def _review(experience_id, action, payload, request, actor, db):
     actor.require("points.review" if action in {"publish", "reject"} else "points.edit")
     record = require_record(db, actor, experience_id, lock=True)
     if record.revision != payload.expected_revision:

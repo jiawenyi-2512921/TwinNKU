@@ -10,10 +10,16 @@ rotating on those would produce an endless failover loop that always fails.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import io
+import ipaddress
 import logging
+import socket
+import wave
 from collections.abc import Iterable
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -111,6 +117,10 @@ class VoiceSynthesizer:
         tiers: Iterable[VoiceTier],
         timeout: float = 20.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        audio_hosts: Iterable[str] = (),
+        max_audio_bytes: int = 8 * 1024 * 1024,
+        before_attempt=None,
+        resolver=None,
     ):
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
@@ -119,6 +129,10 @@ class VoiceSynthesizer:
             raise ValueError("at least one voice tier is required")
         self._timeout = timeout
         self._transport = transport
+        self._audio_hosts = frozenset(host.lower() for host in audio_hosts)
+        self._max_audio_bytes = max_audio_bytes
+        self._before_attempt = before_attempt
+        self._resolver = resolver or self._resolve_host
 
     @property
     def tiers(self) -> tuple[VoiceTier, ...]:
@@ -143,7 +157,7 @@ class VoiceSynthesizer:
             except _RotateToNext as exc:
                 last_code = exc.code
                 logger.warning(
-                    "voice tier %s unavailable (code=%s); degrading", tier.name, exc.code
+                    "voice tier %s unavailable (reason=quota_or_availability); degrading", tier.name
                 )
                 continue
             except _TierHardFailure as exc:
@@ -176,17 +190,40 @@ class VoiceSynthesizer:
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
+        async with httpx.AsyncClient(
+            timeout=self._timeout,
+            transport=self._transport,
+            follow_redirects=False,
+            trust_env=False,
+        ) as client:
             try:
-                response = await client.post(url, json=payload, headers=headers)
+                response = await self._request(
+                    client,
+                    "POST",
+                    url,
+                    json=payload,
+                    headers=headers,
+                    limit=(self._max_audio_bytes * 4 // 3) + 65536,
+                    paid=True,
+                )
                 if response.status_code in TRANSIENT_HTTP_STATUS:
                     # Server-side blip: one same-tier retry before giving up on it.
-                    response = await client.post(url, json=payload, headers=headers)
-            except httpx.HTTPError as exc:
+                    response = await self._request(
+                        client,
+                        "POST",
+                        url,
+                        json=payload,
+                        headers=headers,
+                        limit=(self._max_audio_bytes * 4 // 3) + 65536,
+                        paid=True,
+                    )
+            except (httpx.HTTPError, TimeoutError) as exc:
                 # Do not log provider URLs, credentials or raw transport errors.
                 # No automatic timeout retry: the provider may already have billed it.
                 raise _TierHardFailure("无法连接语音服务", code="TransportError") from exc
 
+            if 300 <= response.status_code < 400:
+                raise _TierHardFailure("语音服务重定向已拒绝")
             if response.status_code >= 400:
                 code = None
                 try:
@@ -206,8 +243,93 @@ class VoiceSynthesizer:
 
             return await self._read_audio(client, body)
 
+    async def _request(self, client, method, url, *, limit, paid=False, **kwargs):
+        if paid and self._before_attempt:
+            self._before_attempt()
+        async with asyncio.timeout(self._timeout):
+            return await self._read_response(client, method, url, limit=limit, **kwargs)
+
+    async def _read_response(self, client, method, url, *, limit, **kwargs):
+        async with client.stream(method, url, **kwargs) as response:
+            length = response.headers.get("content-length")
+            if length:
+                try:
+                    if int(length) > limit:
+                        raise _TierHardFailure("语音响应超过安全大小限制")
+                except ValueError:
+                    raise _TierHardFailure("语音响应大小格式异常") from None
+            body = bytearray()
+            async for chunk in response.aiter_bytes():
+                body.extend(chunk)
+                if len(body) > limit:
+                    raise _TierHardFailure("语音响应超过安全大小限制")
+            return httpx.Response(
+                response.status_code,
+                headers=response.headers,
+                content=bytes(body),
+                request=response.request,
+            )
+
     @staticmethod
-    async def _read_audio(client: httpx.AsyncClient, body: object) -> bytes:
+    def _resolve_host(host):
+        return {result[4][0] for result in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)}
+
+    async def _download_target(self, remote):
+        try:
+            parsed = urlsplit(remote)
+            if (
+                parsed.scheme != "https"
+                or parsed.hostname not in self._audio_hosts
+                or parsed.port not in (None, 443)
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.fragment
+                or any(c.isspace() or ord(c) < 32 for c in remote)
+                or "\\" in remote
+            ):
+                raise ValueError("target")
+            async with asyncio.timeout(self._timeout):
+                addresses = await asyncio.to_thread(self._resolver, parsed.hostname)
+            validated = [ipaddress.ip_address(value) for value in addresses]
+            if not validated or any(
+                not ip.is_global or ip.is_multicast or ip.is_reserved for ip in validated
+            ):
+                raise ValueError("address")
+            # Pin the vetted IP for the connection; keep the original TLS SNI and
+            # HTTP Host. A second DNS lookup cannot rebind to a private address.
+            return httpx.URL(remote).copy_with(host=str(validated[0])), parsed.hostname
+        except (ValueError, OSError, TimeoutError):
+            raise _TierHardFailure("语音下载地址未通过安全校验") from None
+
+    def _checked_audio(self, audio):
+        if (
+            not audio
+            or len(audio) > self._max_audio_bytes
+            or len(audio) < 12
+            or audio[:4] != b"RIFF"
+            or audio[8:12] != b"WAVE"
+        ):
+            raise _TierHardFailure("语音响应不是有效且受限的WAV音频")
+        try:
+            with wave.open(io.BytesIO(audio), "rb") as parsed:
+                if (
+                    not 1 <= parsed.getnchannels() <= 2
+                    or not 8000 <= parsed.getframerate() <= 192000
+                    or not 1 <= parsed.getsampwidth() <= 4
+                    or parsed.getnframes() < 1
+                ):
+                    raise ValueError("audio format")
+                expected = parsed.getnframes() * parsed.getnchannels() * parsed.getsampwidth()
+                if (
+                    expected > self._max_audio_bytes
+                    or len(parsed.readframes(parsed.getnframes())) != expected
+                ):
+                    raise ValueError("audio length")
+        except (wave.Error, EOFError, ValueError):
+            raise _TierHardFailure("语音响应不是有效且受限的WAV音频") from None
+        return audio
+
+    async def _read_audio(self, client: httpx.AsyncClient, body: object) -> bytes:
         """Extract audio, accepting either inline base64 or a download URL.
 
         The gateway normally returns `data` as an empty string and puts the
@@ -228,19 +350,29 @@ class VoiceSynthesizer:
         inline = audio.get("data")
         if isinstance(inline, str) and inline:
             try:
-                return base64.b64decode(inline)
+                if len(inline) > (self._max_audio_bytes * 4 // 3) + 8:
+                    raise ValueError("length")
+                return self._checked_audio(base64.b64decode(inline, validate=True))
             except ValueError as exc:
                 raise _TierHardFailure("语音音频解码失败") from exc
 
         remote = audio.get("url")
         if isinstance(remote, str) and remote:
+            target, host = await self._download_target(remote)
             try:
-                download = await client.get(remote)
-            except httpx.HTTPError as exc:
+                download = await self._request(
+                    client,
+                    "GET",
+                    target,
+                    limit=self._max_audio_bytes,
+                    headers={"Host": host},
+                    extensions={"sni_hostname": host},
+                )
+            except (httpx.HTTPError, TimeoutError) as exc:
                 raise _TierHardFailure("语音音频下载失败") from exc
-            if download.status_code >= 400 or not download.content:
+            if download.status_code != 200 or not download.content:
                 raise _TierHardFailure("语音音频下载失败")
-            return download.content
+            return self._checked_audio(download.content)
 
         raise _TierHardFailure("语音服务未返回可用的音频数据")
 

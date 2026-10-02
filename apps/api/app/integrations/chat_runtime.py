@@ -1,4 +1,7 @@
-"""Bounded single-process visitor sessions; restarting requires a new login."""
+"""School chat transport with durable visitor isolation and paid-attempt quotas.
+
+Process-local helpers remain for isolated demos; public routes use generate_db.
+"""
 
 import hashlib
 import hmac
@@ -125,6 +128,8 @@ class ChatRuntime:
         visitor_limit=30,
         total_limit=120,
         trace_id: UUID | None = None,
+        before_attempt=None,
+        on_conversation=None,
     ):
         if not session.lock.acquire(blocking=False):
             raise DomainError("REQUEST_IN_PROGRESS", "上一条问题仍在处理中", 409)
@@ -154,6 +159,8 @@ class ChatRuntime:
             stage = "create_conversation"
             started = time.monotonic()
             if not session.conversation:
+                if before_attempt:
+                    before_attempt()
                 result = self.upstream(
                     "create_conversation",
                     {
@@ -173,9 +180,13 @@ class ChatRuntime:
                 if not isinstance(cid, str) or not 1 <= len(cid) <= 128:
                     raise ProbeError("INVALID_CONVERSATION_RESPONSE")
                 session.conversation = cid
+                if on_conversation:
+                    on_conversation(cid)
                 log_upstream(stage, "SUCCESS", started, trace_id)
             stage = "chat_query_v2"
             started = time.monotonic()
+            if before_attempt:
+                before_attempt()
             result = self.upstream(
                 "chat_query_v2",
                 {
@@ -233,3 +244,96 @@ class ChatRuntime:
             if slot:
                 self.slots.release()
             session.lock.release()
+
+    def generate_db(
+        self,
+        session,
+        request_id,
+        fingerprint_body,
+        prompt,
+        db,
+        request,
+        *,
+        visitor_limit=30,
+        total_limit=120,
+        trace_id=None,
+    ):
+        """Persistent request idempotency and cross-worker isolation for visitors."""
+        from sqlalchemy import func, select
+
+        from app.integrations.public_agent_security import (
+            PublicAgentRequest,
+            PublicAgentSession,
+            acquire_lease,
+            paid_attempt,
+            release_lease,
+        )
+
+        fingerprint = hashlib.sha256(
+            json.dumps(fingerprint_body, sort_keys=True).encode()
+        ).hexdigest()
+        old = db.get(PublicAgentRequest, (session.token_hash, str(request_id)))
+        if old:
+            if old.fingerprint != fingerprint:
+                raise DomainError("REQUEST_ID_REUSED", "请求标识已被不同问题使用", 409)
+            if old.answer is None:
+                raise DomainError(
+                    "RESULT_UNKNOWN", "上一请求结果不确定，请勿重复提交；可新建对话", 409
+                )
+            return old.answer
+        lease = acquire_lease(db, request, session.token_hash, "model")
+        try:
+            # Recheck after the cross-process session lease, before any supplier call.
+            old = db.get(
+                PublicAgentRequest, (session.token_hash, str(request_id)), populate_existing=True
+            )
+            if old:
+                if old.fingerprint != fingerprint:
+                    raise DomainError("REQUEST_ID_REUSED", "请求标识已被不同问题使用", 409)
+                if old.answer is None:
+                    raise DomainError("RESULT_UNKNOWN", "上一请求结果不确定，请勿重复提交", 409)
+                return old.answer
+            count = db.scalar(
+                select(func.count())
+                .select_from(PublicAgentRequest)
+                .where(PublicAgentRequest.session_id == session.token_hash)
+            )
+            if count >= 100:
+                raise DomainError("SESSION_FULL", "本次对话较长，请新建对话", 409)
+            row = PublicAgentRequest(
+                session_id=session.token_hash,
+                request_id=str(request_id),
+                fingerprint=fingerprint,
+                answer=None,
+                expires_at=session.expires_at,
+            )
+            db.add(row)
+            db.commit()
+            stored = db.get(PublicAgentSession, session.token_hash, populate_existing=True)
+            local = ChatVisitor(
+                user=stored.user_id, csrf=stored.csrf, conversation=stored.conversation_id
+            )
+
+            def reserve_attempt():
+                paid_attempt(db, request, session.token_hash, "model", visitor_limit, total_limit)
+
+            def save_conversation(cid):
+                stored.conversation_id = cid
+                db.commit()
+
+            answer = self.generate(
+                local,
+                request_id,
+                fingerprint_body,
+                prompt,
+                visitor_limit=visitor_limit,
+                total_limit=total_limit,
+                trace_id=trace_id,
+                before_attempt=reserve_attempt,
+                on_conversation=save_conversation,
+            )
+            row.answer = answer
+            db.commit()
+            return answer
+        finally:
+            release_lease(db, lease)

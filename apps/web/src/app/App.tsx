@@ -25,7 +25,7 @@ import { PlaceDirectory } from "../features/places/PlaceDirectory";
 import { PanoramaDirectory } from "../features/places/PanoramaDirectory";
 import { MapCanvas } from "../features/map/MapCanvas";
 import { correctedDisplayName } from "../features/map/labelCorrections";
-import { AgentDock, type AgentRequest } from "../features/agent/AgentDock";
+import type { AgentRequest } from "../features/agent/AgentDock";
 import { useAgentConfig } from "../features/agent/useAgentConfig";
 import {
   EMPTY_CONTEXT,
@@ -53,9 +53,40 @@ import { panoramaOnlyTransition } from "../shared/navigation";
 import { PointDetails } from "../features/points/PointDetails";
 import {
   ExperiencePanel,
+  TourResourceView,
+  type TourNarration,
+  type TourPosition,
   type VideoPlaybackRequest,
 } from "../features/experiences/ExperiencePanel";
-import type { Experience } from "../features/experiences/types";
+import type {
+  Experience,
+  TourMainView,
+  TourResource,
+} from "../features/experiences/types";
+import { normalizeTourPosition } from "../features/experiences/segments";
+import { Welcome } from "../features/visit/Welcome";
+import { ShareVisit } from "../features/visit/ShareVisit";
+import { TourNarrator } from "../features/visit/TourNarrator";
+import { pauseTour } from "../features/visit/audioOwner";
+import {
+  currentTourStop,
+  hasResourceLocation,
+  isPublicMedia,
+  isStopResource,
+  readResourceLocation,
+  resourceLocation,
+  resourceOnlyTransition,
+  sameVisit,
+  sameResource,
+  type ResourceLocation,
+} from "../features/visit/resourceLocation";
+import {
+  readVisit,
+  loadVisit,
+  saveVisit,
+  type VisitSession,
+  type VisitMode,
+} from "../features/visit/session";
 
 const categories = [
   "all",
@@ -73,6 +104,34 @@ const EMPTY_ROUTE_SEGMENTS: RouteSegment[] = [];
 
 export function App() {
   const agentConfig = useAgentConfig();
+  const [showHome, setShowHome] = useState(
+    () =>
+      !new URLSearchParams(window.location.search).has("point") &&
+      !readExperienceLocation(window.location.href),
+  );
+  const [visit, setVisit] = useState<VisitSession | null>(() =>
+    readVisit(window.location.href),
+  );
+  const [visitMode, setVisitMode] = useState<VisitMode>(
+    () =>
+      readVisit(window.location.href)?.mode ??
+      (new URLSearchParams(window.location.search).get("mode") === "onsite"
+        ? "onsite"
+        : "online"),
+  );
+  const [handoff, setHandoff] = useState(() =>
+    Boolean(readVisit(window.location.href)),
+  );
+  const [visitNotice, setVisitNotice] = useState("");
+  const [narration, setNarration] = useState<TourNarration | null>(null);
+  const [resourceLayer, setResourceLayer] = useState<ResourceLocation | null>(
+    null,
+  );
+  const visitRef = useRef(visit);
+  visitRef.current = visit;
+  const [viewResource, setViewResource] =
+    useState<GuideContext["resource"]>(null);
+  const actionObservation = useRef<GuideAction | null>(null);
   const [route, setRoute] = useState<NavigationPath | null>(null);
   const [navigation, setNavigation] = useState<RouteSelection | null>(null);
   const [pickMode, setPickMode] = useState<RoutePickMode>(null);
@@ -89,6 +148,7 @@ export function App() {
     () => window.location.search,
   );
   const [experienceCatalog, setExperienceCatalog] = useState<Experience[]>([]);
+  const [experiencesLoaded, setExperiencesLoaded] = useState(false);
   const experienceCatalogRef = useRef(experienceCatalog);
   experienceCatalogRef.current = experienceCatalog;
   const [playbackRequest, setPlaybackRequest] =
@@ -133,13 +193,18 @@ export function App() {
       preserveExperience = false,
       mode: "push" | "replace" = "push",
     ) => {
+      setShowHome(false);
       cancelPlayback();
       selectedRef.current = id;
       setSelectedId(id);
       setShowList(false);
       setShowHelp(false);
       writeLocation(
-        pointLocation(window.location.href, id, preserveExperience),
+        pointLocation(
+          resourceLocation(window.location.href, null),
+          id,
+          preserveExperience,
+        ),
         mode,
       );
     },
@@ -156,10 +221,22 @@ export function App() {
   const closeExperience = useCallback(() => {
     cancelPlayback();
     setExperience(null);
-    writeLocation(experienceLocation(window.location.href, null), "replace");
+    setHandoff(false);
+    setNarration(null);
+    setResourceLayer(null);
+    setVisit(null);
+    setViewResource(null);
+    writeLocation(
+      experienceLocation(resourceLocation(window.location.href, null), null),
+      "replace",
+    );
   }, [cancelPlayback]);
   const explorePoint = useCallback(
     (id: string | null) => {
+      setNarration(null);
+      setResourceLayer(null);
+      setVisit(null);
+      setViewResource(null);
       setExperience(null);
       selectPoint(id);
     },
@@ -182,6 +259,12 @@ export function App() {
         const retained = availableSelection(next, selectedRef.current);
         if (retained !== selectedRef.current) {
           cancelPlayback();
+          pauseTour();
+          setNarration(null);
+          setResourceLayer(null);
+          setViewResource(null);
+          setVisit(null);
+          setHandoff(false);
           selectedRef.current = retained;
           setSelectedId(retained);
           setExperience(null);
@@ -223,11 +306,12 @@ export function App() {
           `/experiences?campus_id=${encodeURIComponent(catalog.campus.id)}`,
           controller.signal,
         );
-        if (!disposed && current === generation && !controller.signal.aborted)
+        if (!disposed && current === generation && !controller.signal.aborted) {
           setExperienceCatalog(result.data);
+          setExperiencesLoaded(true);
+        }
       } catch {
-        if (!disposed && current === generation && !controller.signal.aborted)
-          setExperienceCatalog([]);
+        // A temporary network failure keeps the last verified public catalogue.
       }
     };
     const stop = watchCatalogChanges(refreshExperiences);
@@ -243,6 +327,12 @@ export function App() {
     let previousHref = window.location.href;
     function restoreLocation() {
       cancelPlayback();
+      pauseTour();
+      const restoredVisit = readVisit(window.location.href);
+      const resourceOnly =
+        (resourceOnlyTransition(previousHref, window.location.href) ||
+          previousHref === window.location.href) &&
+        sameVisit(visitRef.current, restoredVisit);
       const overlayOnly = panoramaOnlyTransition(
         previousHref,
         window.location.href,
@@ -256,8 +346,25 @@ export function App() {
       selectedRef.current = id;
       setSelectedId(id);
       setLocationSearch(window.location.search);
+      if (resourceOnly) {
+        // Keep the live visit (including its audio bookmark) and mounted
+        // narrator. The resource effect revalidates the public destination.
+        setResourceLayer(null);
+        setMediaActive(false);
+        setShowList(false);
+        setShowHelp(false);
+        return;
+      }
       if (overlayOnly) return;
       setExperience(readExperienceLocation(window.location.href));
+      setVisit(restoredVisit);
+      setResourceLayer(null);
+      setNarration(null);
+      setHandoff(Boolean(restoredVisit));
+      if (restoredVisit) {
+        setVisitMode(restoredVisit.mode);
+        setShowHome(false);
+      }
       setNavigation(null);
       setRoute(null);
       setPickMode(null);
@@ -298,6 +405,14 @@ export function App() {
         if (pickMode) {
           event.preventDefault();
           setPickMode(null);
+          return;
+        }
+        if (
+          resourceLayer ||
+          (visit && hasResourceLocation(window.location.href))
+        ) {
+          event.preventDefault();
+          closeTourResource();
           return;
         }
         if (navigation) {
@@ -343,6 +458,202 @@ export function App() {
     pickMode,
     experience,
     navigation,
+    resourceLayer,
+  ]);
+
+  const activeTour = experienceCatalog.find(
+    (item) => item.id === experience?.id && item.content.kind === "tour",
+  );
+  const awaitingVersion = Boolean(
+    visit && activeTour && visit.position.revision !== activeTour.revision,
+  );
+  useEffect(() => {
+    if (
+      experiencesLoaded &&
+      visit &&
+      experience?.id === visit.tourId &&
+      !activeTour
+    ) {
+      pauseTour();
+      cancelPlayback();
+      setNarration(null);
+      setResourceLayer(null);
+      setViewResource(null);
+      setHandoff(true);
+      writeLocation(resourceLocation(window.location.href, null), "replace");
+      return;
+    }
+    if (
+      !visit ||
+      experience?.id !== visit.tourId ||
+      !activeTour ||
+      activeTour.content.kind !== "tour"
+    )
+      return;
+    const position = normalizeTourPosition(
+      visit.position,
+      activeTour.revision,
+      activeTour.content.stops,
+    );
+    if (
+      position.revision === visit.position.revision &&
+      position.stopIndex === visit.position.stopIndex &&
+      position.segmentId === visit.position.segmentId
+    )
+      return;
+    const next: VisitSession = {
+      tourId: visit.tourId,
+      mode: visit.mode,
+      position,
+    };
+    setNarration(null);
+    setResourceLayer(null);
+    setViewResource(null);
+    setVisit(next);
+    saveVisit(next);
+    setHandoff(true);
+    setVisitNotice(
+      "路线内容已更新，已将位置调整到有效的站点。请确认后继续参观。",
+    );
+    const url = new URL(resourceLocation(window.location.href, null));
+    url.searchParams.set("revision", String(position.revision));
+    url.searchParams.set("stop", String(position.stopIndex));
+    url.searchParams.set("segment", position.segmentId);
+    const point = activeTour.content.stops[position.stopIndex]?.point_id;
+    if (point) {
+      url.searchParams.set("point", point);
+      selectedRef.current = point;
+      setSelectedId(point);
+    }
+    writeLocation(url.href, "replace");
+  }, [activeTour, visit, experience?.id, experiencesLoaded]);
+
+  useEffect(() => {
+    if (!catalog || !experiencesLoaded) return;
+    const href = window.location.href;
+    const requested = readResourceLocation(href);
+    const current = currentTourStop(experienceCatalog, visit);
+    const restoreMain = () => {
+      setResourceLayer(null);
+      if (resourceLayer) setMediaActive(false);
+      changeMainView(current?.segment.main_view ?? { type: "map" });
+    };
+    const reject = () => {
+      cancelPlayback();
+      restoreMain();
+      if (hasResourceLocation(href)) {
+        writeLocation(
+          resourceLocation(href, null, current?.stop.point_id),
+          "replace",
+        );
+        if (current) {
+          selectedRef.current = current.stop.point_id;
+          setSelectedId(current.stop.point_id);
+        }
+      }
+    };
+    if (!requested) {
+      if (hasResourceLocation(href)) reject();
+      else if (resourceLayer || current) restoreMain();
+      return;
+    }
+    if (
+      !current ||
+      experience?.id !== visit?.tourId ||
+      current.tour.campus_id !== catalog.campus.id ||
+      !catalog.points.some((point) => point.id === requested.pointId)
+    ) {
+      reject();
+      return;
+    }
+    const state = window.history.state;
+    const publicAction =
+      sameVisit(state?.twinnkuTourResourceReturn, visit) &&
+      sameResource(state?.twinnkuTourResourcePublic, requested);
+    if (!isStopResource(requested, experienceCatalog, visit) && !publicAction) {
+      reject();
+      return;
+    }
+    if (handoff) {
+      restoreMain();
+      return;
+    }
+    const controller = new AbortController();
+    const accept = () => {
+      if (controller.signal.aborted || window.location.href !== href) return;
+      setResourceLayer((previous) =>
+        previous &&
+        previous.pointId === requested.pointId &&
+        previous.resource.type === requested.resource.type &&
+        previous.resource.id === requested.resource.id &&
+        previous.resource.revision === requested.resource.revision
+          ? previous
+          : requested,
+      );
+      selectedRef.current = requested.pointId;
+      setSelectedId(requested.pointId);
+      setViewResource({
+        kind: requested.resource.type,
+        id: requested.resource.id,
+        revision: requested.resource.revision,
+      });
+    };
+    if (["image", "video", "checkin"].includes(requested.resource.type)) {
+      // Public catalog verification also covers an AI resource belonging to
+      // another point. Ordinary route clicks additionally require a stop ref.
+      if (isPublicMedia(requested, experienceCatalog, catalog.campus.id))
+        accept();
+      else reject();
+    } else {
+      // Both route refs and AI floor/VR actions resolve via public endpoints;
+      // never trust a history entry as proof that a resource remains published.
+      setResourceLayer(null);
+      const load =
+        requested.resource.type === "floor"
+          ? get<{ id: string; point_id: string; revision: number }>(
+              `/floors/${requested.resource.id}`,
+              controller.signal,
+            ).then(
+              ({ data }) =>
+                data.id === requested.resource.id &&
+                data.point_id === requested.pointId &&
+                data.revision === requested.resource.revision,
+            )
+          : get<{ id: string; point_id: string; revision: number }[]>(
+              `/points/${requested.pointId}/panoramas`,
+              controller.signal,
+            ).then(({ data }) =>
+              data.some(
+                (row) =>
+                  row.id === requested.resource.id &&
+                  row.point_id === requested.pointId &&
+                  row.revision === requested.resource.revision,
+              ),
+            );
+      void load
+        .then((valid) => {
+          if (controller.signal.aborted || window.location.href !== href)
+            return;
+          if (valid) accept();
+          else reject();
+        })
+        .catch(() => {
+          if (!controller.signal.aborted && window.location.href === href)
+            reject();
+        });
+    }
+    return () => controller.abort();
+  }, [
+    locationSearch,
+    experienceCatalog,
+    experiencesLoaded,
+    catalog,
+    experience?.id,
+    visit?.tourId,
+    visit?.position.revision,
+    visit?.position.stopIndex,
+    visit?.position.segmentId,
+    handoff,
   ]);
 
   const points = useMemo(
@@ -405,6 +716,12 @@ export function App() {
     map_revision: catalog?.map ? String(catalog.map.revision) : "",
   });
   const locationParams = new URLSearchParams(locationSearch);
+  const resourcePending = Boolean(
+    visit &&
+      !handoff &&
+      !resourceLayer &&
+      readResourceLocation(window.location.href),
+  );
   const requestedFloor =
     !navigation && !experience && locationParams.get("point") === selectedId
       ? locationParams.get("floor")
@@ -418,6 +735,9 @@ export function App() {
     experience?.id,
     experience?.kind,
     locationParams.get("panorama"),
+    visit?.tourId,
+    visit?.position,
+    viewResource,
   ]);
   if (contextState.current.key !== nativeKey)
     contextState.current = {
@@ -433,9 +753,168 @@ export function App() {
         floor_id: requestedFloor,
         start_point_id: navigation ? routeSelection.start || null : null,
         revision: contextState.current.revision,
+        visit:
+          visit && experience?.id === visit.tourId
+            ? {
+                tour_id: visit.tourId,
+                tour_revision: visit.position.revision,
+                stop_index: visit.position.stopIndex,
+                segment_id: visit.position.segmentId,
+              }
+            : null,
+        resource: viewResource,
       }
     : null;
+  function observeAction(
+    result: "opened" | "playing" | "paused" | "ended" | "failed",
+    resourceId?: string,
+  ) {
+    const action = actionObservation.current;
+    if (!action || (resourceId && action.resource_id !== resourceId)) return;
+    window.dispatchEvent(
+      new CustomEvent("twinnku:action-receipt", {
+        detail: {
+          action_id: action.action_id,
+          context_revision: action.context_revision,
+          resource_id: action.resource_id,
+          resource_revision: action.resource_revision,
+          result,
+        },
+      }),
+    );
+  }
+  function updateVisitPosition(position: TourPosition) {
+    const id = experience?.id;
+    if (!id) return;
+    const same =
+      visit?.tourId === id &&
+      visit.position.revision === position.revision &&
+      visit.position.stopIndex === position.stopIndex &&
+      visit.position.segmentId === position.segmentId;
+    if (same) return;
+    if (visit?.tourId === id && visit.position.revision !== position.revision)
+      setVisitNotice("路线已更新，将从新版第一站开始。请确认后继续参观。");
+    setNarration(null);
+    setResourceLayer(null);
+    setViewResource(null);
+    const next: VisitSession = { tourId: id, position, mode: visitMode };
+    setVisit(next);
+    saveVisit(next);
+    const url = new URL(resourceLocation(window.location.href, null));
+    url.searchParams.set("revision", String(position.revision));
+    url.searchParams.set("stop", String(position.stopIndex));
+    url.searchParams.set("segment", position.segmentId);
+    url.searchParams.set("mode", visitMode);
+    const current = currentTourStop(experienceCatalogRef.current, next);
+    if (current) {
+      url.searchParams.set("point", current.stop.point_id);
+      selectedRef.current = current.stop.point_id;
+      setSelectedId(current.stop.point_id);
+    }
+    writeLocation(url.href, "replace");
+  }
+  function changeMainView(view: TourMainView) {
+    setViewResource(
+      view.type === "map"
+        ? null
+        : { kind: view.type, id: view.id, revision: view.revision },
+    );
+  }
+  function openTourResource(
+    resource: TourResource,
+    pointId: string,
+    source: "route" | "public" = "route",
+  ): boolean {
+    const currentVisit = visitRef.current;
+    const current = currentTourStop(experienceCatalogRef.current, currentVisit);
+    const currentCatalog = catalogRef.current;
+    const layer: ResourceLocation = {
+      resource: {
+        type: resource.type,
+        id: resource.id,
+        revision: resource.revision,
+      },
+      pointId,
+    };
+    if (
+      !currentVisit ||
+      !current ||
+      handoff ||
+      experience?.id !== currentVisit?.tourId ||
+      !currentCatalog ||
+      current.tour.campus_id !== currentCatalog.campus.id ||
+      !currentCatalog.points.some((point) => point.id === pointId) ||
+      (source === "route" &&
+        !isStopResource(layer, experienceCatalogRef.current, currentVisit)) ||
+      (["image", "video", "checkin"].includes(resource.type) &&
+        !isPublicMedia(
+          layer,
+          experienceCatalogRef.current,
+          currentCatalog.campus.id,
+        ))
+    )
+      return false;
+    const destination = resourceLocation(window.location.href, layer);
+    if (!readResourceLocation(destination)) return false;
+    pauseTour();
+    const alreadyOpen = Boolean(readResourceLocation(window.location.href));
+    if (!alreadyOpen)
+      writeLocation(
+        resourceLocation(window.location.href, null, current.stop.point_id),
+        "replace",
+      );
+    writeLocation(destination, alreadyOpen ? "replace" : "push");
+    const state = window.history.state;
+    window.history.replaceState(
+      {
+        ...(state && typeof state === "object" ? state : {}),
+        twinnkuTourResourceReturn: {
+          tourId: currentVisit.tourId,
+          position: {
+            revision: currentVisit.position.revision,
+            stopIndex: currentVisit.position.stopIndex,
+            ...(currentVisit.position.segmentId
+              ? { segmentId: currentVisit.position.segmentId }
+              : {}),
+          },
+          mode: currentVisit.mode,
+        },
+        twinnkuTourResourcePublic: source === "public" ? layer : null,
+      },
+      "",
+      window.location.href,
+    );
+    return true;
+  }
+  function closeTourResource() {
+    cancelPlayback();
+    setMediaActive(false);
+    pauseTour();
+    const current = currentTourStop(
+      experienceCatalogRef.current,
+      visitRef.current,
+    );
+    if (
+      readResourceLocation(window.location.href) &&
+      sameVisit(
+        window.history.state?.twinnkuTourResourceReturn,
+        visitRef.current,
+      )
+    ) {
+      window.history.back();
+    } else
+      writeLocation(
+        resourceLocation(window.location.href, null, current?.stop.point_id),
+        "replace",
+      );
+  }
+  function narrateTour(source: TourNarration) {
+    window.dispatchEvent(new Event("twinnku:tour-prime"));
+    setNarration(source);
+  }
   function openNavigation(end = selectedId ?? "", start?: string | null) {
+    setShowHome(false);
+    pauseTour();
     cancelPlayback();
     setShowList(false);
     setShowHelp(false);
@@ -449,10 +928,20 @@ export function App() {
     pointId?: string,
     id?: string,
   ) {
+    setShowHome(false);
+    pauseTour();
     cancelPlayback();
     const next = { kind, pointId, id };
+    if (id !== experience?.id) {
+      setNarration(null);
+      setResourceLayer(null);
+      setViewResource(null);
+      setVisit(id ? loadVisit(id) : null);
+    }
     setExperience(next);
-    writeLocation(experienceLocation(window.location.href, next));
+    writeLocation(
+      experienceLocation(resourceLocation(window.location.href, null), next),
+    );
     setNavigation(null);
     setRoute(null);
     setPickMode(null);
@@ -469,6 +958,7 @@ export function App() {
       )
     )
       return false;
+    actionObservation.current = action;
     if (action.type === "play_video") {
       const video = experienceCatalogRef.current.find(
         (item) => item.id === action.resource_id,
@@ -498,6 +988,36 @@ export function App() {
       return true;
     }
     if (["show_checkin", "play_video", "show_tour"].includes(action.type)) {
+      if (
+        experience?.id &&
+        visit?.tourId === experience.id &&
+        action.type !== "show_tour"
+      ) {
+        const type = action.type === "play_video" ? "video" : "checkin";
+        const opened = openTourResource(
+          {
+            type,
+            id: action.resource_id!,
+            revision: action.resource_revision!,
+          },
+          action.point_id,
+          "public",
+        );
+        if (!opened) return false;
+        if (action.type === "play_video" && options?.requestedPlayback) {
+          const controller = new AbortController();
+          playbackController.current = controller;
+          setPlaybackRequest({
+            id: ++playbackSequence.current,
+            resourceId: action.resource_id!,
+            revision: action.resource_revision!,
+            pointId: action.point_id,
+            pointRevision: action.point_revision,
+            signal: controller.signal,
+          });
+        }
+        return true;
+      }
       selectPoint(action.point_id);
       openExperience(
         action.type === "show_tour"
@@ -522,6 +1042,24 @@ export function App() {
       }
       return true;
     }
+    if (experience?.id && visit?.tourId === experience.id) {
+      if (
+        action.type === "show_floor" &&
+        action.resource_id &&
+        action.resource_revision
+      ) {
+        return openTourResource(
+          {
+            type: "floor",
+            id: action.resource_id,
+            revision: action.resource_revision,
+          },
+          action.point_id,
+          "public",
+        );
+      } else selectPoint(action.point_id, true);
+      return true;
+    }
     setExperience(null);
     setPickMode(null);
     setNavigation(null);
@@ -530,7 +1068,10 @@ export function App() {
     setSelectedId(action.point_id);
     setShowList(false);
     writeLocation(
-      actionLocation(experienceLocation(window.location.href, null), action),
+      actionLocation(
+        experienceLocation(resourceLocation(window.location.href, null), null),
+        action,
+      ),
     );
     window.dispatchEvent(new PopStateEvent("popstate"));
     return true;
@@ -585,7 +1126,16 @@ export function App() {
         跳到地图
       </a>
       <header className="app-header">
-        <a className="brand" href="/" aria-label="Twin NKU 首页">
+        <a
+          className="brand"
+          href="/"
+          aria-label="Twin NKU 首页"
+          onClick={(event) => {
+            event.preventDefault();
+            pauseTour();
+            setShowHome(true);
+          }}
+        >
           <span className="brand-mark">
             N<span>·</span>
           </span>
@@ -598,6 +1148,14 @@ export function App() {
         </span>
         {catalog?.map && (
           <nav className="campus-modes" aria-label="校园探索方式">
+            <button
+              className="navigation-entry"
+              aria-pressed={!showHome}
+              onClick={() => setShowHome(false)}
+            >
+              <Icon name="pin" size={17} />
+              校园地图
+            </button>
             <button
               className="navigation-entry"
               aria-pressed={!!navigation}
@@ -751,6 +1309,10 @@ export function App() {
               points={points}
               selectedId={selectedId}
               onSelect={explorePoint}
+              onFocusResult={(id) => {
+                if (id === actionObservation.current?.point_id)
+                  observeAction("opened");
+              }}
               routeSegments={route?.segments ?? EMPTY_ROUTE_SEGMENTS}
               routePickMode={pickMode}
               routeStartId={navigation ? routeSelection.start : null}
@@ -885,11 +1447,26 @@ export function App() {
               }}
             />
           )}
-          {experience && (
+          {experience && !handoff && !awaitingVersion && (
             <aside
               className="experience-sheet"
-              hidden={!!navigation || showList}
+              hidden={
+                !!navigation ||
+                showList ||
+                !!resourceLayer ||
+                resourcePending ||
+                showHome
+              }
               aria-label="校园影像与主题导览"
+              onPlay={() =>
+                observeAction("playing", playbackRequest?.resourceId)
+              }
+              onPause={() =>
+                observeAction("paused", playbackRequest?.resourceId)
+              }
+              onEnded={() =>
+                observeAction("ended", playbackRequest?.resourceId)
+              }
             >
               <ExperiencePanel
                 campusId={catalog?.campus.id}
@@ -901,6 +1478,9 @@ export function App() {
                 active={
                   !navigation &&
                   !showList &&
+                  !resourceLayer &&
+                  !resourcePending &&
+                  !showHome &&
                   !new URLSearchParams(locationSearch).has("panorama")
                 }
                 onSelectPoint={selectExperiencePoint}
@@ -911,14 +1491,44 @@ export function App() {
                   cancelPlayback();
                   if (!experience || experience.id === id) return;
                   const next = { ...experience, id };
+                  setNarration(null);
+                  setResourceLayer(null);
+                  setViewResource(null);
+                  setVisit(id ? loadVisit(id) : null);
                   setExperience(next);
                   writeLocation(
-                    experienceLocation(window.location.href, next),
+                    experienceLocation(
+                      resourceLocation(window.location.href, null),
+                      next,
+                    ),
                     id ? "push" : "replace",
                   );
                 }}
                 onMediaActiveChange={setMediaActive}
-                onNavigateStop={(from, to) => openNavigation(to, from)}
+                onNavigateStop={
+                  visitMode === "onsite"
+                    ? (from, to) => openNavigation(to, from)
+                    : undefined
+                }
+                position={
+                  visit && visit.tourId === experience.id
+                    ? {
+                        ...visit.position,
+                        segmentId: visit.position.segmentId ?? "",
+                      }
+                    : null
+                }
+                onPositionChange={updateVisitPosition}
+                onMainViewChange={changeMainView}
+                onResourceOpen={openTourResource}
+                onNarrate={narrateTour}
+                onNarrationStop={pauseTour}
+                onBookmark={() => {
+                  if (visit) {
+                    saveVisit(visit);
+                    setVisitNotice("已在本设备保存当前参观位置。");
+                  }
+                }}
                 onClose={closeExperience}
               />
             </aside>
@@ -935,9 +1545,141 @@ export function App() {
             )}
         </section>
         <PanoramaOverlay />
+        {(resourceLayer || resourcePending) && (
+          <aside
+            className="visit-resource-layer"
+            aria-label="本站资料"
+            onLoadCapture={() =>
+              resourceLayer &&
+              observeAction("opened", resourceLayer.resource.id)
+            }
+            onPlay={() => {
+              setMediaActive(true);
+              if (resourceLayer)
+                observeAction("playing", resourceLayer.resource.id);
+            }}
+            onPause={() => {
+              setMediaActive(false);
+              if (resourceLayer)
+                observeAction("paused", resourceLayer.resource.id);
+            }}
+            onEnded={() => {
+              setMediaActive(false);
+              if (resourceLayer)
+                observeAction("ended", resourceLayer.resource.id);
+            }}
+            onErrorCapture={() =>
+              resourceLayer &&
+              observeAction("failed", resourceLayer.resource.id)
+            }
+          >
+            <button className="visit-return" onClick={closeTourResource}>
+              ← 返回本站讲解
+            </button>
+            {resourceLayer ? (
+              <TourResourceView
+                resource={resourceLayer.resource}
+                pointId={resourceLayer.pointId}
+                items={experienceCatalog}
+                playbackRequest={currentPlaybackRequest}
+              />
+            ) : (
+              <p role="status">正在核对已发布资料…</p>
+            )}
+          </aside>
+        )}
+        {visit && (
+          <div
+            className="visit-controls"
+            hidden={
+              showHome ||
+              !!resourceLayer ||
+              resourcePending ||
+              !!navigation ||
+              handoff ||
+              awaitingVersion
+            }
+          >
+            {visitNotice && <p role="status">{visitNotice}</p>}
+            <TourNarrator
+              narration={narration}
+              initialBookmark={visit.audio}
+              onStop={() => setNarration(null)}
+              onBookmark={(audio) =>
+                setVisit((current) => {
+                  if (
+                    !current ||
+                    !narration ||
+                    current.tourId !== narration.tourId ||
+                    current.position.revision !== narration.tourRevision ||
+                    current.position.stopIndex !== narration.stopIndex ||
+                    (current.position.segmentId ??
+                      `legacy-stop-${current.position.stopIndex + 1}`) !==
+                      (narration.segmentId ??
+                        `legacy-stop-${narration.stopIndex + 1}`)
+                  )
+                    return current;
+                  const next = { ...current, audio };
+                  saveVisit(next);
+                  return next;
+                })
+              }
+            />
+            <ShareVisit session={visit} />
+          </div>
+        )}
+        {(handoff || awaitingVersion) && experience && (
+          <section
+            className="visit-handoff"
+            role="dialog"
+            aria-modal="true"
+            aria-label="接续参观"
+          >
+            <strong>接续你的校园参观</strong>
+            <p>
+              将打开路线的第 {(visit?.position.stopIndex ?? 0) + 1}{" "}
+              站。讲解由你点击开始。
+            </p>
+            {visitNotice && <p role="status">{visitNotice}</p>}
+            {!activeTour && (
+              <p role="status">
+                {experiencesLoaded
+                  ? "这条路线暂未公开，仍可查看校园地图。"
+                  : "正在读取已发布路线…"}
+              </p>
+            )}
+            <button
+              disabled={!activeTour || awaitingVersion}
+              onClick={() => setHandoff(false)}
+            >
+              继续参观
+            </button>
+            <button
+              onClick={() => {
+                setHandoff(false);
+                closeExperience();
+              }}
+            >
+              返回校园地图
+            </button>
+          </section>
+        )}
+        {showHome && (
+          <Welcome
+            campusName={catalog?.campus.name ?? "南开大学津南校区"}
+            items={experienceCatalog}
+            onExplore={() => setShowHome(false)}
+            onTours={(mode, id) => {
+              setVisitMode(mode);
+              setHandoff(false);
+              openExperience("tour", undefined, id);
+            }}
+          />
+        )}
         {agentConfig?.enabled && agentConfig.provider === "nk-genios-api" ? (
           <NativeAgentDock
             autoActions={agentConfig.auto_actions ?? true}
+            publicEnabled={agentConfig.public_enabled ?? false}
             current={nativeContext}
             request={agentRequest}
             pointName={selected?.name ?? ""}
@@ -946,13 +1688,7 @@ export function App() {
             onNavigate={() => openNavigation()}
             mediaActive={mediaActive}
           />
-        ) : (
-          <AgentDock
-            config={agentConfig}
-            current={agentContext}
-            request={agentRequest}
-          />
-        )}
+        ) : null}
       </main>
     </div>
   );

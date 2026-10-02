@@ -18,6 +18,10 @@ import {
   type StaffSession,
 } from "./api";
 import { Empty, ErrorBox, useResource } from "./ui";
+import { ExperienceEditor, ExperienceTourPreview } from "./ExperienceEditor";
+import { normalizeSegment } from "../experiences/segments";
+import type { TourNarration } from "../experiences/ExperiencePanel";
+import { TourNarrator } from "../visit/TourNarrator";
 import "../experiences/experiences.css";
 
 const newStop = (point_id: string): ExperienceStop => ({
@@ -52,6 +56,8 @@ export function ExperienceWorkspace({
   review = false,
   focused = false,
   onReview,
+  onTourNarrate,
+  onNarrationStop,
 }: {
   session: StaffSession;
   onDirty: (dirty: boolean, busy?: boolean) => void;
@@ -61,6 +67,8 @@ export function ExperienceWorkspace({
   review?: boolean;
   focused?: boolean;
   onReview?: (id: string) => void;
+  onTourNarrate?: (narration: TourNarration) => void;
+  onNarrationStop?: () => void;
 }) {
   const [kind, setKind] = useState<ExperienceKind | "">(
     kindScope === "tours" ? "tour" : "",
@@ -85,6 +93,7 @@ export function ExperienceWorkspace({
   const [notice, setNotice] = useState("");
   const [note, setNote] = useState("");
   const [detailRetry, setDetailRetry] = useState(0);
+  const [narration, setNarration] = useState<TourNarration | null>(null);
   const rows = useResource<AdminExperience[]>(
     `/experiences?${new URLSearchParams({ ...((kindScope === "tours" ? "tour" : kind) ? { kind: kindScope === "tours" ? "tour" : kind } : {}), ...(state ? { state } : {}), ...(query.trim() ? { q: query.trim() } : {}) })}`,
     revision,
@@ -172,6 +181,7 @@ export function ExperienceWorkspace({
     return () => controller.abort();
   }, [initialId, detailRetry]);
   function load(item: AdminExperience) {
+    setNarration(null);
     setSelected(item);
     setContent(
       ["draft", "in_review", "rejected"].includes(item.state)
@@ -212,6 +222,7 @@ export function ExperienceWorkspace({
   function create(value: ExperienceKind) {
     if (review) return;
     if (!canLeave()) return;
+    setNarration(null);
     setSelected(null);
     const available = campuses.filter((campus) =>
       points.some((point) => point.point.campus_id === campus.id),
@@ -759,6 +770,8 @@ export function ExperienceWorkspace({
                             ...content,
                             campus_id: e.target.value,
                             stops: [newStop("")],
+                            cover_image_id: null,
+                            cover_image_revision: null,
                           });
                           setActiveStop(0);
                           setStationQuery("");
@@ -1145,13 +1158,19 @@ export function ExperienceWorkspace({
                                     point_id: e.target.value,
                                     video_id: null,
                                     checkin_id: null,
+                                    segments:
+                                      stop.segments?.map((segment) => ({
+                                        ...segment,
+                                        main_view: { type: "map" as const },
+                                        resources: [],
+                                      })) ?? null,
                                   })
                                 }
                               >
                                 {pointOptions(stop.point_id, routePoints)}
                               </select>
                             </label>
-                            <label>
+                            <label hidden={!!stop.segments}>
                               本站讲解
                               <textarea
                                 rows={5}
@@ -1165,7 +1184,10 @@ export function ExperienceWorkspace({
                                 placeholder="访客在本站看到的讲解；请依据已核实资料填写"
                               />
                             </label>
-                            <div className="ad-tour-media-settings">
+                            <div
+                              className="ad-tour-media-settings"
+                              hidden={!!stop.segments}
+                            >
                               <label>
                                 本站打卡
                                 <select
@@ -1229,6 +1251,13 @@ export function ExperienceWorkspace({
                           </fieldset>
                         ),
                       )}
+                      <ExperienceEditor
+                        content={content}
+                        activeStop={activeStop}
+                        mediaRows={mediaRows}
+                        checkinRows={checkinRows}
+                        onChange={edit}
+                      />
                     </div>
                   )}
                   <label>
@@ -1245,6 +1274,32 @@ export function ExperienceWorkspace({
                   </label>
                 </fieldset>
               )}
+              {content.kind === "tour" && (
+                <ExperienceTourPreview
+                  content={content}
+                  mediaRows={mediaRows}
+                  checkinRows={checkinRows}
+                  pointNames={Object.fromEntries(
+                    points.map((entry) => [entry.point.id, entry.point.name]),
+                  )}
+                  savedId={selected?.id}
+                  draftRevision={selected?.revision}
+                  dirty={dirty}
+                  onNarrate={(value) => {
+                    setNarration(value);
+                    onTourNarrate?.(value);
+                  }}
+                  onNarrationStop={() => {
+                    setNarration(null);
+                    onNarrationStop?.();
+                  }}
+                />
+              )}
+              <TourNarrator
+                narration={narration}
+                staffCsrf={session.csrf_token}
+                onStop={() => setNarration(null)}
+              />
               {previewUrl && content.kind === "media" && (
                 <section
                   className="ad-experience-preview"
@@ -1447,25 +1502,61 @@ function PublishedContent({
         <p>参考图：{content.image_id ? mediaTitle(content.image_id) : "无"}</p>
       )}
       {content.kind === "tour" && (
-        <ol>
-          {content.stops.map((stop, index) => (
-            <li key={index}>
-              <strong>{pointName(stop.point_id)}</strong>
-              <p className="experience-prose">{stop.narrative}</p>
-              <p>
-                打卡：{stop.checkin_id ? mediaTitle(stop.checkin_id) : "无"}；
-                视频：{stop.video_id ? mediaTitle(stop.video_id) : "无"}；展示：
-                {
-                  {
-                    on_arrival: "打开本站时",
-                    after_intro: "读完介绍后",
-                    manual: "主动选择时",
-                  }[stop.prompt_timing]
-                }
-              </p>
-            </li>
-          ))}
-        </ol>
+        <>
+          <p>
+            路线封面：
+            {content.cover_image_id
+              ? mediaTitle(content.cover_image_id)
+              : "简洁封面"}
+          </p>
+          <ol>
+            {content.stops.map((stop, index) => (
+              <li key={index}>
+                <strong>{stop.title || pointName(stop.point_id)}</strong>
+                {stop.segments ? (
+                  <ol>
+                    {stop.segments.map(normalizeSegment).map((segment) => (
+                      <li key={segment.id}>
+                        <p className="experience-prose">{segment.text}</p>
+                        <p>
+                          主画面：
+                          {segment.main_view.type === "map"
+                            ? "本站地图"
+                            : `${segment.main_view.type === "image" ? mediaTitle(segment.main_view.id) : "楼层"} · 版本 ${segment.main_view.revision}`}
+                        </p>
+                        {segment.resources.map((resource) => (
+                          <p key={`${resource.type}:${resource.id}`}>
+                            {resource.type} · {mediaTitle(resource.id)} · 版本{" "}
+                            {resource.revision}
+                          </p>
+                        ))}
+                        <p className="experience-prose">
+                          本段来源：{segment.source_note || content.source_note}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="experience-prose">{stop.narrative}</p>
+                )}
+                {!stop.segments && (
+                  <p>
+                    打卡：{stop.checkin_id ? mediaTitle(stop.checkin_id) : "无"}
+                    ； 视频：{stop.video_id ? mediaTitle(stop.video_id) : "无"}
+                    ；展示：
+                    {
+                      {
+                        on_arrival: "打开本站时",
+                        after_intro: "读完介绍后",
+                        manual: "主动选择时",
+                      }[stop.prompt_timing]
+                    }
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </>
       )}
       <p className="experience-prose">来源：{content.source_note}</p>
     </div>

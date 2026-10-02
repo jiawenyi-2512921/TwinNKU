@@ -4,6 +4,7 @@ Uploads are raw PNG/JPEG bodies. Files remain private until an independent revie
 publishes a floor revision through the same importer used for delivery bundles.
 """
 
+import asyncio
 import shutil
 import tempfile
 import unicodedata
@@ -57,6 +58,7 @@ from app.modules.floors.import_bundle import (
     import_bundle,
     inspect_image,
 )
+from app.modules.uploads import inspect_upload, reserve_copy, storage_guard, upload_slot
 
 router = APIRouter(tags=["resources"])
 ACTIVE = {"draft", "in_review", "rejected"}
@@ -240,47 +242,48 @@ async def upload_image(point_id: UUID, request: Request, actor: Actor, db: DB):
     media_type = request.headers.get("content-type", "").split(";", 1)[0].lower()
     if media_type not in {"image/png", "image/jpeg"}:
         raise DomainError("IMAGE_TYPE", "请上传 PNG 或 JPEG 标注原图", 415)
-    root = request.app.state.settings.floor_assets_dir.resolve() / ".uploads"
+    settings = request.app.state.settings
+    length = request.headers.get("content-length")
+    if length and (not length.isdigit() or int(length) > MAX_BYTES):
+        raise DomainError("IMAGE_TOO_LARGE", "每张图片不得超过32 MiB", 413)
+    root = settings.floor_assets_dir.resolve() / ".uploads"
     root.mkdir(parents=True, exist_ok=True)
     upload_id = str(uuid4())
     target = root / upload_id
     try:
-        with tempfile.TemporaryDirectory(prefix=".receiving-", dir=root) as tmp:
-            path = Path(tmp) / "original"
-            size = 0
-            with path.open("wb") as file:
-                async for chunk in request.stream():
-                    size += len(chunk)
-                    if size > MAX_BYTES:
-                        raise DomainError("IMAGE_TOO_LARGE", "每张图片不得超过32 MiB", 413)
-                    file.write(chunk)
-            try:
-                meta = inspect_image(path)
-            except (ValueError, OSError, SyntaxError, Image.DecompressionBombError) as exc:
-                raise DomainError(
-                    "INVALID_IMAGE", "原图无法读取、尺寸超限或包含旋转信息，请核对源文件", 422
-                ) from exc
-            if meta["media_type"] != media_type:
-                raise DomainError("IMAGE_TYPE", "图片内容与声明格式不一致", 422)
-            filename = "labeled.png" if media_type == "image/png" else "labeled.jpg"
-            path.rename(Path(tmp) / filename)
-            Path(tmp).rename(target)
-        record = FloorUploadRecord(
-            id=upload_id,
-            point_id=point.id,
-            uploaded_by=actor.user.id,
-            image={"filename": filename, **meta},
-        )
-        db.add(record)
-        audit(
-            db,
-            actor.user,
-            "resource.image_uploaded",
-            point=point,
-            details={"upload_id": upload_id, **meta},
-        )
-        db.commit()
-    except Exception:
+        with upload_slot(
+            db, settings, actor.user, point, kind="floor", upload_id=upload_id, max_bytes=MAX_BYTES
+        ) as slot:
+            async with asyncio.timeout(slot.timeout_seconds):
+                target.mkdir()
+                path = target / "original"
+                size = 0
+                with path.open("xb") as file:
+                    async for chunk in request.stream():
+                        size += len(chunk)
+                        if size > MAX_BYTES:
+                            raise DomainError("IMAGE_TOO_LARGE", "每张图片不得超过32 MiB", 413)
+                        file.write(chunk)
+                meta = await inspect_upload(path, media_type, kind="floor", settings=settings)
+                filename = "labeled.png" if media_type == "image/png" else "labeled.jpg"
+                path.rename(target / filename)
+                record = FloorUploadRecord(
+                    id=upload_id,
+                    point_id=point.id,
+                    uploaded_by=actor.user.id,
+                    image={"filename": filename, **meta},
+                )
+                db.add(record)
+                audit(
+                    db,
+                    actor.user,
+                    "resource.image_uploaded",
+                    point=point,
+                    details={"upload_id": upload_id, **meta},
+                )
+                slot.complete(db, size)
+                db.commit()
+    except BaseException:
         if target.exists():
             shutil.rmtree(target)
         raise
@@ -417,6 +420,11 @@ def get_resource(resource_id: UUID, request: Request, actor: Actor, db: DB):
 
 
 def save_resource(point_id, resource_id, payload, request, actor, db):
+    with storage_guard(request.app.state.settings):
+        return _save_resource(point_id, resource_id, payload, request, actor, db)
+
+
+def _save_resource(point_id, resource_id, payload, request, actor, db):
     actor.require("points.edit")
     if resource_id:
         point, current, change = load_resource(db, actor, resource_id, lock=True)
@@ -558,6 +566,14 @@ def publish_floor(db, settings, point, key, content, current, actor, source_note
         revision=current.revision + 1 if current else 1,
         images=[a for a, _, _ in images],
     )
+    reserve_copy(
+        db,
+        settings,
+        actor.user,
+        point,
+        asset_id=f"{key}/{floor.revision}",
+        size_bytes=sum(asset.size_bytes for asset, _, _ in images),
+    )
     with tempfile.TemporaryDirectory(prefix=".review-", dir=root) as tmp:
         bundle_root = Path(tmp)
         folder = bundle_root / key / str(floor.revision)
@@ -565,7 +581,9 @@ def publish_floor(db, settings, point, key, content, current, actor, source_note
         for asset, path, _ in images:
             shutil.copyfile(path, folder / asset.filename)
         bundle = FloorBundle(schema_version=1, source_note=source_note, floors=[floor])
-        (bundle_root / "manifest.json").write_text(bundle.model_dump_json(exclude_defaults=True))
+        (bundle_root / "manifest.json").write_text(
+            bundle.model_dump_json(exclude_defaults=True), encoding="utf-8"
+        )
         try:
             import_bundle(
                 bundle_root,
@@ -649,6 +667,11 @@ def review_resource(
     actor: Actor,
     db: DB,
 ):
+    with storage_guard(request.app.state.settings):
+        return _review_resource(resource_id, action, payload, request, actor, db)
+
+
+def _review_resource(resource_id, action, payload, request, actor, db):
     actor.require("points.review" if action in {"publish", "reject"} else "points.edit")
     point, current, change = load_resource(db, actor, resource_id, lock=True)
     if not change or change.revision != payload.expected_revision:

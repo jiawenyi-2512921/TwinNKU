@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, text
 
+from app.api import expected_migration_heads
+
 
 @pytest.mark.skipif(
     not os.environ.get("TEST_POSTGRES_URL"),
@@ -28,10 +30,7 @@ def test_postgres_migration_and_seed():
                 db.execute(text("SELECT count(*) FROM campuses WHERE id='nku-jinnan'")).scalar_one()
                 == 1
             )
-            assert (
-                db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0008_campus_tours"
-            )
+            assert set(db.execute(text("SELECT version_num FROM alembic_version")).scalars()) == expected_migration_heads()
     finally:
         engine.dispose()
 

@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -201,6 +202,8 @@ class StaffUserRecord(Base):
     point_ids: Mapped[list] = mapped_column(JSON, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=True)
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    mfa_recovery_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revision: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
@@ -210,12 +213,60 @@ class StaffUserRecord(Base):
 class StaffSessionRecord(Base):
     __tablename__ = "staff_sessions"
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), default=lambda: str(uuid4()), nullable=False, unique=True, index=True
+    )
     user_id: Mapped[str] = mapped_column(
         ForeignKey("staff_users.id", ondelete="CASCADE"), index=True
     )
     csrf_token: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    mfa_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class StaffCredentialRecord(Base):
+    __tablename__ = "staff_credentials"
+    credential_id: Mapped[str] = mapped_column(String(1400), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="CASCADE"), index=True
+    )
+    public_key: Mapped[str] = mapped_column(Text)
+    sign_count: Mapped[int] = mapped_column(Integer, default=0)
+    name: Mapped[str] = mapped_column(String(80))
+    transports: Mapped[list] = mapped_column(JSON, default=list)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    backup_eligible: Mapped[bool] = mapped_column(Boolean, default=False)
+    backed_up: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class StaffMfaChallengeRecord(Base):
+    __tablename__ = "staff_mfa_challenges"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="CASCADE"), index=True
+    )
+    user_revision: Mapped[int] = mapped_column(Integer)
+    purpose: Mapped[str] = mapped_column(String(16))
+    challenge: Mapped[str | None] = mapped_column(String(64))
+    csrf_token: Mapped[str] = mapped_column(String(64))
+    credential_name: Mapped[str] = mapped_column(String(80), default="")
+    bound_credential_id: Mapped[str | None] = mapped_column(String(1400))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class StaffRecoveryCodeRecord(Base):
+    __tablename__ = "staff_recovery_codes"
+    code_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
 
 class LoginLimitRecord(Base):
@@ -277,6 +328,45 @@ class FloorUploadRecord(Base):
     uploaded_by: Mapped[str] = mapped_column(ForeignKey("staff_users.id", ondelete="RESTRICT"))
     image: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+
+class UploadBudgetRecord(Base):
+    __tablename__ = "upload_budgets"
+    __table_args__ = (
+        CheckConstraint(
+            "used_bytes >= 0 AND reserved_bytes >= 0 AND active_uploads >= 0",
+            name="ck_upload_budget_nonnegative",
+        ),
+    )
+    scope: Mapped[str] = mapped_column(String(100), primary_key=True)
+    used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    reserved_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    active_uploads: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class UploadReservationRecord(Base):
+    __tablename__ = "upload_reservations"
+    __table_args__ = (
+        UniqueConstraint("kind", "upload_id", name="uq_upload_reservation_asset"),
+        CheckConstraint(
+            "state IN ('reserved','complete','failed','orphaned','quarantined')",
+            name="ck_upload_reservation_state",
+        ),
+        CheckConstraint("size_bytes >= 0", name="ck_upload_reservation_size"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    kind: Mapped[str] = mapped_column(String(24))
+    upload_id: Mapped[str] = mapped_column(String(80))
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="RESTRICT"), index=True
+    )
+    campus_id: Mapped[str] = mapped_column(
+        ForeignKey("campuses.id", ondelete="RESTRICT"), index=True
+    )
+    size_bytes: Mapped[int] = mapped_column(BigInteger)
+    state: Mapped[str] = mapped_column(String(16), default="reserved", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class PanoramaRecord(Base):

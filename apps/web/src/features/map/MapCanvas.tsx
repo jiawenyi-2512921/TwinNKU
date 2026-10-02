@@ -25,6 +25,7 @@ type Props = {
   points: Point[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  onFocusResult?: (id: string) => void;
   routeSegments?: RouteSegment[];
   routePickMode?: RoutePickMode;
   routeStartId?: string | null;
@@ -40,6 +41,7 @@ export function MapCanvas({
   points,
   selectedId,
   onSelect,
+  onFocusResult,
   routeSegments = EMPTY_ROUTE_SEGMENTS,
   routePickMode = null,
   routeStartId = null,
@@ -334,7 +336,15 @@ export function MapCanvas({
     );
     const narrow = window.matchMedia("(max-width: 760px)").matches;
     const height = map.getSize().y;
-    const fit = () =>
+    let reported = false;
+    const done = () => {
+      if (!reported && selectedId) {
+        reported = true;
+        onFocusResult?.(selectedId);
+      }
+    };
+    const fit = () => {
+      map.once("moveend", done);
       map.fitBounds(bounds.pad(0.65), {
         paddingTopLeft: [40, 48],
         paddingBottomRight: narrow
@@ -343,8 +353,14 @@ export function MapCanvas({
         maxZoom: info.tiles!.max_native_zoom,
         animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       });
+      // A selection already centered in its bounds requires no movement.
+      if (map.getBounds().contains(bounds)) map.whenReady(done);
+    };
     const timer = window.setTimeout(fit, 30);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      map.off("moveend", done);
+    };
   }, [selectedId, info, selectedRegion, hasRoute, routePickMode]);
 
   useEffect(() => {

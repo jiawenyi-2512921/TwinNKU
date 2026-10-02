@@ -294,6 +294,10 @@ def test_experience_actions_override_wrong_route_and_revalidate_revision(
             "context": payload["context"],
         },
     )
+    assert response.status_code == 403
+    response = client.post(
+        "/api/v1/agent/actions/resolve", json={"action": action, "context": payload["context"]}
+    )
     assert response.status_code == 200 and response.json()["data"]["url"] == action["url"]
     item.published_revision = 2
     item.revision = 2
@@ -476,4 +480,4 @@ def test_campus_tour_action_uses_first_stop_only_for_map_focus_and_rejects_other
         "/api/v1/agent/actions/resolve",
         json={"action": {**action, "point_id": points[0].id}, "context": payload["context"]},
     )
-    assert response.status_code == 404
+    assert response.status_code == 403

@@ -39,6 +39,9 @@ class VoiceConfig:
     cache_ttl_seconds: int
     visitor_requests_per_hour: int
     total_requests_per_hour: int
+    allowed_audio_hosts: tuple[str, ...] = ()
+    max_audio_bytes: int = 8 * 1024 * 1024
+    max_cache_bytes: int = 64 * 1024 * 1024
 
 
 def resolve_tiers(tier_mode: str) -> tuple[VoiceTier, ...]:
@@ -62,6 +65,9 @@ def voice_config(settings) -> VoiceConfig:
         cache_ttl_seconds=settings.voice_cache_ttl_seconds,
         visitor_requests_per_hour=settings.voice_visitor_requests_per_hour,
         total_requests_per_hour=settings.voice_total_requests_per_hour,
+        allowed_audio_hosts=tuple(getattr(settings, "voice_allowed_audio_hosts", [])),
+        max_audio_bytes=getattr(settings, "voice_max_audio_bytes", 8 * 1024 * 1024),
+        max_cache_bytes=getattr(settings, "voice_cache_max_bytes", 64 * 1024 * 1024),
     )
 
 

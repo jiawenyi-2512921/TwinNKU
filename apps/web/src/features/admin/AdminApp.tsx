@@ -10,9 +10,11 @@ import { ResourceWorkspace } from "./ResourceWorkspace";
 import { ExperienceWorkspace } from "./ExperienceWorkspace";
 import { Overview } from "./Overview";
 import { ReviewCenter, type ReviewStart } from "./ReviewCenter";
+import { MfaSecurity, MfaStepUp, PendingMfa, type MfaPending } from "./MfaAuth";
 import {
   message,
   rememberSession,
+  rememberCsrf,
   request,
   roleNames,
   type Workbench,
@@ -39,6 +41,7 @@ function Login({
   onLogin: (s: StaffSession) => void;
   initialError: string;
 }) {
+  const [pending, setPending] = useState<MfaPending | null>(null);
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [busy, setBusy] = useState(false),
@@ -47,18 +50,37 @@ function Login({
     setBusy(true);
     setError("");
     try {
-      const result = await request<StaffSession>("/auth/login", "POST", {
-        username,
-        password,
-      });
+      const result = await request<StaffSession | MfaPending>(
+        "/auth/login",
+        "POST",
+        {
+          username,
+          password,
+        },
+      );
       setPassword("");
-      onLogin(result.data);
+      if ("status" in result.data) {
+        rememberCsrf(result.data.csrf_token);
+        setPending(result.data);
+      } else onLogin(result.data);
     } catch (e) {
       setError(message(e));
     } finally {
       setBusy(false);
     }
   }
+  if (pending)
+    return (
+      <PendingMfa
+        pending={pending}
+        onPending={setPending}
+        onSession={onLogin}
+        onCancel={() => {
+          rememberSession(null);
+          setPending(null);
+        }}
+      />
+    );
   return (
     <div className="ad-login">
       <div className="ad-login-story">
@@ -240,7 +262,7 @@ export default function AdminApp() {
   const [session, setSession] = useState<StaffSession | null>(null),
     [checking, setChecking] = useState(true),
     [authError, setAuthError] = useState(""),
-    [tab, setTab] = useState<Tab>("overview"),
+    [tab, setTab] = useState<Tab | "security">("overview"),
     [passwordOpen, setPasswordOpen] = useState(false),
     [revision, setRevision] = useState(0),
     [navError, setNavError] = useState(""),
@@ -262,6 +284,26 @@ export default function AdminApp() {
     dirty.current = false;
     processing.current = false;
   }, []);
+  useEffect(() => {
+    if (!session || locked || session.user.must_change_password) return;
+    let last = 0;
+    const activity = (event: Event) => {
+      if (
+        !event.isTrusted ||
+        document.visibilityState !== "visible" ||
+        Date.now() - last < 60_000
+      )
+        return;
+      last = Date.now();
+      void request("/auth/mfa/activity", "POST").catch(() => {});
+    };
+    window.addEventListener("pointerdown", activity, { passive: true });
+    window.addEventListener("keydown", activity);
+    return () => {
+      window.removeEventListener("pointerdown", activity);
+      window.removeEventListener("keydown", activity);
+    };
+  }, [session, locked]);
   useEffect(() => {
     const abort = new AbortController();
     request<StaffSession>("/session", "GET", undefined, abort.signal)
@@ -314,7 +356,7 @@ export default function AdminApp() {
       window.removeEventListener("focus", refresh);
     };
   }, [session, locked]);
-  const navigate = (next: Tab) => {
+  const navigate = (next: Tab | "security") => {
     if (processing.current) {
       setNavError("正在处理当前操作，请完成后再切换页面。");
       return false;
@@ -414,12 +456,13 @@ export default function AdminApp() {
       </div>
     );
   const navs: {
-    id: Tab;
+    id: Tab | "security";
     title: string;
     icon: string;
     permission?: string;
     group?: string;
   }[] = [
+    { id: "security", title: "账号安全", icon: "users" },
     { id: "overview", title: "工作台", icon: "focus" },
     { id: "points", title: "地图点位", icon: "pin", group: "编辑校园内容" },
     { id: "resources", title: "资料中心", icon: "layers" },
@@ -449,6 +492,7 @@ export default function AdminApp() {
   ];
   return (
     <div className="ad-root ad-shell">
+      <MfaStepUp session={session} onSession={relogin} />
       {locked && (
         <div className="ad-relogin">
           <Login initialError={authError} onLogin={relogin} />
@@ -554,6 +598,9 @@ export default function AdminApp() {
           </span>
         </header>
         <main className="ad-content">
+          {tab === "security" && (
+            <MfaSecurity session={session} onSession={relogin} />
+          )}
           <ErrorBox text={navError} />
           {tab === "overview" && (
             <Overview

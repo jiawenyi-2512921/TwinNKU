@@ -1,7 +1,7 @@
 name: twinnku
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-twinnku}
@@ -17,12 +17,16 @@ services:
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
+    mem_limit: 2g
+    cpus: 1.5
+    pids_limit: 256
+    networks: [database]
   migrate:
     build:
       context: .
       dockerfile: deploy/api.Dockerfile
     image: twinnku-api:${APP_VERSION:-0.4.0}
-    command: [sh, -c, 'alembic upgrade head && python -m app.seed']
+    command: [sh, -c, 'alembic upgrade head && python -m app.database_roles']
     environment: &api-environment
       APP_ENV: production
       APP_VERSION: ${APP_VERSION:-0.4.0}
@@ -30,19 +34,39 @@ services:
       DB_NAME: ${DB_NAME:-twinnku}
       DB_USER: ${DB_USER:-twinnku}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      DB_APP_USER: ${DB_APP_USER:-twinnku_app}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?Set a distinct DB_APP_PASSWORD}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-["localhost","127.0.0.1","api"]}
       MAP_ENABLED: ${MAP_ENABLED:-true}
       MAP_ASSETS_DIR: /data/maps
       FLOORS_ENABLED: ${FLOORS_ENABLED:-true}
       VR_ENABLED: ${VR_ENABLED:-true}
       FLOOR_ASSETS_DIR: /data/floors
+      UPLOAD_ACTOR_BUDGET_BYTES: ${UPLOAD_ACTOR_BUDGET_BYTES:-1073741824}
+      UPLOAD_CAMPUS_BUDGET_BYTES: ${UPLOAD_CAMPUS_BUDGET_BYTES:-5368709120}
+      UPLOAD_MAX_CONCURRENCY: ${UPLOAD_MAX_CONCURRENCY:-2}
+      UPLOAD_PARSER_TIMEOUT_SECONDS: ${UPLOAD_PARSER_TIMEOUT_SECONDS:-20}
+      UPLOAD_PARSER_MEMORY_BYTES: ${UPLOAD_PARSER_MEMORY_BYTES:-536870912}
+      UPLOAD_PARSER_CPU_SECONDS: ${UPLOAD_PARSER_CPU_SECONDS:-15}
       ADMIN_ENABLED: ${ADMIN_ENABLED:-false}
       ADMIN_PUBLIC_ORIGIN: ${ADMIN_PUBLIC_ORIGIN:-}
       ADMIN_SESSION_HOURS: ${ADMIN_SESSION_HOURS:-8}
+      ADMIN_MFA_ENFORCED: ${ADMIN_MFA_ENFORCED:-false}
+      ADMIN_SESSION_IDLE_MINUTES: ${ADMIN_SESSION_IDLE_MINUTES:-30}
       PUBLIC_SITE_ORIGIN: ${PUBLIC_SITE_ORIGIN:-https://2512921.cn}
       NK_GENIOS_API_ENABLED: ${NK_GENIOS_API_ENABLED:-false}
       NK_GENIOS_API_KEY: ${NK_GENIOS_API_KEY:-}
       AGENT_ACCESS_CODE: ${AGENT_ACCESS_CODE:-}
+      AGENT_PUBLIC_ENABLED: ${AGENT_PUBLIC_ENABLED:-false}
+      AGENT_TRUSTED_PROXY_IPS: ${AGENT_TRUSTED_PROXY_IPS:-[]}
+      AGENT_MODEL_REQUESTS_PER_DAY: ${AGENT_MODEL_REQUESTS_PER_DAY:-720}
+      AGENT_VOICE_REQUESTS_PER_DAY: ${AGENT_VOICE_REQUESTS_PER_DAY:-1200}
+      AGENT_SUPPLIER_REQUESTS_PER_DAY: ${AGENT_SUPPLIER_REQUESTS_PER_DAY:-1920}
+      AGENT_SUPPLIER_CHARACTERS_PER_DAY: ${AGENT_SUPPLIER_CHARACTERS_PER_DAY:-360000}
+      AGENT_SUPPLIER_IP_REQUESTS_PER_DAY: ${AGENT_SUPPLIER_IP_REQUESTS_PER_DAY:-1080}
+      AGENT_SUPPLIER_SESSION_REQUESTS_PER_DAY: ${AGENT_SUPPLIER_SESSION_REQUESTS_PER_DAY:-450}
+      AGENT_HTTP_REQUESTS_PER_HOUR: ${AGENT_HTTP_REQUESTS_PER_HOUR:-2400}
+      AGENT_HTTP_REQUESTS_PER_DAY: ${AGENT_HTTP_REQUESTS_PER_DAY:-14400}
       NK_GENIOS_WEB_ENABLED: ${NK_GENIOS_WEB_ENABLED:-false}
       NK_GENIOS_WEB_APP_KEY: ${NK_GENIOS_WEB_APP_KEY:-}
       NK_GENIOS_WEB_CONTEXT_ENABLED: ${NK_GENIOS_WEB_CONTEXT_ENABLED:-false}
@@ -56,19 +80,30 @@ services:
       VOICE_CACHE_TTL_SECONDS: ${VOICE_CACHE_TTL_SECONDS:-86400}
       VOICE_VISITOR_REQUESTS_PER_HOUR: ${VOICE_VISITOR_REQUESTS_PER_HOUR:-45}
       VOICE_TOTAL_REQUESTS_PER_HOUR: ${VOICE_TOTAL_REQUESTS_PER_HOUR:-200}
+      VOICE_ALLOWED_AUDIO_HOSTS: ${VOICE_ALLOWED_AUDIO_HOSTS:-[]}
+      VOICE_MAX_AUDIO_BYTES: ${VOICE_MAX_AUDIO_BYTES:-8388608}
+      VOICE_CACHE_MAX_BYTES: ${VOICE_CACHE_MAX_BYTES:-67108864}
+      FORWARDED_ALLOW_IPS: 172.30.251.3
     depends_on:
       db: {condition: service_healthy}
     restart: "no"
     read_only: true
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [database]
   api:
     image: twinnku-api:${APP_VERSION:-0.4.0}
     build:
       context: .
       dockerfile: deploy/api.Dockerfile
     restart: unless-stopped
-    environment: *api-environment
+    environment: &runtime-environment
+      <<: *api-environment
+      DB_USER: ${DB_APP_USER:-twinnku_app}
+      DB_PASSWORD: ${DB_APP_PASSWORD:?Set a distinct DB_APP_PASSWORD}
+      # Online workers never receive the owner password or role-management secret.
+      DB_APP_PASSWORD: ""
     volumes:
       - map_assets:/data/maps:ro
       - floor_assets:/data/floors
@@ -85,6 +120,13 @@ services:
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 256
+    networks:
+      frontend:
+        ipv4_address: 172.30.251.2
+      database: {}
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
@@ -92,22 +134,24 @@ services:
     profiles: [tools]
     image: twinnku-api:${APP_VERSION:-0.4.0}
     entrypoint: [python, -m, app.modules.maps.import_bundle]
-    environment: *api-environment
+    environment: *runtime-environment
     depends_on:
       db: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
     volumes:
       - map_assets:/data/maps
+      - floor_assets:/data/floors
       - ./var/map-import:/incoming:ro
     read_only: true
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    networks: [database]
   floor-import:
     profiles: [tools]
     image: twinnku-api:${APP_VERSION:-0.4.0}
     entrypoint: [python, -m, app.modules.floors.import_bundle]
-    environment: *api-environment
+    environment: *runtime-environment
     depends_on:
       db: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
@@ -118,6 +162,7 @@ services:
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    networks: [database]
   web:
     image: twinnku-web:${APP_VERSION:-0.4.0}
     build:
@@ -136,6 +181,12 @@ services:
     tmpfs: ["/tmp:mode=1777"]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    networks:
+      frontend:
+        ipv4_address: 172.30.251.3
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
@@ -143,3 +194,11 @@ volumes:
   pgdata:
   map_assets:
   floor_assets:
+networks:
+  frontend:
+    ipam:
+      config: [{subnet: 172.30.251.0/28}]
+  database:
+    internal: true
+    ipam:
+      config: [{subnet: 172.30.252.0/28}]

@@ -6,6 +6,8 @@ import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as progress from "../src/features/experiences/progress.ts";
+import * as segments from "../src/features/experiences/segments.ts";
+import * as audioOwner from "../src/features/visit/audioOwner.ts";
 
 const names = { media: "图片与视频", checkin: "打卡点", tour: "校园导览路线" };
 const compile = (path) =>
@@ -18,6 +20,7 @@ const compile = (path) =>
   }).outputText;
 const publicCode = compile("../src/features/experiences/ExperiencePanel.tsx");
 const adminCode = compile("../src/features/admin/ExperienceWorkspace.tsx");
+const editorCode = compile("../src/features/admin/ExperienceEditor.tsx");
 function find(tree, predicate) {
   if (Array.isArray(tree))
     return tree.flatMap((entry) => find(entry, predicate));
@@ -108,14 +111,32 @@ function harness(code, context = {}, overrides = {}) {
             return true;
           },
         };
+      if (name.endsWith("/segments") || name === "./segments") return segments;
+      if (name === "./ExperienceEditor")
+        return {
+          ExperienceEditor: () => null,
+          ExperienceTourPreview: () => null,
+        };
+      if (name.endsWith("/ExperiencePanel"))
+        return {
+          TourPlayer: function TourPlayer() {
+            return null;
+          },
+        };
+      if (name.endsWith("/TourNarrator")) return { TourNarrator: () => null };
+      if (name.endsWith("/audioOwner"))
+        return overrides.audioOwner ?? audioOwner;
       if (name.endsWith("/client"))
         return {
-          get: async (path) => ({
-            data:
-              path === "/campuses"
-                ? (overrides.campuses ?? [])
-                : (overrides.publicRows ?? []),
-          }),
+          get: async (path) =>
+            overrides.get
+              ? overrides.get(path)
+              : {
+                  data:
+                    path === "/campuses"
+                      ? (overrides.campuses ?? [])
+                      : (overrides.publicRows ?? []),
+                },
         };
       if (name.endsWith("catalogSync"))
         return {
@@ -331,6 +352,453 @@ const tour = {
     ],
   },
 };
+
+const segmentedTour = {
+  ...tour,
+  revision: 4,
+  content: {
+    ...tour.content,
+    stops: [
+      {
+        ...tour.content.stops[0],
+        title: "本站自定义标题",
+        segments: [
+          {
+            id: "opening",
+            text: "第一段原文",
+            source_note: "第一段来源",
+            main_view: { type: "map" },
+            resources: [],
+          },
+          {
+            id: "detail",
+            text: "第二段原文",
+            source_note: "第二段来源",
+            main_view: { type: "map" },
+            resources: [
+              { type: "video", id: media.id, revision: media.revision },
+            ],
+          },
+        ],
+      },
+      {
+        ...tour.content.stops[1],
+        point_id: "p1",
+        segments: [
+          {
+            id: "return",
+            text: "同地点的下一站",
+            source_note: "",
+            main_view: { type: "map" },
+            resources: [],
+          },
+        ],
+      },
+    ],
+  },
+};
+
+test("legacy fifty-stop fallback and segment reorder preserve content and independent station identity", () => {
+  const stops = Array.from({ length: 50 }, (_, i) => ({
+    ...tour.content.stops[0],
+    narrative: `原讲解 ${i}`,
+  }));
+  const snapshot = JSON.stringify(stops);
+  assert.equal(segments.segmentsForStop(stops[49], 49)[0].text, "原讲解 49");
+  assert.notEqual(
+    segments.segmentsForStop(stops[0], 0)[0].id,
+    segments.segmentsForStop(stops[1], 1)[0].id,
+  );
+  assert.equal(JSON.stringify(stops), snapshot);
+  const chapters = segmentedTour.content.stops[0].segments;
+  const moved = segments.moveSegment(chapters, 1, -1);
+  assert.deepEqual(
+    moved.map((s) => s.id),
+    ["detail", "opening"],
+  );
+  assert.equal(moved[0], chapters[1]);
+  assert.equal(
+    segments.normalizeTourPosition(
+      { revision: 3, stopIndex: 1, segmentId: "return" },
+      4,
+      segmentedTour.content.stops,
+    ).segmentId,
+    "opening",
+  );
+  assert.equal(
+    segments.normalizeTourPosition(
+      { revision: 4, stopIndex: 0, segmentId: "missing" },
+      4,
+      segmentedTour.content.stops,
+    ).segmentId,
+    "opening",
+  );
+});
+
+test("controlled tour position survives resource opening and supplies revision-bound bookmark and narration", () => {
+  const positions = [],
+    opened = [],
+    bookmarks = [],
+    narrated = [];
+  const h = harness(publicCode);
+  const props = {
+    item: segmentedTour,
+    items: [media],
+    onSelectPoint() {},
+    onPositionChange(position) {
+      positions.push(position);
+      props.position = position;
+    },
+    onResourceOpen(...args) {
+      opened.push(args);
+    },
+    onBookmark(position) {
+      bookmarks.push(position);
+    },
+    onNarrate(value) {
+      narrated.push(value);
+    },
+  };
+  let tree = h.render("TourPlayer", props);
+  h.flushEffects();
+  tree = h.render("TourPlayer", props);
+  button(tree, "开始导览").props.onClick();
+  tree = h.render("TourPlayer", props);
+  button(tree, "下一段").props.onClick();
+  tree = h.render("TourPlayer", props);
+  assert.match(labelText(tree), /第二段原文/);
+  const resource = find(
+    tree,
+    (node) => node.type === h.exports.TourResourceView,
+  )[0];
+  resource.props.onOpen(resource.props.resource, resource.props.pointId);
+  assert.equal(opened[0][1], "p1");
+  assert.equal(props.position.segmentId, "detail");
+  button(tree, "收藏当前段落").props.onClick();
+  button(tree, "听小开讲解").props.onClick();
+  assert.deepEqual(bookmarks[0], {
+    revision: 4,
+    stopIndex: 0,
+    segmentId: "detail",
+  });
+  assert.equal(narrated[0].segmentId, "detail");
+  assert.equal(narrated[0].text, "第二段原文");
+  assert.equal(narrated[0].tourRevision, 4);
+  assert.deepEqual(h.persisted.get("twinnku:tour:tour").completed, []);
+  props.item = { ...segmentedTour, revision: 5 };
+  tree = h.render("TourPlayer", props);
+  assert.match(labelText(tree), /第一段原文/);
+  assert.doesNotMatch(labelText(tree), /第二段原文/);
+  assert.ok(positions.length > 0);
+});
+
+test("private route preview stays local when dirty and requests authenticated saved revision otherwise", async () => {
+  const h = harness(
+    editorCode,
+    {},
+    { request: async () => ({ data: segmentedTour }) },
+  );
+  const props = {
+    content: segmentedTour.content,
+    mediaRows: [],
+    checkinRows: [],
+    pointNames: {},
+    savedId: "tour",
+    draftRevision: 4,
+    dirty: true,
+    onNarrate() {},
+  };
+  let tree = h.render("ExperienceTourPreview", props);
+  assert.equal(button(tree, "预览已保存版本").props.disabled, true);
+  button(tree, "预览当前编辑").props.onClick();
+  tree = h.render("ExperienceTourPreview", props);
+  assert.equal(h.calls.length, 0);
+  const localPlayer = find(tree, (node) => node.type?.name === "TourPlayer")[0];
+  assert.equal(localPlayer.props.preview, true);
+  assert.equal(localPlayer.props.onNarrate, undefined);
+  assert.equal(find(tree, (node) => node.type === "a").length, 0);
+  props.dirty = false;
+  tree = h.render("ExperienceTourPreview", props);
+  await button(tree, "预览已保存版本").props.onClick();
+  await new Promise((resolve) => setImmediate(resolve));
+  tree = h.render("ExperienceTourPreview", props);
+  assert.equal(
+    h.calls.at(-1)[0],
+    "/experiences/tour/preview?expected_revision=4",
+  );
+  const savedPlayer = find(tree, (node) => node.type?.name === "TourPlayer")[0];
+  assert.equal(savedPlayer.props.draftRevision, 4);
+  assert.equal(savedPlayer.props.onNarrate, props.onNarrate);
+});
+
+test("preview player writes no progress and exposes no bookmark", () => {
+  const h = harness(publicCode);
+  const props = {
+    item: segmentedTour,
+    items: [],
+    preview: true,
+    onSelectPoint() {},
+    onBookmark() {},
+  };
+  let tree = h.render("TourPlayer", props);
+  assert.equal(button(tree, "收藏当前段落"), undefined);
+  button(tree, "开始导览").props.onClick();
+  tree = h.render("TourPlayer", props);
+  button(tree, "下一段").props.onClick();
+  assert.equal(h.persisted.size, 0);
+});
+
+test("segment editor offers current point-bound published resources, refreshes a cover, and preserves ids when reordering", async () => {
+  const image = publishedResource(
+    "image-a",
+    { ...media.content, title: "本站照片", media_type: "image" },
+    { published_revision: 5 },
+  );
+  const otherImage = publishedResource("other-image", {
+    ...image.published_content,
+    point_id: "p2",
+    title: "其他地点图片",
+  });
+  const privateImage = publishedResource(
+    "private-image",
+    { ...image.published_content, title: "未审核图片" },
+    { status: "draft", published_content: null },
+  );
+  const checkin = publishedResource("checkin-a", {
+    kind: "checkin",
+    point_id: "p1",
+    title: "本站打卡",
+    description: "",
+    source_note: "已核实",
+    image_id: null,
+  });
+  const h = harness(
+    editorCode,
+    {},
+    {
+      get: async (path) => ({
+        data: path.endsWith("floors")
+          ? [
+              { id: "floor-a", point_id: "p1", revision: 7, label: "本站一层" },
+              {
+                id: "floor-other",
+                point_id: "p2",
+                revision: 1,
+                label: "其他楼层",
+              },
+            ]
+          : [
+              {
+                id: "vr-a",
+                point_id: "p1",
+                revision: 9,
+                title: "本站室外全景",
+              },
+              {
+                id: "vr-other",
+                point_id: "p2",
+                revision: 1,
+                title: "其他全景",
+              },
+            ],
+      }),
+    },
+  );
+  const props = {
+    content: {
+      ...segmentedTour.content,
+      cover_image_id: image.id,
+      cover_image_revision: 4,
+      stops: [segmentedTour.content.stops[0]],
+    },
+    activeStop: 0,
+    mediaRows: [
+      image,
+      otherImage,
+      privateImage,
+      publishedResource(media.id, media.content, {
+        published_revision: media.revision,
+      }),
+    ],
+    checkinRows: [checkin],
+    onChange(content) {
+      props.content = content;
+    },
+  };
+  let tree = h.render("ExperienceEditor", props);
+  h.flushEffects();
+  await new Promise((resolve) => setImmediate(resolve));
+  tree = h.render("ExperienceEditor", props);
+  assert.match(labelText(tree), /本站照片|本站一层|本站室外全景/);
+  assert.doesNotMatch(
+    labelText(tree),
+    /其他地点图片|未审核图片|其他楼层|其他全景/,
+  );
+  assert.doesNotMatch(
+    labelText(field(tree, "本段主画面")),
+    /示例测试视频|本站打卡|本站室外全景/,
+  );
+  field(tree, "路线封面").props.onChange({ target: { value: "image-a:5" } });
+  tree = h.render("ExperienceEditor", props);
+  assert.equal(props.content.cover_image_revision, 5);
+  field(tree, "本段主画面").props.onChange({
+    target: { value: "image:image-a:5" },
+  });
+  for (const key of [
+    "floor:floor-a:7",
+    "vr:vr-a:9",
+    "video:video:3",
+    "checkin:checkin-a:1",
+  ]) {
+    tree = h.render("ExperienceEditor", props);
+    field(tree, "添加本段资料").props.onChange({ target: { value: key } });
+  }
+  tree = h.render("ExperienceEditor", props);
+  field(tree, "添加本段资料").props.onChange({
+    target: { value: "vr:vr-a:9" },
+  });
+  const first = props.content.stops[0].segments[0];
+  assert.equal(first.resources.length, 4);
+  assert.deepEqual(JSON.parse(JSON.stringify(first.main_view)), {
+    type: "image",
+    id: "image-a",
+    revision: 5,
+  });
+  tree = h.render("ExperienceEditor", props);
+  find(
+    tree,
+    (node) =>
+      node.type === "button" && node.props["aria-label"] === "第 1 段下移",
+  )[0].props.onClick();
+  assert.deepEqual(
+    props.content.stops[0].segments.map((segment) => segment.id),
+    ["detail", "opening"],
+  );
+  assert.equal(props.content.stops[0].segments[1].text, "第一段原文");
+  assert.equal(props.content.stops[0].segments[1].resources.length, 4);
+  tree = h.render("ExperienceEditor", props);
+  field(tree, "本站显示标题").props.onChange({ target: { value: "" } });
+  assert.equal(props.content.stops[0].title, null);
+});
+
+test("resource overlay passes an explicit playback request only after validating resource identity", () => {
+  const request = playbackRequest();
+  const h = harness(publicCode);
+  const props = {
+    resource: { type: "video", id: media.id, revision: media.revision },
+    pointId: "p1",
+    items: [media],
+    playbackRequest: request,
+  };
+  let tree = h.render("TourResourceView", props);
+  assert.equal(
+    find(tree, (node) => node.type === h.exports.MediaView)[0].props
+      .playbackRequest,
+    request,
+  );
+  props.resource = { ...props.resource, revision: 2 };
+  tree = h.render("TourResourceView", props);
+  assert.equal(
+    find(tree, (node) => node.type === h.exports.MediaView).length,
+    0,
+  );
+  assert.match(labelText(tree), /资料已变更/);
+});
+
+test("legacy prompt state survives temporarily hiding the route while segment resource instances change with the segment", () => {
+  const h = harness(publicCode);
+  const props = {
+    item: tour,
+    items: [media],
+    onSelectPoint() {},
+    active: true,
+  };
+  let tree = h.render("TourPlayer", props);
+  h.flushEffects();
+  button(tree, "开始导览").props.onClick();
+  tree = h.render("TourPlayer", props);
+  h.flushEffects();
+  button(tree, "我已阅读本站介绍").props.onClick();
+  tree = h.render("TourPlayer", props);
+  assert.equal(
+    find(tree, (node) => node.type === h.exports.MediaView).length,
+    1,
+  );
+  props.active = false;
+  h.render("TourPlayer", props);
+  h.flushEffects();
+  props.active = true;
+  tree = h.render("TourPlayer", props);
+  h.flushEffects();
+  tree = h.render("TourPlayer", props);
+  assert.equal(
+    find(tree, (node) => node.type === h.exports.MediaView).length,
+    1,
+  );
+  const modern = harness(publicCode);
+  const ref = { type: "video", id: media.id, revision: media.revision };
+  const modernProps = {
+    item: {
+      ...segmentedTour,
+      content: {
+        ...segmentedTour.content,
+        stops: [
+          {
+            ...segmentedTour.content.stops[0],
+            segments: segmentedTour.content.stops[0].segments.map(
+              (segment) => ({ ...segment, resources: [ref] }),
+            ),
+          },
+        ],
+      },
+    },
+    items: [media],
+    onSelectPoint() {},
+  };
+  tree = modern.render("TourPlayer", modernProps);
+  button(tree, "开始导览").props.onClick();
+  tree = modern.render("TourPlayer", modernProps);
+  const firstKey = find(
+    tree,
+    (node) => node.type === modern.exports.TourResourceView,
+  )[0].key;
+  button(tree, "下一段").props.onClick();
+  tree = modern.render("TourPlayer", modernProps);
+  assert.notEqual(
+    find(tree, (node) => node.type === modern.exports.TourResourceView)[0].key,
+    firstKey,
+  );
+});
+
+test("video audio leases stop the prior video and ignore delayed pause events from its old lease", () => {
+  audioOwner.releaseAudio("video");
+  const first = harness(publicCode),
+    second = harness(publicCode);
+  const props = { item: media, playbackRequest: playbackRequest() };
+  let firstPauses = 0,
+    secondPauses = 0;
+  const a = attachPlayer(first, props, {
+    play: async () => {},
+    pause() {
+      firstPauses++;
+    },
+  });
+  const b = attachPlayer(second, props, {
+    play: async () => {},
+    pause() {
+      secondPauses++;
+    },
+  });
+  const firstEvents = find(a, (node) => node.type === "video")[0].props;
+  const secondEvents = find(b, (node) => node.type === "video")[0].props;
+  firstEvents.onPlay();
+  secondEvents.onPlay();
+  assert.equal(firstPauses, 1);
+  firstEvents.onPause();
+  const tourLease = audioOwner.acquireAudio("tour", () => {});
+  assert.equal(secondPauses, 1);
+  audioOwner.releaseAudio("tour", tourLease);
+});
 
 test("tour recovery rejects stale revision and malicious progress without inventing completion", () => {
   assert.deepEqual(

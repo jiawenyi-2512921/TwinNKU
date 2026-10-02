@@ -16,7 +16,6 @@ export default defineConfig({
     rolldownOptions: {
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
-        agent: fileURLToPath(new URL("./agent/embed.html", import.meta.url)),
       },
     },
   },

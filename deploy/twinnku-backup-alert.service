@@ -1,0 +1,6 @@
+[Unit]
+Description=Report TwinNKU backup failure
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger -p daemon.err -t twinnku-backup "Complete backup failed; inspect systemctl status twinnku-backup.service and /var/backups/twinnku/status.json"

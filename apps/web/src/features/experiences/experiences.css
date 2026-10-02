@@ -619,3 +619,73 @@
 .ad-experience-workspace.is-focused .ad-experience-layout {
   grid-template-columns: minmax(0, 1fr);
 }
+.experience-segment-tabs,
+.experience-segment-resources,
+.ad-tour-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-block: 1rem;
+}
+.experience-segment-tabs button[aria-current="step"] {
+  color: white;
+  background: var(--purple, #5d3277);
+}
+.experience-segment-resources > section {
+  flex: 1 1 16rem;
+}
+.experience-resource-card,
+.experience-floor,
+.experience-vr,
+.ad-segment-card,
+.ad-tour-preview {
+  border: 1px solid var(--border, #e1dce8);
+  border-radius: 1rem;
+  padding: 1rem;
+  margin-block: 1rem;
+  min-width: 0;
+}
+.experience-floor img,
+.experience-tour-cover img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.8rem;
+}
+.experience-floor figure {
+  margin: 0 0 1rem;
+}
+.experience-tour-cover {
+  margin-block: 1rem;
+}
+.ad-segment-editor {
+  border-top: 1px solid var(--border, #e1dce8);
+  padding-top: 1rem;
+}
+.ad-segment-editor label {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+.ad-segment-references {
+  padding-left: 0;
+  list-style: none;
+}
+.ad-segment-references li,
+.ad-tour-preview > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.ad-segment-references li {
+  padding-block: 0.4rem;
+}
+.ad-tour-media-settings[hidden],
+.ad-experience-fields label[hidden] {
+  display: none;
+}
+.ad-tour-preview {
+  background: var(--surface, #fff);
+}

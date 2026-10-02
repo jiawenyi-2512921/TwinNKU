@@ -412,6 +412,10 @@ function mapHarness() {
       options.push(config);
       return {
         setMaxBounds() {},
+        once() {},
+        off() {},
+        getBounds() { return { contains: () => false }; },
+        whenReady(callback) { callback(); },
         fitBounds(...args) {
           fits.push(args);
         },

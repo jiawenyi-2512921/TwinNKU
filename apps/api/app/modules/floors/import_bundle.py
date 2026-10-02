@@ -268,21 +268,27 @@ def import_bundle(
 
 
 def main():
+    # CLI materialization and DB commit share the same lock as API uploads,
+    # publication, orphan GC and the backup snapshot.
+    from app.modules.uploads import storage_guard
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
     parser.add_argument("--reviewer", required=True)
     parser.add_argument("--rights-note", required=True)
     parser.add_argument("--publish", action="store_true")
     args = parser.parse_args()
-    with SessionLocal.begin() as db:
-        result = import_bundle(
-            args.directory,
-            get_settings().floor_assets_dir,
-            db,
-            reviewer=args.reviewer,
-            rights_note=args.rights_note,
-            publish=args.publish,
-        )
+    settings = get_settings()
+    with storage_guard(settings):
+        with SessionLocal.begin() as db:
+            result = import_bundle(
+                args.directory,
+                settings.floor_assets_dir,
+                db,
+                reviewer=args.reviewer,
+                rights_note=args.rights_note,
+                publish=args.publish,
+            )
     print(json.dumps(result, ensure_ascii=False))
 
 

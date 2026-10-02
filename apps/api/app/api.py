@@ -137,7 +137,7 @@ def system_status(request: Request, db: DB):
             capabilities=Capabilities(
                 chat=request.app.state.settings.api_agent_configured and guide_policy.chat_enabled,
                 routing=has_routes,
-                chat_embed=request.app.state.settings.web_agent_configured,
+                chat_embed=False,
                 map=has_map,
                 admin=bool(
                     request.app.state.settings.admin_enabled

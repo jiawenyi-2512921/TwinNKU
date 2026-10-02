@@ -193,6 +193,8 @@ def import_bundle(
 
 
 def main():
+    from app.modules.uploads import storage_guard
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
     parser.add_argument("--reviewer", required=True)
@@ -203,15 +205,17 @@ def main():
         help="Explicitly approve the map and its listed point metadata for public API access",
     )
     args = parser.parse_args()
-    with SessionLocal.begin() as db:
-        result = import_bundle(
-            args.directory,
-            get_settings().map_assets_dir,
-            db,
-            reviewer=args.reviewer,
-            rights_note=args.rights_note,
-            publish=args.publish,
-        )
+    settings = get_settings()
+    with storage_guard(settings):
+        with SessionLocal.begin() as db:
+            result = import_bundle(
+                args.directory,
+                settings.map_assets_dir,
+                db,
+                reviewer=args.reviewer,
+                rights_note=args.rights_note,
+                publish=args.publish,
+            )
     print(json.dumps(result, ensure_ascii=False))
 
 

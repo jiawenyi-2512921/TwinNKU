@@ -7,8 +7,11 @@ surface immediately instead of burning through every tier.
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import io
 import json
+import wave
 
 import httpx
 import pytest
@@ -27,7 +30,20 @@ TIERS = (
 TIMEOUT = 5.0
 
 
-def _audio_body(data: bytes = b"RIFFfake-wav-bytes") -> dict:
+def wav_audio():
+    output = io.BytesIO()
+    with wave.open(output, "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(16000)
+        audio.writeframes(b"\0\0" * 16)
+    return output.getvalue()
+
+
+WAV = wav_audio()
+
+
+def _audio_body(data: bytes = WAV) -> dict:
     return {
         "output": {"audio": {"data": base64.b64encode(data).decode(), "expires_at": 1}},
         "usage": {"characters": 12},
@@ -38,14 +54,18 @@ def _error_body(code: str) -> dict:
     return {"code": code, "message": "synthetic failure", "request_id": "req-test"}
 
 
-def _synthesizer(handler) -> VoiceSynthesizer:
-    return VoiceSynthesizer(
+def _synthesizer(handler, **overrides) -> VoiceSynthesizer:
+    options = dict(
         api_key="sk-ws-test",
         base_url="https://example.invalid",
         tiers=TIERS,
         timeout=TIMEOUT,
         transport=httpx.MockTransport(handler),
+        audio_hosts=("oss.example.invalid", "oss.invalid"),
+        resolver=lambda host: ["93.184.216.34"],
     )
+    options.update(overrides)
+    return VoiceSynthesizer(**options)
 
 
 @pytest.mark.anyio
@@ -160,7 +180,9 @@ async def test_audio_is_downloaded_when_gateway_returns_a_url():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "GET":
             requested.append(str(request.url))
-            return httpx.Response(200, content=b"RIFF-downloaded-from-oss")
+            assert request.headers["host"] == "oss.example.invalid"
+            assert request.extensions["sni_hostname"] == "oss.example.invalid"
+            return httpx.Response(200, content=WAV)
         return httpx.Response(
             200,
             json={
@@ -177,8 +199,8 @@ async def test_audio_is_downloaded_when_gateway_returns_a_url():
 
     result = await _synthesizer(handler).synthesize("欢迎来到南开大学")
 
-    assert result.audio == b"RIFF-downloaded-from-oss"
-    assert requested == ["https://oss.example.invalid/speech.wav?sig=abc"]
+    assert result.audio == WAV
+    assert requested == ["https://93.184.216.34/speech.wav?sig=abc"]
 
 
 @pytest.mark.anyio
@@ -268,3 +290,134 @@ async def test_transport_failure_is_sanitized_and_does_not_retry_billable_synthe
     assert len(calls) == 1
     assert error.value.last_code == "TransportError"
     assert "private upstream" not in str(error.value)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "remote",
+    [
+        "http://oss.example.invalid/a.wav",
+        "https://127.0.0.1/a.wav",
+        "https://[::1]/a.wav",
+        "https://oss.example.invalid:8443/a.wav",
+        "https://user:pass@oss.example.invalid/a.wav",
+        "https://evil.invalid/a.wav",
+        "https://oss.example.invalid.evil.invalid/a.wav",
+    ],
+)
+async def test_audio_url_rejected_before_download(remote):
+    gets = []
+
+    def handler(request):
+        if request.method == "GET":
+            gets.append(request)
+            raise AssertionError("Forbidden target must not be contacted")
+        return httpx.Response(200, json={"output": {"audio": {"url": remote}}})
+
+    with pytest.raises(VoiceSynthesisError):
+        await _synthesizer(handler).synthesize("公开导览")
+    assert not gets
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "address", ["127.0.0.1", "10.0.0.1", "169.254.169.254", "::1", "fe80::1", "::ffff:127.0.0.1"]
+)
+async def test_allowlisted_hostname_resolving_nonpublic_is_rejected(address):
+    gets = []
+
+    def handler(request):
+        if request.method == "GET":
+            gets.append(request)
+        return httpx.Response(
+            200, json={"output": {"audio": {"url": "https://oss.example.invalid/a.wav"}}}
+        )
+
+    with pytest.raises(VoiceSynthesisError):
+        await _synthesizer(handler, resolver=lambda host: [address]).synthesize("公开导览")
+    assert not gets
+
+
+@pytest.mark.anyio
+async def test_audio_redirect_is_never_followed():
+    gets = []
+
+    def handler(request):
+        if request.method == "GET":
+            gets.append(request)
+            return httpx.Response(302, headers={"location": "https://127.0.0.1/private"})
+        return httpx.Response(
+            200, json={"output": {"audio": {"url": "https://oss.example.invalid/a.wav"}}}
+        )
+
+    with pytest.raises(VoiceSynthesisError):
+        await _synthesizer(handler).synthesize("公开导览")
+    assert len(gets) == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("payload", [b"<html>not audio</html>", b"RIFF\0\0\0\0WAVE", b"x" * 1000])
+async def test_invalid_and_oversized_inline_audio_is_rejected(payload):
+    def handler(request):
+        return httpx.Response(200, json=_audio_body(payload))
+
+    with pytest.raises(VoiceSynthesisError):
+        await _synthesizer(handler, max_audio_bytes=100).synthesize("公开导览")
+
+
+@pytest.mark.anyio
+async def test_actual_retry_reservations_match_supplier_calls():
+    paid, calls = [], []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(503, json={"code": "ServiceUnavailable"})
+
+    with pytest.raises(VoiceSynthesisError):
+        await _synthesizer(handler, before_attempt=lambda: paid.append(1)).synthesize("公开导览")
+    assert len(paid) == len(calls) == 4
+
+
+@pytest.mark.anyio
+async def test_provider_code_is_not_copied_into_log(caplog):
+    def handler(request):
+        return httpx.Response(400, json={"code": "Throttling.private-text\nsecret"})
+
+    with pytest.raises(VoiceSynthesisError):
+        await _synthesizer(handler).synthesize("private question")
+    assert "private-text" not in caplog.text
+    assert "secret" not in caplog.text
+
+
+@pytest.mark.anyio
+async def test_total_response_deadline_stops_slow_supplier_without_retry():
+    calls = []
+
+    async def handler(request):
+        calls.append(request)
+        await asyncio.sleep(0.05)
+        return httpx.Response(200, json=_audio_body(WAV))
+
+    with pytest.raises(VoiceSynthesisError):
+        await _synthesizer(handler, timeout=0.01).synthesize("公开导览")
+    assert len(calls) == 1
+
+
+@pytest.mark.anyio
+async def test_audio_declared_and_streamed_size_are_bounded():
+    class LargeStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            for _ in range(4):
+                yield b"x" * 100
+
+    for header in ({"content-length": "1000000"}, {}):
+
+        def handler(request, response_headers=header):
+            if request.method == "POST":
+                return httpx.Response(
+                    200, json={"output": {"audio": {"url": "https://oss.example.invalid/a.wav"}}}
+                )
+            return httpx.Response(200, headers=response_headers, stream=LargeStream())
+
+        with pytest.raises(VoiceSynthesisError):
+            await _synthesizer(handler, max_audio_bytes=100).synthesize("公开导览")

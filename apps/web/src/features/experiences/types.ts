@@ -4,6 +4,17 @@ export type AdminExperience = components["schemas"]["AdminExperience"];
 export type ExperienceContent = Experience["content"];
 export type ExperienceKind = ExperienceContent["kind"];
 export type ExperienceStop = components["schemas"]["ExperienceStop"];
+export type TourResource = components["schemas"]["TourResource"];
+export type TourMainView = NonNullable<
+  components["schemas"]["TourSegment"]["main_view"]
+>;
+export type TourSegment = Omit<
+  components["schemas"]["TourSegment"],
+  "main_view" | "resources"
+> & {
+  main_view: TourMainView;
+  resources: TourResource[];
+};
 export type ExperienceUpload = components["schemas"]["ExperienceUpload"];
 export const experienceNames: Record<ExperienceKind, string> = {
   media: "图片与视频",

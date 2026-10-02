@@ -1,6 +1,7 @@
 // Same-origin cloud TTS with one persistent player and explicit playback recovery.
 import { speechCaptionAt, splitSpeechCaptions } from "./captions.ts";
 import type { VoiceEnvironment } from "./voice.ts";
+import type { VoiceManifest } from "../../shared/visitorSession.ts";
 
 export type CloudSpeechState = "idle" | "loading" | "speaking" | "blocked";
 type Caption = (text: string) => void;
@@ -222,6 +223,7 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
   let primed = false;
   let state: CloudSpeechState = "idle";
   let cloudUnavailableUntil = 0;
+  let progress = { chunkIndex: 0, time: 0 };
 
   function setState(next: CloudSpeechState) {
     if (state === next) return;
@@ -278,17 +280,29 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
     });
   }
 
-  async function fetchClip(text: string, token: number): Promise<Blob | null> {
+  async function fetchClip(
+    index: number,
+    token: number,
+    manifest: VoiceManifest,
+  ): Promise<Blob | null> {
+    if (!manifest.permit || !manifest.csrf) return null;
     const controller = new AbortController();
     requests.add(controller);
     const timer = setTimeout(() => controller.abort(), 45000);
     try {
-      const response = await doFetch("/api/v1/voice/speech", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text }),
-        signal: controller.signal,
-      });
+      const response = await doFetch(
+        `/api/v1${manifest.endpoint ?? "/voice/speech"}`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": manifest.csrf,
+          },
+          body: JSON.stringify({ permit: manifest.permit, chunk_index: index }),
+          signal: controller.signal,
+        },
+      );
       if (token !== generation || controller.signal.aborted || !response.ok)
         return null;
       const blob = await response.blob();
@@ -309,6 +323,8 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
     token: number,
     onCaption?: Caption,
     onStarted?: () => void,
+    startTime = 0,
+    onProgress?: (position: { chunkIndex: number; time: number }) => void,
   ): Promise<ClipOutcome> {
     if (priming) await priming.promise;
     if (token !== generation) return "cancelled";
@@ -332,7 +348,12 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
           clearTimeout(watchdog);
           if (playback === current) {
             playback = null;
-            element.onended = element.onerror = element.onplaying = null;
+            element.onended =
+              element.onerror =
+              element.onplaying =
+              element.onloadedmetadata =
+              element.ontimeupdate =
+                null;
             element.pause();
             element.removeAttribute("src");
             element.load();
@@ -400,8 +421,23 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
       element.onplaying = markStarted;
       element.onended = () => current.settle("ended");
       element.onerror = () => current.settle("failed");
+      element.ontimeupdate = () => {
+        if (token !== generation || settled) return;
+        progress = { ...progress, time: element.currentTime };
+        onProgress?.(progress);
+      };
       playback = current;
-      current.retry();
+      if (startTime > 0) {
+        element.onloadedmetadata = () => {
+          if (settled || token !== generation) return;
+          element.onloadedmetadata = null;
+          element.currentTime = Number.isFinite(element.duration)
+            ? Math.min(startTime, Math.max(0, element.duration - 0.01))
+            : startTime;
+          current.retry();
+        };
+        element.load();
+      } else current.retry();
     });
   }
 
@@ -462,20 +498,44 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
       }
       return true;
     },
-    async speak(text: string, onCaption?: Caption): Promise<boolean> {
+    async speak(
+      text: string,
+      onCaption?: Caption,
+      manifest?: VoiceManifest,
+    ): Promise<boolean> {
       cancel();
       const clean = speakableText(text);
       if (!clean) return false;
       const token = generation;
-      const segments = splitForSpeech(clean);
-      let remaining = 0;
+      // A missing permit may use browser speech, but can never submit arbitrary
+      // caller text to the paid endpoint. The server owns cloud segmentation.
+      const segments = manifest?.chunks.length
+        ? manifest.chunks
+        : splitForSpeech(clean);
+      const requestedChunk = Number.isFinite(manifest?.startChunk)
+        ? Math.trunc(manifest!.startChunk!)
+        : 0;
+      const startChunk = Math.max(
+        0,
+        Math.min(requestedChunk, segments.length - 1),
+      );
+      let remaining = startChunk;
+      const startTime = Number.isFinite(manifest?.startTime)
+        ? Math.max(0, manifest!.startTime!)
+        : 0;
+      progress = { chunkIndex: remaining, time: 0 };
       let prefetched: Promise<Blob | null> | null = null;
-      if (Date.now() >= cloudUnavailableUntil) {
+      if (
+        manifest?.permit &&
+        manifest.csrf &&
+        Date.now() >= cloudUnavailableUntil
+      ) {
         for (; remaining < segments.length; remaining++) {
           if (token !== generation) return false;
           setState("loading");
+          progress = { chunkIndex: remaining, time: 0 };
           const blob = await (prefetched ??
-            fetchClip(segments[remaining], token));
+            fetchClip(remaining, token, manifest));
           prefetched = null;
           if (token !== generation) return false;
           const next = remaining + 1;
@@ -489,8 +549,10 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
                   // Only one clip ahead, and only after playback really starts.
                   // Refused autoplay must not queue more billable synthesis.
                   if (token === generation && next < segments.length)
-                    prefetched = fetchClip(segments[next], token);
+                    prefetched = fetchClip(next, token, manifest);
                 },
+                remaining === startChunk ? startTime : 0,
+                manifest.onProgress,
               )
             : "failed";
           if (token !== generation || outcome === "cancelled") return false;
@@ -521,5 +583,13 @@ export function createCloudSpeaker(deps: CloudSpeechDeps = {}) {
       return success;
     },
     cancel,
+    pause() {
+      const bookmark = {
+        chunkIndex: progress.chunkIndex,
+        time: playback?.audio.currentTime ?? progress.time,
+      };
+      cancel();
+      return bookmark;
+    },
   };
 }

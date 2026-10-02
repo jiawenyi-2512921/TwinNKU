@@ -39,25 +39,29 @@ from app.models import (
     now_utc,
 )
 from app.modules.admin import service
+from app.modules.admin.mfa import StaffMfaPending, password_pending
+from app.modules.admin.mfa import router as mfa_router
 from app.modules.admin.security import (
-    COOKIE,
     DUMMY_HASH,
     HASHER,
     Actor,
     Auth,
     as_user,
     audit,
+    clear_cookie,
     hash_password,
     new_session,
     require_enabled,
     require_origin,
     require_point,
+    require_recent_mfa,
     revoke_sessions,
     session_view,
     throttle_login,
     utc,
     verify_password,
 )
+from app.modules.admin.sessions import router as sessions_router
 from app.modules.maps.router import as_map, public_maps
 
 router = APIRouter(
@@ -73,7 +77,7 @@ WRITE = {**STAFF, "parameters": [ORIGIN, CSRF]}
 
 @router.post(
     "/auth/login",
-    response_model=Envelope[StaffSession],
+    response_model=Envelope[StaffSession | StaffMfaPending],
     operation_id="staffLogin",
     openapi_extra={**STAFF, "x-auth": "public", "parameters": [ORIGIN]},
 )
@@ -92,8 +96,12 @@ def login(payload: StaffLogin, request: Request, response: Response, db: DB):
     if not valid or user is None or not user.is_active:
         raise DomainError("LOGIN_FAILED", "账号或密码不正确，或账号已停用", 401)
     if HASHER.check_needs_rehash(user.password_hash):
-        user.password_hash = hash_password(payload.password.get_secret_value())
+        # Re-encoding an existing verified credential is not choosing a new
+        # password. New blocklist policy must not lock out an old valid login.
+        user.password_hash = HASHER.hash(payload.password.get_secret_value())
         user.revision += 1
+    if request.app.state.settings.admin_mfa_enforced or user.mfa_enabled:
+        return envelope(request, password_pending(db, user, request, response))
     principal = new_session(db, user, request, response)
     audit(db, user, "session.login")
     db.commit()
@@ -120,13 +128,7 @@ def logout(request: Request, response: Response, auth: Auth, db: DB):
     db.delete(auth.session)
     audit(db, auth.user, "session.logout")
     db.commit()
-    response.delete_cookie(
-        COOKIE,
-        path="/api/v1/admin",
-        httponly=True,
-        secure=request.app.state.settings.app_env == "production",
-        samesite="strict",
-    )
+    clear_cookie(response, request)
     return envelope(request, ActionResult())
 
 
@@ -139,6 +141,7 @@ def logout(request: Request, response: Response, auth: Auth, db: DB):
 def password(
     payload: StaffPasswordChange, request: Request, response: Response, auth: Auth, db: DB
 ):
+    require_recent_mfa(auth)
     if not verify_password(auth.user.password_hash, payload.current_password.get_secret_value()):
         raise DomainError("PASSWORD_INCORRECT", "当前密码不正确", 403)
     if payload.new_password.get_secret_value() == payload.current_password.get_secret_value():
@@ -150,13 +153,7 @@ def password(
     revoke_sessions(db, auth.user.id)
     audit(db, auth.user, "user.password_changed")
     db.commit()
-    response.delete_cookie(
-        COOKIE,
-        path="/api/v1/admin",
-        httponly=True,
-        secure=request.app.state.settings.app_env == "production",
-        samesite="strict",
-    )
+    clear_cookie(response, request)
     return envelope(request, ActionResult())
 
 
@@ -419,6 +416,7 @@ def users(
 )
 def create_user(payload: StaffUserCreate, request: Request, actor: Actor, db: DB):
     actor.require("users.manage")
+    require_recent_mfa(actor)
     service.lock_administrators(db, actor)
     service.validate_scope(db, payload)
     if db.scalar(select(StaffUserRecord.id).where(StaffUserRecord.username == payload.username)):
@@ -451,6 +449,11 @@ def create_user(payload: StaffUserCreate, request: Request, actor: Actor, db: DB
     return envelope(request, as_user(user))
 
 
+# Keep MFA under the existing admin origin and permission boundary.
+router.include_router(mfa_router)
+router.include_router(sessions_router)
+
+
 @router.put(
     "/users/{user_id}",
     response_model=Envelope[StaffUser],
@@ -459,6 +462,7 @@ def create_user(payload: StaffUserCreate, request: Request, actor: Actor, db: DB
 )
 def update_user(user_id: UUID, payload: StaffUserUpdate, request: Request, actor: Actor, db: DB):
     actor.require("users.manage")
+    require_recent_mfa(actor)
     service.lock_administrators(db, actor)
     user = db.scalar(
         select(StaffUserRecord)
@@ -479,13 +483,16 @@ def update_user(user_id: UUID, payload: StaffUserUpdate, request: Request, actor
             403,
         )
     service.validate_scope(db, payload)
+    replacement = (
+        hash_password(payload.new_password.get_secret_value()) if payload.new_password else None
+    )
     before = as_user(user).model_dump(mode="json")
     for key, value in payload.model_dump(
         mode="json", exclude={"expected_revision", "new_password"}
     ).items():
         setattr(user, key, value)
-    if payload.new_password:
-        user.password_hash = hash_password(payload.new_password.get_secret_value())
+    if replacement:
+        user.password_hash = replacement
         user.must_change_password = True
     user.revision += 1
     user.updated_at = now_utc()

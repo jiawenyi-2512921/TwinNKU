@@ -1,0 +1,16 @@
+[Unit]
+Description=TwinNKU complete encrypted local backup
+OnFailure=twinnku-backup-alert.service
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+UMask=0077
+WorkingDirectory=/root/TwinNKU
+ExecStart=/usr/bin/python3 /root/TwinNKU/scripts/backup.py
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=30min
+PrivateTmp=true
+NoNewPrivileges=true

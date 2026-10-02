@@ -1,0 +1,4 @@
+# Preserve integrity-pinned offline policy data across Windows/Linux checkouts.
+*.sh text eol=lf
+/apps/api/app/data/password_blocklist.sha256 -text
+/apps/api/app/data/SecLists.LICENSE -text

@@ -1,7 +1,8 @@
-"""Read-only deployment checks; never execute SDK code or print credentials.
+"""Read-only native-agent deployment checks; never call a model or print credentials.
 
 Python 3.8+ standard library. Exit 1 means at least one failed check.
-This cannot verify browser login, model answers, variable consumption or citations.
+This verifies the legacy SDK is closed, public routes and the main CSP only.
+Real supplier reachability and answers need a separate authorized acceptance test.
 """
 
 from __future__ import annotations
@@ -9,7 +10,6 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
-import re
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -231,14 +231,10 @@ def run_checks(base, *, campus_id=None, expect_enabled=False, check_sdk=False, t
             )
         if "no-store" not in headers.get("Cache-Control", "").lower():
             raise CheckError("The public embed configuration must use Cache-Control: no-store.")
-        if data.get("base_url") != SDK_ORIGIN or data.get("sdk_url") != SDK_URL:
-            raise CheckError("Unexpected SDK origin or script URL.")
-        key = data.get("app_key")
-        if data["enabled"]:
-            if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9_-]{8,128}", key):
-                raise CheckError("Enabled configuration has no valid WebSDK identifier.")
-        elif key is not None:
-            raise CheckError("Disabled configuration must not return the WebSDK identifier.")
+        if data.get("provider") != "nk-genios-api" or data.get("app_key") is not None:
+            raise CheckError("The native provider is required; SDK identifiers must stay private.")
+        if type(data.get("public_enabled")) is not bool:
+            raise CheckError("Missing explicit public-agent switch.")
         public_origin = site_origin(data.get("public_site_origin", ""))
         if not public_origin.startswith("https://"):
             raise CheckError("Public guide links must use the HTTPS website origin.")
@@ -247,13 +243,13 @@ def run_checks(base, *, campus_id=None, expect_enabled=False, check_sdk=False, t
     config = attempt("public_config", config_check)
     if config and not config["enabled"]:
         record(
-            "embed_enabled",
+            "agent_enabled",
             "fail" if expect_enabled else "warn",
-            "Web embed is disabled by deployment configuration.",
+            "Native agent is disabled by deployment configuration; public guides remain usable.",
         )
     elif config:
         record(
-            "embed_enabled",
+            "agent_enabled",
             "pass",
             "Configured; this does not prove platform login or chat availability.",
         )
@@ -291,8 +287,20 @@ def run_checks(base, *, campus_id=None, expect_enabled=False, check_sdk=False, t
                         "Embed JavaScript is missing or was replaced by an HTML fallback."
                     )
 
+    def legacy_embed_closed():
+        try:
+            fetch(base + "/agent/embed.html", timeout, sample=True)
+        except CheckError as error:
+            if str(error) in {
+                "HTTP 404; redirects are not followed.",
+                "HTTP 410; redirects are not followed.",
+            }:
+                return
+            raise
+        raise CheckError("The legacy SDK iframe must return 404 or 410.")
+
     attempt("main_page_csp", lambda: page_check("/", False))
-    attempt("embed_page_and_module", lambda: page_check("/agent/embed.html", True))
+    attempt("legacy_embed_closed", legacy_embed_closed)
     campuses = attempt("listCampuses", lambda: api("/api/v1/campuses"))
     campus = None
     if isinstance(campuses, list) and all(
@@ -350,24 +358,13 @@ def run_checks(base, *, campus_id=None, expect_enabled=False, check_sdk=False, t
             "No public point selected; four point-specific tools were not checked.",
         )
 
-    if check_sdk:
-
-        def sdk_check():
-            headers, body = fetch(SDK_URL, timeout, sample=True)
-            if "javascript" not in headers.get("Content-Type", "").lower() or not body.strip():
-                raise CheckError("School URL did not return a JavaScript response.")
-
-        attempt("school_sdk_http", sdk_check)
-    else:
-        record(
-            "school_sdk_http",
-            "skip",
-            "Use --check-sdk to test access from this machine; the script is never executed.",
-        )
+    record(
+        "school_sdk_http", "skip", "Legacy WebSDK is disabled; no third-party script is fetched."
+    )
     record(
         "real_platform_chat",
         "skip",
-        "Manually verify login, model replies, citations, variables and mobile layout in the website.",
+        "No paid call was made. Verify the real model and voice separately before opening public AI.",
     )
     return {
         "checked_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 -- Python 3.8 CLI
@@ -382,7 +379,11 @@ def main(argv=None):
     parser.add_argument("--base-url", default="https://2512921.cn")
     parser.add_argument("--campus-id")
     parser.add_argument("--expect-enabled", action="store_true")
-    parser.add_argument("--check-sdk", action="store_true")
+    parser.add_argument(
+        "--check-sdk",
+        action="store_true",
+        help="Deprecated compatibility flag; the disabled SDK is never fetched.",
+    )
     parser.add_argument("--timeout", type=float, default=8)
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args(argv)
