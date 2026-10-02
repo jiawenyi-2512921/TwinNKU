@@ -1,10 +1,12 @@
-"""One scoped, paginated inbox for point, floor and panorama changes.
+"""One scoped, paginated inbox for every existing reviewed content type.
 
 This is a read model over existing drafts. It neither migrates their state nor
 offers a second publication path: actions retain the original review checks.
 """
 
+from types import SimpleNamespace
 from typing import Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Query, Request
 from sqlalchemy import String, cast, func, literal, or_, select, union_all
@@ -12,8 +14,13 @@ from sqlalchemy.orm import aliased
 
 from app.api import DB, envelope
 from app.contracts import AdminChangeItem, AdminWorkbench, Envelope, ErrorEnvelope, Pagination
+from app.core.errors import DomainError
 from app.models import (
+    CampusRecord,
+    ExperienceRecord,
     FloorRecord,
+    MapRecord,
+    NavigationRecord,
     PanoramaRecord,
     PointChangeRecord,
     PointRecord,
@@ -22,6 +29,8 @@ from app.models import (
 )
 from app.modules.admin.router import STAFF
 from app.modules.admin.security import PERMISSIONS, Actor, point_scope, utc
+from app.modules.experiences import require_record
+from app.modules.navigation import scoped_map
 
 router = APIRouter(
     prefix="/api/v1/admin",
@@ -30,7 +39,10 @@ router = APIRouter(
 )
 
 
-def change_query(user):
+KINDS = ("point", "floor", "panorama", "media", "checkin", "tour", "navigation")
+
+
+def change_query(db, user):
     """Apply scope before union, ordering, counts or pagination."""
     selections = []
     for model in (PointChangeRecord, ResourceChangeRecord):
@@ -78,6 +90,87 @@ def change_query(user):
                 PanoramaRecord, PanoramaRecord.id == model.resource_id
             ).outerjoin(FloorRecord, FloorRecord.id == model.resource_id)
         selections.append(query)
+    # Tour authorization covers every stop in both its draft and published
+    # snapshots. Reuse the detail guard before counting, filtering or paging.
+    actor = SimpleNamespace(user=user)
+    allowed_experiences = []
+    candidates = select(ExperienceRecord)
+    if user.role != "admin":
+        candidates = candidates.where(ExperienceRecord.campus_id.in_(user.campus_ids))
+    for record in db.scalars(candidates):
+        try:
+            require_record(db, actor, record.id)
+        except DomainError:
+            continue
+        allowed_experiences.append(record.id)
+    submitter = aliased(StaffUserRecord)
+    model = ExperienceRecord
+    selections.append(
+        select(
+            model.id,
+            model.kind,
+            model.point_id,
+            model.campus_id,
+            func.coalesce(PointRecord.name, CampusRecord.name).label("point_name"),
+            func.coalesce(
+                model.draft["title"].as_string(), model.published["title"].as_string(), "体验资料"
+            ).label("title"),
+            model.state,
+            model.operation,
+            model.revision,
+            literal(None, type_=String).label("editor_id"),
+            model.submitted_by,
+            model.contributor_ids,
+            literal("协作成员（详见操作记录）").label("editor_name"),
+            submitter.display_name.label("submitted_by_name"),
+            literal(None).label("submitted_at"),
+            model.updated_at,
+            model.review_note,
+        )
+        .select_from(model)
+        .join(CampusRecord, CampusRecord.id == model.campus_id)
+        .outerjoin(PointRecord, PointRecord.id == model.point_id)
+        .outerjoin(submitter, submitter.id == model.submitted_by)
+        .where(model.id.in_(allowed_experiences))
+    )
+    # A road graph needs whole-campus scope and an eligible published map;
+    # a staff member restricted to individual points must not see it here.
+    allowed_maps = []
+    for map_id in db.scalars(
+        select(NavigationRecord.map_id)
+        .join(MapRecord, MapRecord.id == NavigationRecord.map_id)
+        .where(MapRecord.kind == "campus")
+    ):
+        try:
+            scoped_map(db, actor, map_id)
+        except DomainError:
+            continue
+        allowed_maps.append(map_id)
+    model = NavigationRecord
+    selections.append(
+        select(
+            model.map_id.label("id"),
+            literal("navigation").label("kind"),
+            literal(None, type_=String).label("point_id"),
+            MapRecord.campus_id,
+            MapRecord.title.label("point_name"),
+            (MapRecord.title + " · 道路路网").label("title"),
+            model.state,
+            literal("upsert").label("operation"),
+            model.revision,
+            literal(None, type_=String).label("editor_id"),
+            literal(None, type_=String).label("submitted_by"),
+            model.contributor_ids,
+            literal("协作成员（详见操作记录）").label("editor_name"),
+            literal(None, type_=String).label("submitted_by_name"),
+            literal(None).label("submitted_at"),
+            model.updated_at,
+            model.review_note,
+        )
+        .select_from(model)
+        .join(MapRecord, MapRecord.id == model.map_id)
+        .where(model.map_id.in_(allowed_maps))
+    )
     return union_all(*selections).subquery()
 
 
@@ -102,7 +195,9 @@ def changes(
     actor: Actor,
     db: DB,
     state: Literal["draft", "in_review", "rejected", "published", "discarded"] | None = "in_review",
-    kind: Literal["point", "floor", "panorama"] | None = None,
+    kind: Literal["point", "floor", "panorama", "media", "checkin", "tour", "navigation"]
+    | None = None,
+    item_id: UUID | None = None,
     q: str = Query("", max_length=120),
     mine: bool = False,
     order: Literal["oldest", "newest"] = "oldest",
@@ -110,12 +205,14 @@ def changes(
     page_size: int = Query(20, ge=1, le=100),
 ):
     actor.require("points.read")
-    rows = change_query(actor.user)
+    rows = change_query(db, actor.user)
     query = select(rows)
     if state:
         query = query.where(rows.c.state == state)
     if kind:
         query = query.where(rows.c.kind == kind)
+    if item_id:
+        query = query.where(rows.c.id == str(item_id))
     if mine:
         query = query.where(mine_clause(rows, actor.user.id))
     if q.strip():
@@ -171,7 +268,7 @@ def changes(
 )
 def workbench(request: Request, actor: Actor, db: DB):
     actor.require("points.read")
-    rows = change_query(actor.user)
+    rows = change_query(db, actor.user)
     counts = db.execute(
         select(rows.c.kind, rows.c.state, func.count()).group_by(rows.c.kind, rows.c.state)
     ).all()
@@ -194,8 +291,7 @@ def workbench(request: Request, actor: Actor, db: DB):
                 .where(rows.c.state == "in_review", mine_clause(rows, actor.user.id))
             ),
             pending_by_kind={
-                k: sum(n for kind, s, n in counts if kind == k and s == "in_review")
-                for k in ("point", "floor", "panorama")
+                k: sum(n for kind, s, n in counts if kind == k and s == "in_review") for k in KINDS
             },
         ),
     )

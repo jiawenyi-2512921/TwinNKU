@@ -8,7 +8,6 @@ import { Audit } from "./Audit";
 import { PointWorkspace } from "./PointWorkspace";
 import { ResourceWorkspace } from "./ResourceWorkspace";
 import { ExperienceWorkspace } from "./ExperienceWorkspace";
-import type { AdminExperience } from "../experiences/types";
 import { Overview } from "./Overview";
 import { ReviewCenter, type ReviewStart } from "./ReviewCenter";
 import {
@@ -249,7 +248,6 @@ export default function AdminApp() {
     [locked, setLocked] = useState(false),
     [reviewStart, setReviewStart] = useState<ReviewStart>({}),
     [reviewKey, setReviewKey] = useState(0);
-  const [experienceId, setExperienceId] = useState<string | undefined>();
   const dirty = useRef(false);
   const processing = useRef(false);
   const onDirty = useCallback((value: boolean, busy = false) => {
@@ -298,28 +296,6 @@ export default function AdminApp() {
       session && !session.user.must_change_password ? "/campuses" : null,
       catalogRevision,
     );
-  const roadStates = useResource<
-    { map_id: string; title: string; state: string }[]
-  >(
-    session && !locked && !session.user.must_change_password
-      ? "/navigation"
-      : null,
-    revision,
-  );
-  const roadPending =
-    roadStates.data?.data.filter((r) => r.state === "in_review") ?? [];
-  const experiencePending = useResource<AdminExperience[]>(
-    session && !locked && !session.user.must_change_password
-      ? "/experiences?state=in_review"
-      : null,
-    revision,
-  );
-  const tourPendingCount =
-    experiencePending.data?.data.filter(
-      (item) => (item.content?.kind ?? item.published_content?.kind) === "tour",
-    ).length ?? 0;
-  const placePendingCount =
-    (experiencePending.data?.data.length ?? 0) - tourPendingCount;
   const workbench = useResource<Workbench>(
     session && !locked && !session.user.must_change_password
       ? "/workbench"
@@ -515,20 +491,13 @@ export default function AdminApp() {
                   className={tab === n.id ? "active" : ""}
                   onClick={() => {
                     if (n.id === "review") openReview();
-                    else if (navigate(n.id)) setExperienceId(undefined);
+                    else navigate(n.id);
                   }}
                 >
                   <Icon name={n.icon} />
                   {n.title}
                   <span>
-                    {n.id === "tours" && tourPendingCount ? (
-                      <b className="ad-nav-count">{tourPendingCount}</b>
-                    ) : n.id === "experiences" && placePendingCount ? (
-                      <b className="ad-nav-count">{placePendingCount}</b>
-                    ) : n.id === "roads" && roadPending.length ? (
-                      <b className="ad-nav-count">{roadPending.length}</b>
-                    ) : n.id === "review" &&
-                      workbench.data?.data.pending_count ? (
+                    {n.id === "review" && workbench.data?.data.pending_count ? (
                       <b className="ad-nav-count">
                         {workbench.data.data.pending_count}
                       </b>
@@ -586,55 +555,6 @@ export default function AdminApp() {
         </header>
         <main className="ad-content">
           <ErrorBox text={navError} />
-          {(tab === "review" || tab === "overview") && (
-            <>
-              <ErrorBox
-                text={experiencePending.error}
-                onRetry={() => setRevision((v) => v + 1)}
-              />
-              {!!experiencePending.data?.data.length && (
-                <details className="ad-pending-queue">
-                  <summary>
-                    视频、打卡与校园导览待审核 ·{" "}
-                    {experiencePending.data.data.length}
-                  </summary>
-                  <div className="ad-pending-items">
-                    {experiencePending.data.data.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          if (
-                            navigate(
-                              (item.content?.kind ??
-                                item.published_content?.kind) === "tour"
-                                ? "tours"
-                                : "experiences",
-                            )
-                          )
-                            setExperienceId(item.id);
-                        }}
-                      >
-                        {item.content?.title ??
-                          item.published_content?.title ??
-                          "待审核内容"}{" "}
-                        →
-                      </button>
-                    ))}
-                  </div>
-                </details>
-              )}
-            </>
-          )}
-          {(tab === "review" || tab === "overview") &&
-            roadPending.length > 0 && (
-              <details className="ad-pending-queue">
-                <summary>道路路网待审核 · {roadPending.length}</summary>
-                <p>{roadPending.map((r) => r.title).join("、")}</p>
-                <button onClick={() => navigate("roads")}>
-                  进入路网审核与地图核对 →
-                </button>
-              </details>
-            )}
           {tab === "overview" && (
             <Overview
               session={session}
@@ -663,6 +583,9 @@ export default function AdminApp() {
                     maps={maps.data.data}
                     onDirty={onDirty}
                     onUpdate={() => setRevision((v) => v + 1)}
+                    onReview={(id) =>
+                      openReview({ target: { id, kind: "point" } })
+                    }
                   />
                 )
               )}
@@ -686,6 +609,7 @@ export default function AdminApp() {
               session={session}
               onDirty={onDirty}
               onUpdate={() => setRevision((v) => v + 1)}
+              onReview={(id) => openReview({ target: { id } })}
             />
           )}
           {tab === "guide-settings" && session.user.role === "admin" && (
@@ -698,7 +622,7 @@ export default function AdminApp() {
               session={session}
               onDirty={onDirty}
               onUpdate={() => setRevision((v) => v + 1)}
-              initialId={experienceId}
+              onReview={(id) => openReview({ target: { id } })}
             />
           )}
           {tab === "roads" && (
@@ -707,6 +631,9 @@ export default function AdminApp() {
               session={session}
               onDirty={onDirty}
               onUpdate={() => setRevision((v) => v + 1)}
+              onReview={(id) =>
+                openReview({ target: { id, kind: "navigation" } })
+              }
             />
           )}
           {tab === "audit" && <Audit />}

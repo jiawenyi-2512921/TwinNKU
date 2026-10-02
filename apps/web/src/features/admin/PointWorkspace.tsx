@@ -26,6 +26,7 @@ type Props = {
   initialId?: string;
   onDirty: (dirty: boolean, busy?: boolean) => void;
   onUpdate: () => void;
+  onReview?: (id: string) => void;
 };
 export function PointWorkspace({
   session,
@@ -34,6 +35,7 @@ export function PointWorkspace({
   initialId,
   onDirty,
   onUpdate,
+  onReview,
 }: Props) {
   const [mapId, setMapId] = useState(maps[0]?.id ?? ""),
     [query, setQuery] = useState(""),
@@ -56,10 +58,10 @@ export function PointWorkspace({
     [history, setHistory] = useState<GeometryInput[]>([]);
   const loadId = useRef(0);
   const operationLock = useRef(false);
-  const [showList, setShowList] = useState(review);
+  const [showList, setShowList] = useState(review && !initialId);
   const map = maps.find((m) => m.id === mapId) ?? maps[0];
   const allowedEdit = session.permissions.includes("points.edit"),
-    allowedReview = session.permissions.includes("points.review");
+    allowedReview = review && session.permissions.includes("points.review");
   const writable =
     allowedEdit &&
     !review &&
@@ -689,6 +691,14 @@ export function PointWorkspace({
               )}
               {selected?.draft?.state === "in_review" && !review && (
                 <div className="ad-point-review-status" role="status">
+                  {onReview && (
+                    <button
+                      disabled={busy || dirty}
+                      onClick={() => onReview(selected.point.id)}
+                    >
+                      去审核中心
+                    </button>
+                  )}
                   <strong>已提交，等待审核</strong>
                   <p>
                     {canWithdraw

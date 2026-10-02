@@ -73,7 +73,11 @@
             "enum": [
               "point",
               "floor",
-              "panorama"
+              "panorama",
+              "media",
+              "checkin",
+              "tour",
+              "navigation"
             ],
             "title": "Kind",
             "type": "string"
@@ -87,9 +91,16 @@
             "type": "string"
           },
           "point_id": {
-            "format": "uuid",
-            "title": "Point Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Point Id"
           },
           "point_name": {
             "title": "Point Name",
@@ -2660,6 +2671,18 @@
       "ExperienceStop": {
         "additionalProperties": false,
         "properties": {
+          "checkin_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkin Id"
+          },
           "narrative": {
             "default": "",
             "maxLength": 8000,
@@ -7855,7 +7878,11 @@
                   "enum": [
                     "point",
                     "floor",
-                    "panorama"
+                    "panorama",
+                    "media",
+                    "checkin",
+                    "tour",
+                    "navigation"
                   ],
                   "type": "string"
                 },
@@ -7864,6 +7891,23 @@
                 }
               ],
               "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "item_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Item Id"
             }
           },
           {
@@ -8114,6 +8158,16 @@
                 }
               ],
               "title": "Campus Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "referenceable",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Referenceable",
+              "type": "boolean"
             }
           },
           {

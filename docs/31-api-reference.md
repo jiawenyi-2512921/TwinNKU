@@ -6,7 +6,7 @@
 字段约束只覆盖JSON Schema；来源有效期、关联权限、跨字段状态仍须service和测试保证。
 
 接口操作数：112；状态统计：{"implemented": 76, "planned": 36}。
-契约SHA256：`b3333be8e4bc651db1e277ad866da4810b6f6884f0905e86ae9f972f21118669`。
+契约SHA256：`cbf56711cc220c99710329fd1289643091b78fb1f07c71bc61470b183b792a70`。
 
 ## 1. 全部端点
 
@@ -164,7 +164,8 @@
 | 字段 | 位置 | 必填 | 类型 | 约束 |
 | --- | --- | --- | --- | --- |
 | state | query | 否 | draft / in_review / rejected / published / discarded / null | 默认: "in_review"; —; — |
-| kind | query | 否 | point / floor / panorama / null | —; — |
+| kind | query | 否 | point / floor / panorama / media / checkin / tour / navigation / null | —; — |
+| item_id | query | 否 | string (uuid) / null | —; — |
 | q | query | 否 | string | 最长: 120; 默认: "" |
 | mine | query | 否 | boolean | 默认: false |
 | order | query | 否 | oldest / newest | 默认: "oldest" |
@@ -185,6 +186,7 @@
 | kind | query | 否 | media / checkin / tour / null | —; — |
 | state | query | 否 | draft / in_review / rejected / published / discarded / null | —; — |
 | campus_id | query | 否 | string / null | —; — |
+| referenceable | query | 否 | boolean | 默认: false |
 | q | query | 否 | string | 最长: 120; 默认: "" |
 
 ### POST /api/v1/admin/experiences
@@ -816,9 +818,9 @@
 | editor_name | 是 | string | — |
 | id | 是 | string (uuid) | — |
 | is_mine | 是 | boolean | — |
-| kind | 是 | point / floor / panorama | — |
+| kind | 是 | point / floor / panorama / media / checkin / tour / navigation | — |
 | operation | 是 | upsert / retire | — |
-| point_id | 是 | string (uuid) | — |
+| point_id | 是 | string (uuid) / null | —; — |
 | point_name | 是 | string | — |
 | review_note | 是 | string | — |
 | revision | 是 | integer | 最小: 1.0 |
@@ -1742,6 +1744,7 @@
 
 | 字段 | 必填 | 类型/枚举 | 约束/默认 |
 | --- | --- | --- | --- |
+| checkin_id | 否 | string (uuid) / null | —; — |
 | narrative | 否 | string | 最长: 8000; 默认: "" |
 | point_id | 是 | string (uuid) | — |
 | prompt_timing | 否 | on_arrival / after_intro / manual | 默认: "manual" |

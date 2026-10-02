@@ -64,6 +64,85 @@ function setup(overrides = {}) {
     find(tree, (node) => node.type === "button" && textOf(node) === label)[0];
   return { tree, button, calls };
 }
+
+function reviewWorkspace(reviewMode, contributors = []) {
+  let slot = 0;
+  const exported = {};
+  const workspace = {
+    state: "in_review",
+    revision: 2,
+    contributor_ids: contributors,
+    draft: { map_revision: 1, note: "Reviewed fixture", nodes: [], edges: [] },
+  };
+  const graph = workspace.draft;
+  const react = {
+    useState(initial) {
+      const index = slot++;
+      return [
+        index === 1 ? workspace : index === 2 ? graph : initial,
+        () => {},
+      ];
+    },
+    useRef: (value) => ({ current: value }),
+    useEffect() {},
+  };
+  vm.runInNewContext(
+    ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+        jsx: ts.JsxEmit.ReactJSX,
+      },
+    }).outputText,
+    {
+      exports: exported,
+      require(name) {
+        if (name === "react") return react;
+        if (name === "react/jsx-runtime") return jsx;
+        if (name === "./roadGeometry")
+          return { makeHistory: () => ({ canUndo: false, canRedo: false }) };
+        if (name === "./RoadCanvas") return { RoadCanvas: () => null };
+        if (name === "./ui") return { ErrorBox: () => null };
+        return {};
+      },
+    },
+  );
+  const opened = [];
+  const tree = exported.RoadWorkspace({
+    reviewMode,
+    initialMapId: "map",
+    maps: [{ id: "map", kind: "campus", title: "Campus", revision: 1 }],
+    session: { user: { id: "reviewer", role: "admin" } },
+    onDirty() {},
+    onUpdate() {},
+    onReview: (id) => opened.push(id),
+  });
+  return {
+    tree,
+    opened,
+    button: (label) =>
+      find(tree, (node) => node.type === "button" && textOf(node) === label)[0],
+  };
+}
+
+test("road publishing and rejection exist only in the central review context", () => {
+  const editing = reviewWorkspace(false);
+  assert.equal(editing.button("审核通过并发布"), undefined);
+  assert.equal(editing.button("退回"), undefined);
+  editing.button("去审核中心").props.onClick();
+  assert.deepEqual(editing.opened, ["map"]);
+  const review = reviewWorkspace(true);
+  assert.ok(review.button("审核通过并发布"));
+  assert.ok(review.button("退回"));
+  assert.equal(review.button("撤回修改"), undefined);
+  const map = find(
+    review.tree,
+    (node) => node.type === "select" && node.props.value === "map",
+  )[0];
+  assert.equal(map.props.disabled, true);
+  const own = reviewWorkspace(true, ["reviewer"]);
+  assert.equal(own.button("审核通过并发布"), undefined);
+});
 test("advanced drawing and backup are collapsed while save and validation remain direct", () => {
   const h = setup();
   const details = find(h.tree, (node) => node.type === "details")[0];

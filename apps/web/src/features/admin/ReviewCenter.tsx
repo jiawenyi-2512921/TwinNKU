@@ -5,18 +5,32 @@ import { type ChangeItem, type StaffSession, stateNames } from "./api";
 import { Empty, ErrorBox, Pager, timestamp, useResource } from "./ui";
 import { PointWorkspace } from "./PointWorkspace";
 import { ResourceWorkspace } from "./ResourceWorkspace";
+import { ExperienceWorkspace } from "./ExperienceWorkspace";
+import { RoadWorkspace } from "./RoadWorkspace";
 
 export const kindNames = {
   point: "地图点位",
   floor: "楼层原图",
   panorama: "VR 全景",
+  media: "视频与图片",
+  checkin: "打卡点",
+  tour: "校园导览",
+  navigation: "道路路网",
 };
 export const kindIcons = {
   point: "pin",
   floor: "layers",
   panorama: "panorama",
+  media: "play",
+  checkin: "pin",
+  tour: "route",
+  navigation: "route",
 };
-export type ReviewStart = { state?: ChangeItem["state"]; item?: ChangeItem };
+export type ReviewStart = {
+  state?: ChangeItem["state"];
+  item?: ChangeItem;
+  target?: { id: string; kind?: ChangeItem["kind"] };
+};
 
 export function ChangeRows({
   rows,
@@ -95,6 +109,7 @@ export function ReviewCenter({
   const dirty = useRef(false);
   const processing = useRef(false);
   const [detailBusy, setDetailBusy] = useState(false);
+  const targetOpened = useRef(false);
   const detailDirty = useCallback(
     (value: boolean, busy = false) => {
       dirty.current = value;
@@ -124,6 +139,18 @@ export function ReviewCenter({
     `/changes?${params}`,
     revision + externalRevision,
   );
+  const target = useResource<ChangeItem[]>(
+    initial?.target
+      ? `/changes?${new URLSearchParams({ ...(initial.target.kind ? { kind: initial.target.kind } : {}), item_id: initial.target.id })}`
+      : null,
+    revision + externalRevision,
+  );
+  useEffect(() => {
+    if (!targetOpened.current && target.data?.data[0]) {
+      targetOpened.current = true;
+      setSelected(target.data.data[0]);
+    }
+  }, [target.data]);
   useEffect(() => {
     const pagination = list.data?.meta.pagination;
     if (!pagination) return;
@@ -178,6 +205,7 @@ export function ReviewCenter({
                 session={session}
                 maps={maps}
                 initialId={selected.id}
+                review
                 onDirty={detailDirty}
                 onUpdate={refresh}
               />
@@ -190,12 +218,37 @@ export function ReviewCenter({
               )
             )}
           </>
+        ) : selected.kind === "navigation" ? (
+          <>
+            <ErrorBox text={mapsError} onRetry={onRetryMaps} />
+            <RoadWorkspace
+              key={selected.id}
+              session={session}
+              maps={maps}
+              initialMapId={selected.id}
+              reviewMode
+              onDirty={detailDirty}
+              onUpdate={refresh}
+            />
+          </>
+        ) : ["media", "checkin", "tour"].includes(selected.kind) ? (
+          <ExperienceWorkspace
+            key={selected.id}
+            session={session}
+            initialId={selected.id}
+            kindScope={selected.kind === "tour" ? "tours" : "places"}
+            review
+            focused
+            onDirty={detailDirty}
+            onUpdate={refresh}
+          />
         ) : (
           <ResourceWorkspace
             key={selected.id}
             session={session}
             initialId={selected.id}
             focused
+            review
             onDirty={detailDirty}
             onUpdate={refresh}
           />
@@ -208,7 +261,7 @@ export function ReviewCenter({
         <div>
           <div className="ad-eyebrow">CONTENT REVIEW</div>
           <h1>审核中心</h1>
-          <p>点位、楼层与全景的每一次修改，都在这里汇总。</p>
+          <p>点位、楼层、VR、视频、打卡、校园导览与道路路网统一审核和发布。</p>
         </div>
         <button onClick={refresh} disabled={list.loading}>
           <Icon name="refresh" size={16} /> 刷新列表
@@ -243,7 +296,7 @@ export function ReviewCenter({
             <Icon name="search" size={18} />
             <input
               aria-label="搜索待办地点或资料名称"
-              placeholder="搜索地点、楼层或 VR 名称"
+              placeholder="搜索地点、资料、导览或路网名称"
               maxLength={120}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -295,7 +348,12 @@ export function ReviewCenter({
           </span>
           <span>包含当前账号授权范围内的所有地点</span>
         </div>
-        <ErrorBox text={list.error} onRetry={refresh} />
+        <ErrorBox text={list.error || target.error} onRetry={refresh} />
+        {initial?.target && target.data && !target.data.data.length && (
+          <p role="status">
+            该内容已处理或不在待审队列中，请查看下方最新记录。
+          </p>
+        )}
         {list.loading && (
           <div className="ad-list-loading" role="status">
             <span className="ad-loading-dot" />
@@ -315,7 +373,7 @@ export function ReviewCenter({
             detail={
               query || kind || mine
                 ? "可以清空搜索、切换类型或取消“我参与的”。"
-                : "新的点位、楼层和 VR 提交会自动出现在这里。"
+                : "所有资料、校园导览与道路路网的提交会自动出现在这里。"
             }
           />
         )}

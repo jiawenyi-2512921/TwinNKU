@@ -214,6 +214,101 @@ def test_tour_scope_stale_points_and_video_references(client, db, experiences):
     assert client.get(f"{PUBLIC}/{tour['id']}").status_code == 404
 
 
+def test_tour_references_published_checkin_and_video_at_the_same_station(client, db, experiences):
+    users, point, other = experiences
+    image = publish(client, content(point))
+    checkin = publish(client, content(point, "checkin", image_id=image["id"]))
+    video = publish(client, content(point, media_type="video", url="https://example.com/video.mp4"))
+    data = content(
+        point,
+        "tour",
+        stops=[
+            {
+                "point_id": point.id,
+                "checkin_id": checkin["id"],
+                "video_id": video["id"],
+            }
+        ],
+    )
+    tour = publish(client, data)
+    result = client.get(f"{PUBLIC}/{tour['id']}").json()["data"]
+    assert result["content"]["stops"][0]["checkin_id"] == checkin["id"]
+    assert result["content"]["stops"][0]["video_id"] == video["id"]
+    login(client)
+    # Upload-only/draft resources do not become route candidates or valid references.
+    unpublished = save(client, content(point, "checkin"))
+    assert unpublished["id"] not in {
+        row["id"] for row in client.get(f"{ADMIN}?kind=checkin&referenceable=true").json()["data"]
+    }
+    for ref in (unpublished["id"], image["id"], str(uuid4())):
+        save(
+            client,
+            content(point, "tour", stops=[{"point_id": point.id, "checkin_id": ref}]),
+            expected=409,
+        )
+    save(
+        client,
+        content(other, "tour", stops=[{"point_id": other.id, "checkin_id": checkin["id"]}]),
+        expected=409,
+    )
+    save(
+        client,
+        content(other, "tour", stops=[{"point_id": other.id, "video_id": video["id"]}]),
+        expected=409,
+    )
+    # Editing an already published checkin leaves its reviewed version referenceable.
+    pending = save(
+        client, content(point, "checkin", image_id=image["id"], title="尚未审核"), checkin
+    )
+    candidates = client.get(f"{ADMIN}?kind=checkin&referenceable=true").json()["data"]
+    assert (
+        next(row for row in candidates if row["id"] == checkin["id"])["published_content"]["title"]
+        != "尚未审核"
+    )
+    assert client.get(f"{PUBLIC}/{tour['id']}").status_code == 200
+    # A scoped outsider cannot discover any referenced resource at this station.
+    users["viewer"].point_ids = [other.id]
+    db.commit()
+    login(client, "viewer")
+    assert client.get(f"{ADMIN}?kind=checkin&referenceable=true").json()["data"] == []
+    login(client)
+    discarded = action(client, pending, "discard")
+    retire(client, discarded)
+    assert client.get(f"{PUBLIC}/{tour['id']}").status_code == 404
+    login(client)
+    assert client.get(f"{ADMIN}?kind=checkin&referenceable=true").json()["data"] == []
+
+
+def test_tour_checkin_reference_rechecks_images_and_publication_at_review(client, experiences):
+    _, point, _ = experiences
+    image = publish(client, content(point))
+    checkin = publish(client, content(point, "checkin", image_id=image["id"]))
+    login(client)
+    pending = action(
+        client,
+        save(
+            client,
+            content(
+                point,
+                "tour",
+                stops=[
+                    {
+                        "point_id": point.id,
+                        "checkin_id": checkin["id"],
+                    }
+                ],
+            ),
+        ),
+        "submit",
+    )
+    retire(client, image)
+    action(client, pending, "publish", expected=409)
+    assert client.get(f"{PUBLIC}/{checkin['id']}").status_code == 404
+    assert client.get(f"{PUBLIC}/{pending['id']}").status_code == 404
+    login(client)
+    assert client.get(f"{ADMIN}?kind=checkin&referenceable=true").json()["data"] == []
+
+
 def test_media_invalid_uploads_urls_and_size(client, experiences, monkeypatch):
     _, point, _ = experiences
     login(client)
@@ -277,6 +372,22 @@ def test_real_video_validation_and_byte_ranges(client, experiences, tmp_path):
     login(client)
     asset = upload(client, point, raw, "video/mp4")
     item = publish(client, content(point, media_type="video", upload_id=asset["id"], url=None))
+    checkin = publish(client, content(point, "checkin"))
+    tour = publish(
+        client,
+        content(
+            point,
+            "tour",
+            stops=[
+                {
+                    "point_id": point.id,
+                    "video_id": item["id"],
+                    "checkin_id": checkin["id"],
+                }
+            ],
+        ),
+    )
+    assert client.get(f"{PUBLIC}/{tour['id']}").status_code == 200
     response = client.get(f"{PUBLIC}/{item['id']}/media", headers={"Range": "bytes=-20"})
     assert response.status_code == 206 and response.content == raw[-20:]
     assert response.headers["content-type"] == "video/mp4"
@@ -371,6 +482,7 @@ def test_legacy_tour_snapshot_normalizes_without_mutation_or_anchor_dependency(
     normalized = response.json()["data"]["content"]
     assert normalized["campus_id"] == old_owner.campus_id and "point_id" not in normalized
     assert normalized["stops"][0]["narrative"] == "原有讲解"
+    assert normalized["stops"][0]["checkin_id"] is None
     assert row.published == legacy and row.draft == legacy
     assert row.revision == 5 and row.published_revision == 2
     login(client)

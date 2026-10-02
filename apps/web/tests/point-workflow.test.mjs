@@ -330,6 +330,7 @@ test("withdrawing an authored review preserves its content for the next edit and
 });
 test("review permissions remain independent and advanced coordinate fields start collapsed", async () => {
   const h = await workspace(record("in_review"), {
+    review: true,
     session: {
       permissions: ["points.edit", "points.review"],
       user: { id: "editor", role: "editor", point_ids: [] },
@@ -365,6 +366,26 @@ test("review permissions remain independent and advanced coordinate fields start
     assert.equal(other.button("撤回并继续修改"), undefined);
   } finally {
     other.dispose();
+  }
+});
+
+test("point editing routes review to the center even when the account can review", async () => {
+  const opened = [];
+  const h = await workspace(record("in_review"), {
+    session: {
+      permissions: ["points.edit", "points.review"],
+      user: { id: "other", role: "admin", point_ids: [] },
+    },
+    onReview: (id) => opened.push(id),
+  });
+  try {
+    assert.equal(h.button("审核并发布"), undefined);
+    assert.equal(h.button("退回修改"), undefined);
+    h.button("去审核中心").props.onClick();
+    assert.deepEqual(opened, ["point"]);
+    assert.equal(h.reads.filter((call) => call.method === "POST").length, 0);
+  } finally {
+    h.dispose();
   }
 });
 test("rapid duplicate save clicks issue only one request", async () => {

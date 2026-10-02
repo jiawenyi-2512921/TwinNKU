@@ -101,6 +101,7 @@ class ExperienceStop(DTO):
     point_id: UUID
     narrative: str = Field(default="", max_length=8000)
     video_id: UUID | None = None
+    checkin_id: UUID | None = None
     prompt_timing: Literal["on_arrival", "after_intro", "manual"] = "manual"
 
 
@@ -238,6 +239,8 @@ def public_record(db, key):
         for stop in content.stops:
             if stop.video_id:
                 referenced_media(db, stop.video_id, "video", stop.point_id)
+            if stop.checkin_id:
+                referenced_checkin(db, stop.checkin_id, stop.point_id)
     return record, content
 
 
@@ -245,13 +248,29 @@ def referenced_media(db, key, media_type, point_id):
     record = db.get(ExperienceRecord, str(key))
     if not record or record.kind != "media" or record.status != "published" or not record.published:
         raise DomainError("MEDIA_NOT_PUBLIC", "引用的媒体未发布或已下架", 409)
-    content = stored_content(record, record.published)
+    try:
+        record, content = public_record(db, key)
+    except DomainError as exc:
+        raise DomainError("MEDIA_NOT_PUBLIC", "引用的媒体或所属地点已不可用", 409) from exc
     if (
         content.media_type != media_type
         or str(content.point_id) != str(point_id)
         or not public_point(db, point_id)
     ):
         raise DomainError("MEDIA_NOT_PUBLIC", "媒体类型或所属地点不匹配", 409)
+    return record, content
+
+
+def referenced_checkin(db, key, point_id):
+    record = db.get(ExperienceRecord, str(key))
+    if not record or record.kind != "checkin":
+        raise DomainError("CHECKIN_NOT_PUBLIC", "引用的打卡未发布或已下架", 409)
+    try:
+        record, content = public_record(db, key)
+    except DomainError as exc:
+        raise DomainError("CHECKIN_NOT_PUBLIC", "引用的打卡或参考资料已不可用", 409) from exc
+    if str(content.point_id) != str(point_id):
+        raise DomainError("CHECKIN_NOT_PUBLIC", "打卡所属地点与路线站点不匹配", 409)
     return record, content
 
 
@@ -345,6 +364,8 @@ def validate_candidate(db, actor, content, settings):
         for stop in content.stops:
             if stop.video_id:
                 referenced_media(db, stop.video_id, "video", stop.point_id)
+            if stop.checkin_id:
+                referenced_checkin(db, stop.checkin_id, stop.point_id)
     return contributors
 
 
@@ -594,6 +615,7 @@ def list_admin(
     kind: ExperienceKind | None = None,
     state: ExperienceState | None = None,
     campus_id: str | None = None,
+    referenceable: bool = False,
     q: str = Query("", max_length=120),
 ):
     actor.require("points.read")
@@ -613,6 +635,8 @@ def list_admin(
     ):
         try:
             require_record(db, actor, record.id)
+            if referenceable:
+                public_record(db, record.id)
         except DomainError:
             continue
         item = admin_view(record)

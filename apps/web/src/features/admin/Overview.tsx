@@ -46,7 +46,7 @@ export function Overview({
           {
             name: "待审核",
             value: data?.pending_count,
-            hint: "点位、楼层和 VR 统一汇总",
+            hint: "全部资料、导览和路网统一汇总",
             icon: "check",
             state: "in_review" as const,
           },
@@ -127,7 +127,7 @@ export function Overview({
           {pending.data && !pending.data.data.length && (
             <Empty
               title="现在没有待审核事项"
-              detail="提交后的点位、楼层和 VR 资料会在这里汇总。"
+              detail="所有资料、校园导览和路网提交后都会在这里汇总。"
             />
           )}
         </section>

@@ -69,7 +69,7 @@ const submitted = {
   draft: { ...saved.draft, revision: 8, state: "in_review" },
 };
 
-function harness(reply, permissions = ["points.edit"]) {
+function harness(reply, permissions = ["points.edit"], options = {}) {
   const slots = [],
     effects = [];
   let index = 0,
@@ -181,6 +181,7 @@ function harness(reply, permissions = ["points.edit"]) {
     session: { user: { id: "editor", role: "editor" }, permissions },
     onDirty() {},
     onUpdate() {},
+    ...options,
   };
   let tree;
   return {
@@ -345,8 +346,26 @@ test("creating a floor brings its editor into view and awaiting-review contribut
   const reviewer = harness(
     async () => submitted,
     ["points.edit", "points.review"],
+    { review: true },
   );
   tree = await reviewer.open();
   assert.equal(button(tree, "通过并发布").props.disabled, true);
   assert.equal(button(tree, "保存并提交审核"), undefined);
+});
+
+test("resource editing offers the central queue and never publishes or rejects", async () => {
+  const opened = [];
+  const editor = harness(
+    async () => submitted,
+    ["points.edit", "points.review"],
+    {
+      onReview: (id) => opened.push(id),
+    },
+  );
+  const tree = await editor.open();
+  assert.equal(button(tree, "通过并发布"), undefined);
+  assert.equal(button(tree, "退回修改"), undefined);
+  button(tree, "去审核中心").props.onClick();
+  assert.deepEqual(opened, ["vr"]);
+  assert.equal(editor.calls.filter((call) => call.method !== "GET").length, 0);
 });
