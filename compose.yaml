@@ -1,7 +1,10 @@
 name: twinnku
 services:
   db:
-    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    build:
+      context: .
+      dockerfile: deploy/db.Dockerfile
+    image: twinnku-db:${APP_VERSION:-0.4.0}
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-twinnku}
@@ -20,6 +23,8 @@ services:
     mem_limit: 2g
     cpus: 1.5
     pids_limit: 256
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     networks: [database]
   migrate:
     build:

@@ -182,10 +182,21 @@ def test_restore_failure_cleans_only_the_isolated_container_and_private_password
         key_file=tmp_path / "key",
         root=tmp_path / "deployment",
         snapshot="latest",
+        image="twinnku-db:reviewed",
+        image_id="sha256:" + "a" * 64,
     )
     monkeypatch.setattr(restore.os, "geteuid", lambda: 0, raising=False)
     calls = []
-    monkeypatch.setattr(restore, "run", lambda command, **_kwargs: calls.append(command))
+    streamed = []
+
+    def command_run(command, **kwargs):
+        calls.append(command)
+        if kwargs.get("stdin") is not None:
+            streamed.append(kwargs["stdin"].read())
+
+    (staging / "database.dump").chmod(0o600)
+    monkeypatch.setattr(restore, "run", command_run)
+    monkeypatch.setattr(restore, "require_database_image", lambda _image, image_id: image_id)
     monkeypatch.setattr(restore, "verify_batch", lambda _target: (manifest, staging, volumes))
     monkeypatch.setattr(
         restore,
@@ -210,7 +221,59 @@ def test_restore_failure_cleans_only_the_isolated_container_and_private_password
     assert calls[-1][:4] == ["docker", "rm", "-f", "-v"]
     assert calls[-1][4].startswith("twinnku-restore-")
     assert not (target / ".postgres.env").exists()
-    assert "none" in next(command for command in calls if command[:2] == ["docker", "run"])
+    start = next(command for command in calls if command[:2] == ["docker", "run"])
+    assert "none" in start and start[-1] == args.image_id and "--mount" not in start
+    restore_call = next(command for command in calls if "pg_restore" in command)
+    assert restore_call[:3] == ["docker", "exec", "-i"]
+    assert "/incoming/database.dump" not in restore_call
+    assert streamed == [b"private recovery fixture"]
+    if os.name == "posix":
+        assert (staging / "database.dump").stat().st_mode & 0o777 == 0o600
+
+
+def test_restore_requires_selected_image_id_and_verifies_actual_nonroot_binary(monkeypatch):
+    image_id = "sha256:" + "a" * 64
+    calls = []
+
+    def command_run(command, **_kwargs):
+        calls.append(command)
+        return json.dumps({"Id": image_id, "Config": {"User": "postgres"}}).encode()
+
+    monkeypatch.setattr(restore, "run", command_run)
+    assert restore.require_database_image("twinnku-db:reviewed", image_id) == image_id
+    assert calls[0][-1] == "twinnku-db:reviewed"
+    assert image_id in calls[1] and "twinnku-db:reviewed" not in calls[1]
+    assert "none" in calls[1] and "--read-only" in calls[1]
+    assert "70:70" in calls[1][-1] and "gosu" in calls[1][-1]
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"Id": "sha256:" + "b" * 64, "Config": {"User": "postgres"}},
+        {"Id": "sha256:" + "a" * 64, "Config": {"User": "root"}},
+        {"Id": "sha256:" + "a" * 64, "Config": {"User": ""}},
+    ],
+)
+def test_restore_rejects_retagged_or_root_image_without_starting_it(monkeypatch, metadata):
+    calls = []
+    monkeypatch.setattr(
+        restore,
+        "run",
+        lambda command, **_kwargs: calls.append(command) or json.dumps(metadata).encode(),
+    )
+    with pytest.raises(ValueError, match="image ID or nonroot"):
+        restore.require_database_image("twinnku-db:reviewed", "sha256:" + "a" * 64)
+    assert len(calls) == 1 and calls[0][:3] == ["docker", "image", "inspect"]
+
+
+@pytest.mark.parametrize("image,image_id", [("--pull", "sha256:" + "a" * 64), ("twinnku-db:reviewed", "latest")])
+def test_restore_rejects_missing_immutable_image_identity_before_docker(monkeypatch, image, image_id):
+    calls = []
+    monkeypatch.setattr(restore, "run", lambda command, **_kwargs: calls.append(command))
+    with pytest.raises(ValueError, match="explicit image"):
+        restore.require_database_image(image, image_id)
+    assert not calls
 
 
 def test_database_table_list_is_checked_before_building_count_sql(monkeypatch):

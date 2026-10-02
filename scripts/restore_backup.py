@@ -14,7 +14,6 @@ from pathlib import Path, PurePosixPath
 
 from backup import checked_path, file_sha256, inside, inventory, private_file
 
-IMAGE = "postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24"
 REQUIRED_TABLES = {
     "alembic_version",
     "campuses",
@@ -35,8 +34,29 @@ REQUIRED_TABLES = {
 }
 
 
-def run(args, *, env=None):
-    return subprocess.run(args, env=env, check=True, capture_output=True).stdout
+def run(args, *, env=None, stdin=None):
+    return subprocess.run(args, env=env, stdin=stdin, check=True, capture_output=True).stdout
+
+
+def require_database_image(image, image_id):
+    """Resolve a reviewed local candidate to its immutable ID; never pull/fallback."""
+    if not re.fullmatch(r"[a-z0-9][a-z0-9./:@_-]*", image) or not re.fullmatch(
+        r"sha256:[0-9a-f]{64}", image_id
+    ):
+        raise ValueError("Recovery requires an explicit image and immutable image ID")
+    metadata = json.loads(run(["docker", "image", "inspect", "--format", "{{json .}}", image]))
+    if metadata.get("Id") != image_id or metadata.get("Config", {}).get("User") not in {
+        "postgres", "70", "70:70"
+    }:
+        raise ValueError("Recovery image ID or nonroot user differs from the selected candidate")
+    run(
+        [
+            "docker", "run", "--rm", "--read-only", "--network", "none", "--cap-drop", "ALL",
+            "--security-opt", "no-new-privileges", "--entrypoint", "sh", image_id, "-ec",
+            'test "$(id -u):$(id -g)" = 70:70; test ! -e /usr/local/bin/gosu; ! command -v gosu',
+        ]
+    )
+    return image_id
 
 
 def restore_path(target, original):
@@ -266,6 +286,7 @@ def read_database(container):
 def restore(args):
     if os.geteuid() != 0:
         raise ValueError("Recovery drill must run as root")
+    image_id = require_database_image(args.image, args.image_id)
     target = prepare_target(args.target, Path(args.repository), Path(args.key_file), args.root)
     env = {
         **os.environ,
@@ -304,11 +325,13 @@ def restore(args):
                 "1g",
                 "--pids-limit",
                 "128",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges",
                 "--env-file",
                 str(password_file),
-                "--mount",
-                "type=bind,src=" + str(staging) + ",dst=/incoming,readonly",
-                IMAGE,
+                image_id,
             ]
         )
         run(
@@ -318,26 +341,17 @@ def restore(args):
                 container,
                 "sh",
                 "-c",
-                "for n in $(seq 1 60); do pg_isready -U postgres >/dev/null && exit 0; sleep 1; done; exit 1",
+                "for n in $(seq 1 60); do pg_isready -h 127.0.0.1 -U postgres >/dev/null && exit 0; sleep 1; done; exit 1",
             ]
         )
-        run(
-            [
-                "docker",
-                "exec",
-                container,
-                "pg_restore",
-                "-U",
-                "postgres",
-                "-d",
-                "postgres",
-                "--exit-on-error",
-                "--single-transaction",
-                "--no-owner",
-                "--no-acl",
-                "/incoming/database.dump",
-            ]
-        )
+        with checked_path(staging / "database.dump").open("rb") as dump:
+            run(
+                [
+                    "docker", "exec", "-i", container, "pg_restore", "-U", "postgres", "-d",
+                    "postgres", "--exit-on-error", "--single-transaction", "--no-owner", "--no-acl",
+                ],
+                stdin=dump,
+            )
         data = read_database(container)
         if set(data["counts"]) != set(manifest["schema_tables"]) or set(
             data["migration_heads"]
@@ -354,6 +368,7 @@ def restore(args):
             "assets": verified,
             "volume_inventory": manifest["inventory"],
             "dump_sha256": file_sha256(staging / "database.dump"),
+            "database_image_id": image_id,
             "production_modified": False,
         }
     finally:
@@ -372,6 +387,8 @@ def main():
     parser.add_argument("--repository", default="/var/backups/twinnku/repository")
     parser.add_argument("--key-file", default="/etc/twinnku/backup-password")
     parser.add_argument("--snapshot", default="latest")
+    parser.add_argument("--image", required=True, help="Reviewed, already built nonroot database image")
+    parser.add_argument("--image-id", required=True, help="Expected immutable Docker image ID (sha256:...)")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
     try:
         result = restore(parser.parse_args())

@@ -56,27 +56,10 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {persist-credentials: false}
-      - if: matrix.component != 'db'
-        run: docker build -f deploy/${{ matrix.component }}.Dockerfile -t twinnku-${{ matrix.component }}:security .
-      - name: Pull the exact PostgreSQL 17 image deployed by Compose
+      - run: docker build -f deploy/${{ matrix.component }}.Dockerfile -t twinnku-${{ matrix.component }}:security .
+      - name: Verify nonroot PostgreSQL initialization, existing data and restore
         if: matrix.component == 'db'
-        run: |
-          db_image=$(python3 - <<'PY'
-          import re
-          from pathlib import Path
-
-          compose = Path('compose.yaml').read_text(encoding='utf-8')
-          db = re.search(r'^  db:\n((?:^ {4}[^\n]*\n|^\n)+)', compose, re.MULTILINE)
-          if db is None:
-              raise SystemExit('Compose database service must be an explicit mapping')
-          images = re.findall(r'^    image: (\S+)$', db.group(1), re.MULTILINE)
-          if len(images) != 1 or re.fullmatch(r'postgres:17(?:\.\d+)?-alpine(?:\d+\.\d+)?@sha256:[0-9a-f]{64}', images[0]) is None:
-              raise SystemExit('Compose must pin one official PostgreSQL 17 Alpine image by digest')
-          print(images[0])
-          PY
-          )
-          docker pull "$db_image"
-          docker tag "$db_image" twinnku-db:security
+        run: bash scripts/check_database_container.sh twinnku-db:security
       - name: Verify actual minimal probe and source-component vulnerability coverage
         if: matrix.component == 'api'
         run: |
@@ -99,7 +82,7 @@ jobs:
           python3 scripts/verify_ffprobe.py canary-report /tmp/probe-security/canary-report.json
           /tmp/grype sbom:/tmp/probe-security/sbom.cdx.json --vex /tmp/probe-security/vex.json --fail-on high --show-suppressed -o table
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        if: success() || (failure() && matrix.component == 'api')
+        if: success() || (failure() && matrix.component != 'web')
         with:
           version: v0.75.0
           scan-type: image
