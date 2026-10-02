@@ -22,7 +22,7 @@ RUN curl --fail --silent --show-error --location --proto '=https' --proto-redir 
        --enable-decoder=h264,hevc,vp8,vp9 \
     && make -j2 ffprobe \
     && mkdir -p /out \
-    && cp ffprobe config.h config_components.h COPYING.LGPLv2.1 LICENSE README.md /out/ \
+    && cp ffprobe config.h config_components.h COPYING.LGPLv2.1 LICENSE.md README.md /out/ \
     && cp /build/source.tar.xz /out/ffmpeg-9.0.2.tar.xz
 COPY scripts/verify_ffprobe.py /build/verify_ffprobe.py
 RUN python /build/verify_ffprobe.py build /out

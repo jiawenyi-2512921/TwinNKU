@@ -66,7 +66,7 @@
 
 本批源码迁移链为 `0008_campus_tours` → `0009_staff_mfa` → `0010_public_agent_security` → `0011_upload_budgets` → `0012_staff_session_ids`。四项新迁移须顺序执行，不能漏掉持久上传预算和员工会话 UUID。0012 保留既有 token 哈希、CSRF 与时间字段，只新增随机会话定位 ID；SQLite 升降级保真测试通过，生产和 PostgreSQL 实证另行记录。API/web/契约必须配套升级。路线配置继续在既有 JSON 内容快照中存储，不需要导入团队路线或重做地图。
 
-1. 先处理服务器系统维护。当前确认 Ubuntu 20.04 未启用 ESM，用户没有 Ubuntu Pro；20.04 标准安全维护已于 2025-05 结束。代码和容器加固不能补齐宿主机安全更新。先在受支持 LTS 上完成兼容与恢复演练，再安排迁移；未完成前不宣称“服务器最顶级安全”。[Ubuntu 官方维护周期](https://ubuntu.com/about/release-cycle)。SSH 加固也须保留独立会话和控制台后验证，当前不能写成已经修改。
+1. 先处理服务器系统维护。最初确认 Ubuntu 20.04 未启用 ESM，用户没有 Ubuntu Pro；20.04 标准安全维护已于 2025-05 结束。本轮已按官方顺序升级至 22.04，首次重启与健康检查通过；22.04 → 24.04 尚在执行，当前 SSH 暂不可达，等待 VNC 状态与第二次重启后验收。代码和容器加固不能补齐宿主机安全更新，不能将升级启动称为目标系统验收完成。[Ubuntu 官方维护周期](https://ubuntu.com/about/release-cycle)。SSH 加固也须保留独立会话和控制台后验证，当前不能写成已经修改。
 2. 取得完整备份、恢复密钥及恢复结果。保留用户选择的服务器本机加密 restic 备份，不声称已配置异地副本。`scripts/backup.py` 备份 DB dump、地图/楼层/媒体原件、私有部署配置及明确指定的 Nginx 配置；`scripts/restore_backup.py` 只恢复到新私有目录和隔离 PostgreSQL，不切换生产。密码文件不得进入 Git、日志或公网目录。
 3. 核对准确 HTTPS Origin、允许主机、可信代理链、独立 `DB_APP_USER` / `DB_APP_PASSWORD` 和迁移 owner；`.env` 为未跟踪的 0600 文件。先保持 `AGENT_PUBLIC_ENABLED=false`，收费服务先关闭待验；沿用实际服务商/模型/音色配置。不要输出包含密钥的 `docker compose config`，使用 `docker compose config --quiet`。
 4. 对备份恢复得到的隔离数据库先执行 Alembic 到 head、角色分权、全部 PostgreSQL/预算并发测试和只读烟测。在线 API 只拿受限 DML 账号，迁移容器单独持 owner；在线账号不得拥有对象、超级用户/创建角色/DDL 权限，不得更新 `alembic_version`。新角色及迁移在生产尚未执行。
@@ -77,6 +77,8 @@
 2026-10-02 已完成一次服务器完整加密备份和隔离恢复验证：旧 schema 20 表、head `0008_campus_tours`；`restic check` 与 `pg_restore` 成功；逐 DB 引用验证 265 张 map tiles、100 张 floor images、1 个 floor original、46 个 media originals。地图卷 532 文件 / 173794199 字节，楼层卷 150 文件 / 395050061 字节。恢复结果 `production_modified=false`，没有把恢复数据写回生产。这证明旧版本备份可恢复，不证明新迁移、在线权限、全量新版本 PostgreSQL 并发或新版本恢复已经通过。
 
 本机备份 timer 已在服务器启用，执行冻结预检目录 `/root/twinnku-release-preflight-20261002/backup.py --root /root/TwinNKU`，并显式覆盖现用 Nginx site；每天约 03:00（Asia/Shanghai，随机延迟最多 5 分钟），保留 14 个日快照、4 个周快照。restic 固定 0.19.1，安装时核对官方 SHA256。`twinnkuops` 已用既有 authorized keys 登录并验证 sudo uid 0；root/密码 SSH 入口仍开启，尚未关闭，不能把备用运维登录验证称为 SSH 加固完成。
+
+宿主升级前快照为 Docker Engine 28.1.1、containerd 1.7.27、overlay2、`/var/lib/docker`。两者分别位于 [CVE-2026-92543 注册表 TLS 降级](https://github.com/moby/moby/security/advisories/GHSA-7cfq-22r6-qp73) 和 [CVE-2026-53493 OCI 索引拉取耗尽资源](https://github.com/containerd/containerd/security/advisories/GHSA-pg57-6jwg-q645) 的影响范围。目标系统验收须经 [官方签名 APT 源](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository) 更新；本轮只读核到 noble stable 的 CE/CLI 29.8.2、containerd 2.3.6、Buildx 0.37.1、Compose 5.5.1。官方 Ubuntu 公钥主指纹实际核为 `9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88`，来源为 `https://download.docker.com/linux/ubuntu/gpg`；服务器 APT 签名、安装与运行版本仍待验证。保留原 daemon 配置、容器及卷；[官方存储说明](https://docs.docker.com/engine/storage/containerd/) 明确旧版原地升级继续 overlay2，不能主动启用 snapshotter/实验迁移或删除旧数据目录。
 
 ## 关闭与回滚
 
@@ -115,8 +117,10 @@
 
 ## 验证记录与交付限制
 
-本地实际执行：后端公众/小开/云语音相关 87 passed，SDK/资源/部署诊断回归 71 passed；前端 native/cloud/visitor/dock 88 passed；本次讲解竞态新增 6 passed，生产 cookie/MFA/公众/native/admin 组 57 passed，语音/资源/guide 补充组 67 passed；离线密码策略（含构建顺序/来源校验）、生产 cookie、旧 MFA/后台回归最新 54 passed；员工会话后台 16 passed、前台 4 passed。前端本轮完整 Node 回归 366 passed，TypeScript 检查通过。这些分组有重叠，不应相加为全量成绩；最终全量后端与 PostgreSQL 结果另以交付记录为准。
+本地实际执行：后端公众/小开/云语音相关 87 passed，SDK/资源/部署诊断回归 71 passed；前端 native/cloud/visitor/dock 88 passed；本次讲解竞态新增 6 passed，生产 cookie/MFA/公众/native/admin 组 57 passed，语音/资源/guide 补充组 67 passed；离线密码策略（含构建顺序/来源校验）、生产 cookie、旧 MFA/后台回归最新 54 passed；员工会话后台 16 passed、前台 4 passed。前端本轮完整 Node 回归 366 passed，TypeScript 检查通过。先前真实 CI 的隔离 PostgreSQL 组也已通过：迁移/公开资料 7、公众持久额度与会话 4、运行角色保护 4；这是测试数据库实证，不能推广为生产迁移/授权完成。这些分组有重叠，不应相加为全量成绩；最终候选全量后端与 PostgreSQL 结果另以交付记录为准。
 
-实际扫描：Bandit 1.9.4 未见 medium/high（3 个 low 经定位为固定子进程/测试语言误报）；pip-audit 2.10.1 对锁定运行依赖、npm audit 对锁定前端依赖均未见已知漏洞；Gitleaks 8.30.1 对全部 355 个提交、当前 tracked diff 及新增代码脱敏扫描无泄露。`.gitleaksignore` 仅列三条经 AST/定位确认的历史误报指纹，不忽略整条规则或目录。[CI 安全工作流](../.github/workflows/security.yml) 钉住 action SHA、工具版本和 Gitleaks 校验和，包含镜像 HIGH/CRITICAL 阻断；本地没有 Docker，不能称镜像扫描或远程 CI 已运行成功。
+实际扫描：远程候选 `da607249a1a67ae7251c40835074370edd7a765e` 的 [Security 源码与依赖 job](https://github.com/jiawenyi-2512921/TwinNKU/actions/runs/37038320678/job/110941907421) 已成功：Bandit 1.9.4 未见 medium/high，pip-audit 2.10.1 与 npm audit 通过，Gitleaks 8.30.1 全历史 379 commits / 7549796 bytes，`gitleaks_findings=[]`。本地原 355 历史扫描未包含远程早期 `feat/foundation` 分支；新流水线只输出 RuleID/Commit/File/StartLine/Fingerprint，不输出或上传 Secret/Match/人员信息。两条远程告警来自 `35616760...` 的配置测试，GitHub blob `f0e8854a...` 与已核本地测试完全相同；`.gitleaksignore` 共五个精确历史指纹，不忽略测试文件、整条规则或目录。
 
-仍待完成：受支持宿主机/SSH 加固；新迁移及生产 DB 权限、PostgreSQL 并发/重启限额；全新版本的隔离恢复与生产切换演练；真实学校 API/云语音与批准额度计费证据；主/备用认证器与控制台恢复真机；公网可信链/HTTPS 所有响应头；路线上线内容和电脑/手机视觉/发声。已完成的旧 schema 备份恢复不能替代这些项目。
+[CI 安全工作流](../.github/workflows/security.yml) 钉住 action SHA、工具版本和 Gitleaks 校验和，镜像 HIGH/CRITICAL 仍阻断。上述 run 的 web 镜像 job 已成功；API 镜像 job 仍失败并在处理，整条 Security run 尚未成功。本机无 Docker，源码 job、单个镜像结果不能替代最终 API 镜像/最小探针组件漏洞覆盖及新候选全部 CI 验收。
+
+仍待完成：24.04 第二次重启、宿主 Docker 修复与 SSH 加固；最终候选 API 镜像/探针覆盖及全部 CI；新迁移及生产 DB 权限、生产并发/重启限额；全新版本的隔离恢复与生产切换演练；真实学校 API/云语音与批准额度计费证据；主/备用认证器与控制台恢复真机；公网可信链/HTTPS 所有响应头；路线上线内容和电脑/手机视觉/发声。已完成的旧 schema 备份恢复和隔离 PostgreSQL 测试不能替代生产项目。
