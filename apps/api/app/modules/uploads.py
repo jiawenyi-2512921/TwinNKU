@@ -7,6 +7,7 @@ transaction as the new upload. No image is rewritten by the parser.
 
 import asyncio
 import json
+import logging
 import os
 import shutil
 import signal
@@ -23,6 +24,62 @@ from sqlalchemy import select, update
 
 from app.core.errors import DomainError
 from app.models import UploadBudgetRecord, UploadReservationRecord, now_utc
+
+logger = logging.getLogger(__name__)
+
+
+def parser_environment():
+    """Inert decoder environment and a fixed single-thread native-library budget."""
+    return {
+        **{
+            key: os.environ[key]
+            for key in ("PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL")
+            if key in os.environ
+        },
+        "APP_ENV": "test",
+        "DATABASE_URL": "sqlite://",
+        "PYTHONUTF8": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "BLIS_NUM_THREADS": "1",
+        "VECLIB_MAXIMUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+    }
+
+
+def parser_failure(error):
+    """Never return a filename, command, exception string, stderr or file contents."""
+    reason = "invalid"
+    if isinstance(error, MemoryError):
+        reason = "memory"
+    elif isinstance(error, subprocess.TimeoutExpired):
+        reason = "timeout"
+    elif isinstance(error, subprocess.CalledProcessError):
+        reason = "probe-exit"
+    elif isinstance(error, OSError):
+        reason = "syscall"
+    result = {"error": "INVALID_UPLOAD", "reason": reason}
+    for key, value in (
+        ("errno", getattr(error, "errno", None)),
+        ("exit", getattr(error, "returncode", None)),
+    ):
+        if isinstance(value, int) and -4096 <= value <= 4096:
+            result[key] = value
+    return result
+
+
+def log_parser_failure(result, kind):
+    reason = result.get("reason")
+    if reason not in {"invalid", "memory", "timeout", "probe-exit", "syscall"}:
+        reason = "unknown"
+    numbers = []
+    for key in ("errno", "exit"):
+        value = result.get(key)
+        numbers.append(value if isinstance(value, int) and -4096 <= value <= 4096 else None)
+    logger.warning(
+        "upload_parser_rejected kind=%s reason=%s errno=%s exit=%s", kind, reason, *numbers
+    )
 
 
 @contextmanager
@@ -335,16 +392,7 @@ async def inspect_upload(path, mime, *, kind, settings):
         # Decoders do not need provider keys, staff configuration or database
         # credentials. The inert URL also prevents import-time DB configuration
         # from attempting to make a development directory on a read-only image.
-        env={
-            **{
-                key: os.environ[key]
-                for key in ("PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL")
-                if key in os.environ
-            },
-            "APP_ENV": "test",
-            "DATABASE_URL": "sqlite://",
-            "PYTHONUTF8": "1",
-        },
+        env=parser_environment(),
     )
     try:
         async with asyncio.timeout(settings.upload_parser_timeout_seconds):
@@ -354,11 +402,14 @@ async def inspect_upload(path, mime, *, kind, settings):
                 raise ValueError("Parser output limit")
             await process.wait()
         if process.returncode != 0:
+            log_parser_failure({"reason": "probe-exit", "exit": process.returncode}, kind)
             raise ValueError("Parser rejected original")
         result = json.loads(output)
         if result == {"error": "VIDEO_VALIDATION_UNAVAILABLE"}:
             raise DomainError("VIDEO_VALIDATION_UNAVAILABLE", "服务器尚未安装视频校验组件", 503)
         if not isinstance(result, dict) or result.get("error"):
+            if isinstance(result, dict):
+                log_parser_failure(result, kind)
             raise ValueError("Parser rejected original")
         return result
     except (ValueError, OSError, TimeoutError) as exc:
@@ -413,6 +464,8 @@ def _inspect_media(path, mime):
             "file",
             "-format_whitelist",
             "mov,matroska,webm",
+            "-threads",
+            "1",
             "-show_entries",
             "format=format_name,duration:stream=codec_type,codec_name",
             "-of",
@@ -423,6 +476,7 @@ def _inspect_media(path, mime):
         stderr=subprocess.DEVNULL,
         timeout=15,
         check=True,
+        env=parser_environment(),
     )
     info = json.loads(result.stdout)
     formats = info.get("format", {}).get("format_name", "").split(",")
@@ -440,8 +494,7 @@ def _inspect_media(path, mime):
     return {}
 
 
-def _worker():
-    _, path, mime, kind, memory, cpu = sys.argv[1:]
+def _apply_worker_limits(memory, cpu):
     if os.name == "posix":
         import resource
 
@@ -449,9 +502,20 @@ def _worker():
         resource.setrlimit(resource.RLIMIT_CPU, (int(cpu), int(cpu)))
         resource.setrlimit(resource.RLIMIT_FSIZE, (1024 * 1024, 1024 * 1024))
         resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
-        resource.setrlimit(resource.RLIMIT_NPROC, (32, 32))
+        # NPROC is per real UID, not per parser. A shared CI runner or API's
+        # existing threads can exhaust 32 before ffprobe even forks. Single-thread
+        # decoding plus the container's pids_limit=256 still bounds the workload.
+        # Keep a finite UID ceiling without increasing an inherited hard limit.
+        inherited = resource.getrlimit(resource.RLIMIT_NPROC)[1]
+        processes = 128 if inherited == resource.RLIM_INFINITY else min(128, inherited)
+        resource.setrlimit(resource.RLIMIT_NPROC, (processes, processes))
         resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+
+
+def _worker():
+    _, path, mime, kind, memory, cpu = sys.argv[1:]
     try:
+        _apply_worker_limits(memory, cpu)
         path = Path(path)
         if kind == "floor":
             from app.modules.floors.import_bundle import inspect_image
@@ -464,8 +528,8 @@ def _worker():
                 raise ValueError("Media size")
             result = _inspect_media(path, mime)
         print(json.dumps(result))
-    except Exception:
-        print(json.dumps({"error": "INVALID_UPLOAD"}))
+    except Exception as error:
+        print(json.dumps(parser_failure(error)))
 
 
 if __name__ == "__main__":

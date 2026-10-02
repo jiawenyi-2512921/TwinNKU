@@ -2,6 +2,9 @@
 
 import asyncio
 import hashlib
+import json
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from datetime import timedelta
@@ -310,6 +313,131 @@ def test_parser_timeout_kills_child_without_blocking_event_loop(tmp_path, monkey
     with pytest.raises(DomainError) as error:
         asyncio.run(inspect_upload(path, "image/png", kind="floor", settings=settings))
     assert error.value.code == "INVALID_IMAGE" and process.killed
+
+
+def test_ffprobe_has_fixed_native_threads_private_environment_and_container_whitelist(
+    tmp_path,
+    monkeypatch,
+):
+    original = tmp_path / "original"
+    original.write_bytes(b"\0\0\0\x18ftypisom\0\0\0\0")
+    monkeypatch.setenv("DB_PASSWORD", "SENSITIVE_TEST_ONLY_PASSWORD")
+    monkeypatch.setenv("VOICE_API_KEY", "SENSITIVE_TEST_ONLY_KEY")
+    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "999")
+    monkeypatch.setenv("OMP_NUM_THREADS", "999")
+    monkeypatch.setattr(uploads.shutil, "which", lambda _name: "/bounded/ffprobe")
+
+    def probe(command, **options):
+        assert command[command.index("-threads") + 1] == "1"
+        assert command[command.index("-protocol_whitelist") + 1] == "file"
+        assert command[command.index("-format_whitelist") + 1] == "mov,matroska,webm"
+        assert options["timeout"] == 15 and options["check"] is True
+        assert options["env"]["OPENBLAS_NUM_THREADS"] == options["env"]["OMP_NUM_THREADS"] == "1"
+        assert "DB_PASSWORD" not in options["env"] and "VOICE_API_KEY" not in options["env"]
+        return SimpleNamespace(
+            stdout=json.dumps(
+                {
+                    "format": {"format_name": "mov,mp4,m4a,3gp,3g2,mj2", "duration": "1.0"},
+                    "streams": [{"codec_type": "video", "codec_name": "h264"}],
+                }
+            ).encode()
+        )
+
+    monkeypatch.setattr(uploads.subprocess, "run", probe)
+    assert uploads._inspect_media(original, "video/mp4") == {}
+    # The exact same original remains invalid when mislabeled; no probe bypass.
+    with pytest.raises(ValueError, match="signature"):
+        uploads._inspect_media(original, "video/webm")
+
+
+@pytest.mark.parametrize(
+    "format_name,codec,duration",
+    [
+        ("mpegts", "h264", "1.0"),
+        ("mp4", "mpeg4", "1.0"),
+        ("mp4", "h264", "0"),
+    ],
+)
+def test_fixed_thread_probe_still_rejects_unapproved_format_codec_and_duration(
+    tmp_path,
+    monkeypatch,
+    format_name,
+    codec,
+    duration,
+):
+    original = tmp_path / "original"
+    original.write_bytes(b"\0\0\0\x18ftypisom\0\0\0\0")
+    monkeypatch.setattr(uploads.shutil, "which", lambda _name: "/bounded/ffprobe")
+    monkeypatch.setattr(
+        uploads.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            stdout=json.dumps(
+                {
+                    "format": {"format_name": format_name, "duration": duration},
+                    "streams": [{"codec_type": "video", "codec_name": codec}],
+                }
+            ).encode(),
+        ),
+    )
+    with pytest.raises(ValueError, match="Invalid video"):
+        uploads._inspect_media(original, "video/mp4")
+
+
+@pytest.mark.parametrize("inherited_hard,expected", [(-1, 128), (64, 64), (256, 128)])
+def test_worker_preserves_memory_cpu_descriptor_and_inherited_process_bounds(
+    monkeypatch,
+    inherited_hard,
+    expected,
+):
+    calls = {}
+    resource = SimpleNamespace(
+        RLIMIT_AS=1,
+        RLIMIT_CPU=2,
+        RLIMIT_FSIZE=3,
+        RLIMIT_NOFILE=4,
+        RLIMIT_NPROC=5,
+        RLIMIT_CORE=6,
+        RLIM_INFINITY=-1,
+        getrlimit=lambda _kind: (inherited_hard, inherited_hard),
+        setrlimit=lambda kind, value: calls.update({kind: value}),
+    )
+    monkeypatch.setitem(sys.modules, "resource", resource)
+    monkeypatch.setattr(uploads, "os", SimpleNamespace(name="posix"))
+    uploads._apply_worker_limits(512 * 1024 * 1024, 15)
+    assert calls == {
+        resource.RLIMIT_AS: (512 * 1024 * 1024,) * 2,
+        resource.RLIMIT_CPU: (15, 15),
+        resource.RLIMIT_FSIZE: (1024 * 1024,) * 2,
+        resource.RLIMIT_NOFILE: (32, 32),
+        resource.RLIMIT_NPROC: (expected, expected),
+        resource.RLIMIT_CORE: (0, 0),
+    }
+
+
+def test_worker_failure_diagnostics_never_expose_command_stderr_or_source_path(
+    tmp_path,
+    monkeypatch,
+    capsys,
+    caplog,
+):
+    original = tmp_path / "sensitive-original-name"
+    original.write_bytes(b"\0\0\0\x18ftypisom\0\0\0\0")
+    monkeypatch.setattr(uploads, "_apply_worker_limits", lambda *_args: None)
+    monkeypatch.setattr(
+        sys, "argv", ["worker", "inspect", str(original), "video/mp4", "media", "536870912", "15"]
+    )
+
+    def reject(*_args):
+        raise subprocess.CalledProcessError(127, "sensitive-command", stderr=b"sensitive-content")
+
+    monkeypatch.setattr(uploads, "_inspect_media", reject)
+    uploads._worker()
+    result = json.loads(capsys.readouterr().out)
+    assert result == {"error": "INVALID_UPLOAD", "reason": "probe-exit", "exit": 127}
+    uploads.log_parser_failure({**result, "errno": "sensitive-content"}, "media")
+    assert "reason=probe-exit" in caplog.text and "exit=127" in caplog.text
+    assert "sensitive" not in caplog.text and "sensitive" not in json.dumps(result)
 
 
 def test_backup_exclusive_lock_blocks_upload_before_any_reservation(client, db, storage):

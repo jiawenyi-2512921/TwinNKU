@@ -6,6 +6,10 @@ COPY apps/web/ ./
 RUN npm run build
 
 FROM nginx:stable-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+# Apply signed stable-repository security fixes that postdate the pinned base.
+# These minimum versions resolve CVE-2026-93990 and CVE-2026-103111.
+RUN apk upgrade --no-cache \
+    && apk add --no-cache 'libexpat>=2.8.5-r0' 'pcre2>=10.49-r0'
 COPY deploy/nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /web/dist /usr/share/nginx/html
 USER nginx
