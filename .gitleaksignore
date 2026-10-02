@@ -6,3 +6,9 @@
 # or supplier using these synthetic literals. They occur only in this test.
 abe39f7d4aa3663a8a3a7a5302577839c64990b6:apps/api/tests/test_contracts.py:generic-api-key:16
 abe39f7d4aa3663a8a3a7a5302577839c64990b6:apps/api/tests/test_contracts.py:generic-api-key:23
+# The remote feat/foundation history contains the byte-identical fixture blob
+# f0e8854a5b53bc6c4309058d376c527b4e26ad56 at this distinct commit.
+# Confirmed by metadata-only CI report and exact GitHub/local blob identity;
+# retain only these two findings, not a test-file or generic-rule exclusion.
+35616760c003ef6e02af5925b7f3305d89a2d0fd:apps/api/tests/test_contracts.py:generic-api-key:16
+35616760c003ef6e02af5925b7f3305d89a2d0fd:apps/api/tests/test_contracts.py:generic-api-key:23

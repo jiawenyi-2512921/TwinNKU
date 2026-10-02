@@ -7,8 +7,8 @@ WORKDIR /build
 RUN curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 120 https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz -o source.tar.xz \
     && curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz.asc -o source.tar.xz.asc \
     && curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 https://ffmpeg.org/ffmpeg-devel.asc -o release-key.asc \
-    && printf '%s  source.tar.xz\n' 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e | sha256sum --check \
-    && printf '%s  release-key.asc\n' 397b3becedcd5a98769967ff1ff8501ddc89f8368b8f766e4701377d7dbaabe5 | sha256sum --check \
+    && printf '%s  source.tar.xz\n' 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e | sha256sum -c \
+    && printf '%s  release-key.asc\n' 397b3becedcd5a98769967ff1ff8501ddc89f8368b8f766e4701377d7dbaabe5 | sha256sum -c \
     && gpg --batch --import release-key.asc \
     && gpg --batch --status-fd 1 --verify source.tar.xz.asc source.tar.xz > signature-status \
     && grep -q '^\[GNUPG:\] VALIDSIG FCF986EA15E6E293A5644F10B4322F04D67658D8 ' signature-status \
