@@ -45,7 +45,7 @@ class Authenticator:
             {1: 2, 3: -7, -1: 1, -2: n.x.to_bytes(32, "big"), -3: n.y.to_bytes(32, "big")}
         )
 
-    def registration(self, challenge, *, uv=True, origin=ORIGIN):
+    def registration(self, challenge, *, uv=True, origin=ORIGIN, rp_id=RP_ID):
         client = json.dumps(
             {
                 "type": "webauthn.create",
@@ -54,7 +54,7 @@ class Authenticator:
                 "crossOrigin": False,
             }
         ).encode()
-        data = hashlib.sha256(RP_ID.encode()).digest() + bytes([0x41 | (4 if uv else 0)]) + bytes(4)
+        data = hashlib.sha256(rp_id.encode()).digest() + bytes([0x41 | (4 if uv else 0)]) + bytes(4)
         data += bytes(16) + len(self.id).to_bytes(2, "big") + self.id + self.cose
         return {
             "id": b64(self.id),
@@ -68,12 +68,12 @@ class Authenticator:
             },
         }
 
-    def assertion(self, challenge, *, counter=0, uv=True, origin=ORIGIN, cross=False):
+    def assertion(self, challenge, *, counter=0, uv=True, origin=ORIGIN, cross=False, rp_id=RP_ID):
         client = json.dumps(
             {"type": "webauthn.get", "challenge": challenge, "origin": origin, "crossOrigin": cross}
         ).encode()
         data = (
-            hashlib.sha256(RP_ID.encode()).digest()
+            hashlib.sha256(rp_id.encode()).digest()
             + bytes([1 | (4 if uv else 0)])
             + counter.to_bytes(4, "big")
         )

@@ -61,6 +61,19 @@ router = APIRouter(prefix="/auth/mfa", tags=["admin"])
 META = {"x-implementation-status": "implemented", "x-module": "M01", "x-auth": "staff"}
 
 
+def webauthn_scope(request: Request):
+    settings = request.app.state.settings
+    if settings.practice_mode:
+        # Practice is the sole localhost exception. Recheck the full isolation
+        # guard rather than deriving relying-party scope from request headers.
+        try:
+            settings.practice_is_isolated()
+        except ValueError:
+            raise DomainError("PRACTICE_ISOLATION_INVALID", "练习环境隔离配置无效", 503) from None
+        return "localhost", settings.admin_public_origin
+    return RP_ID, ORIGIN
+
+
 class StaffMfaPending(DTO):
     status: Literal["mfa_required", "enrollment_required", "recovery_required"]
     csrf_token: str
@@ -257,7 +270,8 @@ def challenge_failure(db, row):
     raise DomainError("MFA_INVALID", "验证未通过，请重新获取验证请求", 403)
 
 
-def auth_options(db, row, user):
+def auth_options(request: Request, db, row, user):
+    rp_id, _ = webauthn_scope(request)
     row.challenge = bytes_to_base64url(secrets.token_bytes(32))
     allowed = credentials(db, user.id)
     if row.bound_credential_id:
@@ -271,7 +285,7 @@ def auth_options(db, row, user):
             "MFA_RECOVERY_REQUIRED", "没有可用认证器，请使用恢复码或联系运维恢复", 409
         )
     options = generate_authentication_options(
-        rp_id=RP_ID,
+        rp_id=rp_id,
         challenge=base64url_to_bytes(row.challenge),
         user_verification=UserVerificationRequirement.REQUIRED,
         timeout=120000,
@@ -299,12 +313,13 @@ def same_origin_credential(payload, user):
 )
 def authentication_options(request: Request, db: DB):
     row, user = require_pending(request, db, {"login", "stepup"})
-    return envelope(request, auth_options(db, row, user))
+    return envelope(request, auth_options(request, db, row, user))
 
 
 @router.post("/authentication/verify", response_model=Envelope[StaffSession], openapi_extra=META)
 def authentication_verify(payload: StaffMfaProof, request: Request, response: Response, db: DB):
     row, user = require_pending(request, db, {"login", "stepup"})
+    rp_id, origin = webauthn_scope(request)
     key = payload.credential.get("id")
     credential = (
         db.get(StaffCredentialRecord, key) if isinstance(key, str) and len(key) <= 1400 else None
@@ -321,8 +336,8 @@ def authentication_verify(payload: StaffMfaProof, request: Request, response: Re
         result = verify_authentication_response(
             credential=payload.credential,
             expected_challenge=base64url_to_bytes(row.challenge),
-            expected_rp_id=RP_ID,
-            expected_origin=ORIGIN,
+            expected_rp_id=rp_id,
+            expected_origin=origin,
             credential_public_key=base64url_to_bytes(credential.public_key),
             credential_current_sign_count=credential.sign_count,
             require_user_verification=True,
@@ -365,6 +380,7 @@ def begin_enrollment(
 @router.post("/registration/options", response_model=Envelope[StaffMfaOptions], openapi_extra=META)
 def registration_options(payload: StaffMfaRegistration, request: Request, db: DB):
     row, user = require_pending(request, db, {"enroll"})
+    rp_id, _ = webauthn_scope(request)
     if user.must_change_password:
         raise DomainError("PASSWORD_CHANGE_REQUIRED", "请先修改临时密码", 403)
     if not payload.name.strip():
@@ -384,7 +400,7 @@ def registration_options(payload: StaffMfaRegistration, request: Request, db: DB
         payload.name.strip(),
     )
     options = generate_registration_options(
-        rp_id=RP_ID,
+        rp_id=rp_id,
         rp_name="TwinNKU 内容管理",
         user_id=UUID(user.id).bytes,
         user_name=user.username,
@@ -407,6 +423,7 @@ def registration_options(payload: StaffMfaRegistration, request: Request, db: DB
 @router.post("/registration/verify", response_model=Envelope[StaffMfaPending], openapi_extra=META)
 def registration_verify(payload: StaffMfaProof, request: Request, db: DB):
     row, user = require_pending(request, db, {"enroll"})
+    rp_id, origin = webauthn_scope(request)
     if not row.challenge or not row.credential_name or user.must_change_password:
         challenge_failure(db, row)
     if len(credentials(db, user.id)) >= 8:
@@ -416,8 +433,8 @@ def registration_verify(payload: StaffMfaProof, request: Request, db: DB):
         result = verify_registration_response(
             credential=payload.credential,
             expected_challenge=base64url_to_bytes(row.challenge),
-            expected_rp_id=RP_ID,
-            expected_origin=ORIGIN,
+            expected_rp_id=rp_id,
+            expected_origin=origin,
             require_user_verification=True,
         )
         key = bytes_to_base64url(result.credential_id)
