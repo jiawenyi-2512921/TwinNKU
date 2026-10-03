@@ -5,6 +5,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
+import { adminLogic } from "./helpers/admin-logic.mjs";
 const exports = {};
 const source = readFileSync(
   new URL("../src/features/admin/RoadWorkspace.tsx", import.meta.url),
@@ -86,6 +87,7 @@ function reviewWorkspace(reviewMode, contributors = []) {
     useRef: (value) => ({ current: value }),
     useEffect() {},
   };
+  const draftLogic = adminLogic(react, {});
   vm.runInNewContext(
     ts.transpileModule(source, {
       compilerOptions: {
@@ -97,6 +99,9 @@ function reviewWorkspace(reviewMode, contributors = []) {
     {
       exports: exported,
       require(name) {
+        if (name === "./useManagedDraft") return draftLogic(name);
+        if (name === "./DraftStatus") return { DraftStatusBar: () => null };
+        if (name === "./ContentHistory") return { ContentHistory: () => null };
         if (name === "react") return react;
         if (name === "react/jsx-runtime") return jsx;
         if (name === "./roadGeometry")
@@ -112,7 +117,10 @@ function reviewWorkspace(reviewMode, contributors = []) {
     reviewMode,
     initialMapId: "map",
     maps: [{ id: "map", kind: "campus", title: "Campus", revision: 1 }],
-    session: { user: { id: "reviewer", role: "admin" } },
+    session: {
+      user: { id: "reviewer", role: "admin" },
+      permissions: ["points.read", "points.edit", "points.review"],
+    },
     onDirty() {},
     onUpdate() {},
     onReview: (id) => opened.push(id),

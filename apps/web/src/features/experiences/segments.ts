@@ -11,6 +11,9 @@ export function normalizeSegment(
 ): TourSegment {
   return {
     ...segment,
+    title: segment.title ?? "",
+    observation_prompt: segment.observation_prompt ?? "",
+    takeaway: segment.takeaway ?? "",
     main_view: segment.main_view ?? { type: "map" },
     resources: segment.resources ?? [],
   };
@@ -25,6 +28,9 @@ export function segmentsForStop(
     : [
         {
           id: `legacy-stop-${index + 1}`,
+          title: "",
+          observation_prompt: "",
+          takeaway: "",
           text: stop.narrative,
           source_note: "",
           main_view: { type: "map" },
@@ -68,6 +74,9 @@ export function moveSegment<T>(
 export function newSegment(): TourSegment {
   return {
     id: crypto.randomUUID(),
+    title: "",
+    observation_prompt: "",
+    takeaway: "",
     text: "",
     source_note: "",
     main_view: { type: "map" },

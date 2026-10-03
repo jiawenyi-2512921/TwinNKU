@@ -2,6 +2,8 @@ import { Icon } from "../../shared/ui/Icon";
 import type { ChangeItem, Result, StaffSession, Workbench } from "./api";
 import { ChangeRows, type ReviewStart, kindNames } from "./ReviewCenter";
 import { Empty, ErrorBox, useResource } from "./ui";
+import type { Campus } from "../../shared/api/client";
+import { WorkspaceIssues, type IssueTarget } from "./WorkspaceIssues";
 
 export function Overview({
   session,
@@ -12,15 +14,29 @@ export function Overview({
   onRefresh,
   onReview,
   onNavigate,
+  campuses,
+  onOpenIssue,
+  onReviewIssue,
 }: {
   session: StaffSession;
   revision: number;
   stats: Result<Workbench> | null;
   error: string;
   loading: boolean;
+  campuses?: Campus[];
+  onOpenIssue: (target: IssueTarget) => void;
+  onReviewIssue: (target: IssueTarget) => void;
   onRefresh: () => void;
   onReview: (start?: ReviewStart) => void;
-  onNavigate: (tab: "points" | "resources") => void;
+  onNavigate: (
+    tab:
+      | "points"
+      | "resources"
+      | "tours"
+      | "configurations"
+      | "guide-settings"
+      | "imports",
+  ) => void;
 }) {
   const pending = useResource<ChangeItem[]>(
     "/changes?page_size=5&state=in_review",
@@ -41,6 +57,57 @@ export function Overview({
         </button>
       </div>
       <ErrorBox text={error || pending.error} onRetry={onRefresh} />
+      {session.permissions.includes("points.edit") && (
+        <button onClick={() => onNavigate("imports")}>
+          通过 CSV／XLSX 整理私有草稿
+        </button>
+      )}
+      <details className="ad-card ad-config-actions">
+        <summary>第一次维护 · 六步交接指南</summary>
+        <ol>
+          <li>
+            <strong>核对真实地点与资料。</strong>地图锚点、楼层和室外 VR
+            归属先对应实际校园地点；导航长度和无障碍通行需现场核验。
+            <button onClick={() => onNavigate("resources")}>
+              打开资料中心
+            </button>
+          </li>
+          <li>
+            <strong>建立主题路线。</strong>
+            选择校区与真实站点，填写导语和来源；不需要懂代码。
+            <button onClick={() => onNavigate("tours")}>
+              打开六步路线编辑
+            </button>
+          </li>
+          <li>
+            <strong>编排每段画面。</strong>选择本站已发布地图、图片、楼层或
+            VR，填写讲稿、观察提示和回顾收获；原素材不修改。
+          </li>
+          <li>
+            <strong>明确生成与试听音频。</strong>
+            仅正式生成／重试会调用供应商，听完再采用。纯图文路线可明确选择图文模式。
+          </li>
+          <li>
+            <strong>编排首页并检查。</strong>
+            明确选择主视觉和推荐路线，使用电脑／手机预览，修复版本依赖报告。
+            {session.permissions.some((p) =>
+              ["configurations.edit", "configurations.review"].includes(p),
+            ) && (
+              <button onClick={() => onNavigate("configurations")}>
+                打开页面编排
+              </button>
+            )}
+          </li>
+          <li>
+            <strong>交给独立成员审核并真机走查。</strong>
+            审核中心核对来源、版本和预览；手机音频、VR原站、校园现场通行须实际确认。
+            <button onClick={() => onReview()}>打开统一审核中心</button>
+          </li>
+        </ol>
+        <p>
+          后台只展示当前账号授权范围。未保存输入保留在本页，遇冲突先比较；历史恢复建立新草稿，不恢复旧批准或已暂停服务。
+        </p>
+      </details>
       <div className="ad-stats">
         {[
           {
@@ -172,6 +239,13 @@ export function Overview({
           </div>
         </aside>
       </div>
+      <WorkspaceIssues
+        session={session}
+        campuses={campuses}
+        revision={revision}
+        onOpen={onOpenIssue}
+        onReview={onReviewIssue}
+      />
     </section>
   );
 }

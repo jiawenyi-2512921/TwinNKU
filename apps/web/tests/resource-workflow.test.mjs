@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
+import { adminLogic } from "./helpers/admin-logic.mjs";
 const code = ts.transpileModule(
   readFileSync(
     new URL("../src/features/admin/ResourceWorkspace.tsx", import.meta.url),
@@ -120,6 +121,12 @@ function harness(reply, permissions = ["points.edit"], options = {}) {
     meta: { pagination: { page: 1, page_size: 20, total: 1 } },
   };
   const exports = {};
+  const draftLogic = adminLogic(react, {
+    request: async (path, method = "GET", body) => {
+      calls.push({ path, method, body });
+      return { data: await reply(path, method, body) };
+    },
+  });
   vm.runInNewContext(code, {
     exports,
     URLSearchParams,
@@ -130,6 +137,12 @@ function harness(reply, permissions = ["points.edit"], options = {}) {
       removeEventListener() {},
     },
     require(name) {
+      if (name === "./useManagedDraft") return draftLogic(name);
+      if (name === "./DraftStatus") return { DraftStatusBar: () => null };
+      if (name === "./ContentHistory") return { ContentHistory: () => null };
+      if (name === "./VRCoverPicker") return { VRCoverPicker: () => null };
+      if (name === "./VRLocationSource") return { VRLocationSource: () => null };
+      if (name === "./VRChecks") return { VRChecks: () => null };
       if (name === "react") return react;
       if (name === "react/jsx-runtime") return jsx;
       if (name.endsWith(".css")) return {};
@@ -279,7 +292,7 @@ test("resource submit failure retains saved draft and retry submits without savi
     if (method === "PUT") return saved;
     if (!failed) {
       failed = true;
-      throw new Error("提交连接中断");
+      throw Object.assign(new Error("提交说明需要修正"), { status: 422 });
     }
     return submitted;
   });
@@ -289,7 +302,10 @@ test("resource submit failure retains saved draft and retry submits without savi
   form(tree).props.onSubmit({ preventDefault() {} });
   await tick();
   tree = h.render();
-  assert.ok(text(tree).includes("已保留刚保存的草稿"));
+  assert.equal(
+    field(tree, "全景名称").props.value,
+    saved.draft.payload.content.title,
+  );
   assert.ok(button(tree, "提交审核"));
   assert.equal(button(tree, "仅保存草稿").props.disabled, true);
   form(tree).props.onSubmit({ preventDefault() {} });
@@ -368,4 +384,21 @@ test("resource editing offers the central queue and never publishes or rejects",
   button(tree, "去审核中心").props.onClick();
   assert.deepEqual(opened, ["vr"]);
   assert.equal(editor.calls.filter((call) => call.method !== "GET").length, 0);
+});
+
+test("VR display fields and cover pair save as a draft while preserving the exact original URL", async () => {
+  const h=harness(async(path,method)=>method==="GET"?record:saved);
+  let tree=await h.open();
+  field(tree,"观察提示").props.onChange({target:{value:"核对真实地点后编写的观察提示"}}); tree=h.render();
+  field(tree,"目录顺序").props.onChange({target:{value:"18"}}); tree=h.render();
+  const picker=walk(tree,(node)=>node.type?.name==="VRCoverPicker")[0];
+  picker.props.onChange("published-image",3); tree=h.render();
+  button(tree,"仅保存草稿").props.onClick(); await tick(); h.render();
+  const write=h.calls.find((call)=>call.method==="PUT");
+  assert.equal(write.body.content.url,content.url);
+  assert.equal(write.body.content.observation_prompt,"核对真实地点后编写的观察提示");
+  assert.equal(write.body.content.sort_order,18);
+  assert.equal(write.body.content.cover_image_id,"published-image");
+  assert.equal(write.body.content.cover_image_revision,3);
+  assert.ok(!h.calls.some((call)=>call.path.includes("/review/")));
 });

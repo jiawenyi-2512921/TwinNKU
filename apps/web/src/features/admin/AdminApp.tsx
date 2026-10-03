@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Campus, MapInfo } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
+import { EnvironmentBanner } from "../../shared/ui/EnvironmentBanner";
 import { GuideSettings } from "./GuideSettings";
+import { ConfigurationWorkspace } from "./ConfigurationWorkspace";
+import { ImportWorkspace } from "./ImportWorkspace";
+import { BackupWorkspace } from "./BackupWorkspace";
+import { HelpPanel, canOpenHelpPage } from "./HelpPanel";
+import type { IssueTarget } from "./WorkspaceIssues";
 import { RoadWorkspace } from "./RoadWorkspace";
 import { Accounts } from "./Accounts";
 import { Audit } from "./Audit";
@@ -24,8 +30,11 @@ import { ErrorBox, useResource } from "./ui";
 import "./admin.css";
 import "./workbench.css";
 type Tab =
+  | "backups"
+  | "imports"
   | "experiences"
   | "tours"
+  | "configurations"
   | "guide-settings"
   | "roads"
   | "overview"
@@ -269,8 +278,15 @@ export default function AdminApp() {
     [catalogRevision, setCatalogRevision] = useState(0),
     [locked, setLocked] = useState(false),
     [reviewStart, setReviewStart] = useState<ReviewStart>({}),
-    [reviewKey, setReviewKey] = useState(0);
+    [reviewKey, setReviewKey] = useState(0),
+    [helpOpen, setHelpOpen] = useState(false);
+  const helpButton = useRef<HTMLButtonElement | null>(null);
   const dirty = useRef(false);
+  const [importedDraft, setImportedDraft] = useState<{
+    tab: Tab;
+    id: string;
+  } | null>(null);
+  const [issueTarget, setIssueTarget] = useState<IssueTarget | null>(null);
   const processing = useRef(false);
   const onDirty = useCallback((value: boolean, busy = false) => {
     processing.current = busy;
@@ -280,6 +296,8 @@ export default function AdminApp() {
     rememberSession(value);
     setLocked(false);
     setSession(value);
+    setHelpOpen(false);
+    setIssueTarget(null);
     setTab("overview");
     dirty.current = false;
     processing.current = false;
@@ -323,6 +341,7 @@ export default function AdminApp() {
         "登录已过期或权限已变更。同一账号重新登录后，可以继续处理本页未保存的点位修改。",
       );
       setPasswordOpen(false);
+      setHelpOpen(false);
     };
     window.addEventListener("staff-session-expired", expired);
     return () => {
@@ -330,6 +349,36 @@ export default function AdminApp() {
       window.removeEventListener("staff-session-expired", expired);
     };
   }, [applySession]);
+  useEffect(() => {
+    if (!session || locked) return;
+    const controller = new AbortController();
+    const refreshPermissions = () => {
+      void request<StaffSession>(
+        "/session",
+        "GET",
+        undefined,
+        controller.signal,
+      )
+        .then((r) => {
+          if (controller.signal.aborted || r.data.user.id !== session.user.id)
+            return;
+          rememberSession(r.data);
+          setSession(r.data);
+          setRevision((v) => v + 1);
+        })
+        .catch((e) => {
+          if (!controller.signal.aborted) setNavError(message(e));
+        });
+    };
+    window.addEventListener("staff-permissions-changed", refreshPermissions);
+    return () => {
+      controller.abort();
+      window.removeEventListener(
+        "staff-permissions-changed",
+        refreshPermissions,
+      );
+    };
+  }, [session?.user.id, locked]);
   const maps = useResource<MapInfo[]>(
       session && !session.user.must_change_password ? "/maps" : null,
       catalogRevision,
@@ -367,6 +416,8 @@ export default function AdminApp() {
     )
       return false;
     dirty.current = false;
+    setImportedDraft(null);
+    setIssueTarget(null);
     setTab(next);
     setNavError("");
     return true;
@@ -396,12 +447,14 @@ export default function AdminApp() {
   if (checking)
     return (
       <div className="ad-root ad-loading" role="status">
+        <EnvironmentBanner />
         正在验证管理会话…
       </div>
     );
   if (!session)
     return (
       <div className="ad-root">
+        <EnvironmentBanner />
         <Login
           initialError={authError}
           onLogin={(s) => {
@@ -435,6 +488,7 @@ export default function AdminApp() {
   if (session.user.must_change_password || passwordOpen)
     return (
       <div className="ad-root">
+        <EnvironmentBanner />
         <ErrorBox text={navError} />
         {locked ? (
           <Login initialError={authError} onLogin={relogin} />
@@ -460,22 +514,41 @@ export default function AdminApp() {
     title: string;
     icon: string;
     permission?: string;
+    anyPermissions?: string[];
     group?: string;
   }[] = [
     { id: "security", title: "账号安全", icon: "users" },
     { id: "overview", title: "工作台", icon: "focus" },
     { id: "points", title: "地图点位", icon: "pin", group: "编辑校园内容" },
     { id: "resources", title: "资料中心", icon: "layers" },
+    {
+      id: "imports",
+      title: "表格导入",
+      icon: "layers",
+      permission: "points.edit",
+    },
     { id: "experiences", title: "视频与打卡", icon: "panorama" },
     { id: "tours", title: "校园导览路线", icon: "bookmark" },
     { id: "roads", title: "道路与导航", icon: "pin" },
+    {
+      id: "configurations",
+      title: "首页与参观编排",
+      icon: "layers",
+      anyPermissions: ["configurations.edit", "configurations.review"],
+    },
     { id: "review", title: "审核中心", icon: "check", group: "审核与协作" },
     {
       id: "guide-settings",
-      title: "智能导览设置",
+      title: "服务与费用设置",
       group: "设置与记录",
       icon: "chat",
-      permission: "users.manage",
+      anyPermissions: ["runtime.edit", "runtime.review"],
+    },
+    {
+      id: "backups",
+      title: "备份与恢复记录",
+      icon: "clock",
+      anyPermissions: ["backup.read", "backup.request", "users.manage"],
     },
     {
       id: "audit",
@@ -492,6 +565,7 @@ export default function AdminApp() {
   ];
   return (
     <div className="ad-root ad-shell">
+      <EnvironmentBanner />
       <MfaStepUp session={session} onSession={relogin} />
       {locked && (
         <div className="ad-relogin">
@@ -525,7 +599,11 @@ export default function AdminApp() {
           {navs
             .filter(
               (n) =>
-                !n.permission || session.permissions.includes(n.permission),
+                (!n.permission || session.permissions.includes(n.permission)) &&
+                (!n.anyPermissions ||
+                  n.anyPermissions.some((p) =>
+                    session.permissions.includes(p),
+                  )),
             )
             .map((n) => (
               <div className="ad-nav-item" key={n.id}>
@@ -588,6 +666,16 @@ export default function AdminApp() {
           <span>
             校园内容管理 <span>/</span> {navs.find((n) => n.id === tab)?.title}
           </span>
+          <button
+            type="button"
+            ref={helpButton}
+            className="ad-help-toggle"
+            aria-expanded={helpOpen}
+            aria-controls="admin-task-help"
+            onClick={() => setHelpOpen((value) => !value)}
+          >
+            当前页面帮助
+          </button>
           <span className="ad-session-indicator">
             <i />
             会话有效至{" "}
@@ -612,7 +700,58 @@ export default function AdminApp() {
               onRefresh={() => setRevision((v) => v + 1)}
               onNavigate={navigate}
               onReview={openReview}
+              campuses={campuses.data?.data}
+              onOpenIssue={(target) => {
+                if (!canOpenHelpPage(target.page, session.permissions)) {
+                  setNavError(
+                    "当前账号没有此编辑器权限，请有对应权限的成员处理。",
+                  );
+                  return;
+                }
+                if (navigate(target.page)) {
+                  setImportedDraft({
+                    tab: target.page as Tab,
+                    id: target.issue.entity_id,
+                  });
+                  setIssueTarget(target);
+                }
+              }}
+              onReviewIssue={(target) => {
+                const kind =
+                  target.issue.entity_type === "vr"
+                    ? "panorama"
+                    : target.issue.entity_type;
+                if (!target.issue.actions.includes("review")) return;
+                openReview({ target: { id: target.issue.entity_id, kind } });
+                if (!processing.current && !dirty.current)
+                  setIssueTarget(target);
+              }}
             />
+          )}
+          {issueTarget && tab !== "overview" && (
+            <section
+              className="ad-card ad-issue-context"
+              aria-label="当前检查定位"
+            >
+              <strong>
+                {issueTarget.issue.title} · {issueTarget.issue.message}
+              </strong>
+              <p>
+                {issueTarget.changed
+                  ? "对象已更新，已打开服务端当前版本。旧报告的位置不自动套到新内容，请运行完整检查后重新定位。"
+                  : `已重新核对当前权限与版本，打开此项内容。${issueTarget.issue.stop_index != null ? `对应第 ${issueTarget.issue.stop_index + 1} 站。` : ""}`}
+              </p>
+              <p>
+                报告草稿 v{issueTarget.issue.revision} / 正式 v
+                {issueTarget.issue.published_revision}；打开时草稿 v
+                {issueTarget.revision} / 正式 v{issueTarget.publishedRevision}
+              </p>
+              <details>
+                <summary>具体检查位置</summary>
+                <p>{issueTarget.issue.path || "内容"}</p>
+              </details>
+              <button onClick={() => setIssueTarget(null)}>收起本项提示</button>
+            </section>
           )}
           {tab === "points" && (
             <>
@@ -626,6 +765,11 @@ export default function AdminApp() {
                 maps.data && (
                   <PointWorkspace
                     key={tab}
+                    initialId={
+                      importedDraft?.tab === "points"
+                        ? importedDraft.id
+                        : undefined
+                    }
                     session={session}
                     maps={maps.data.data}
                     onDirty={onDirty}
@@ -653,18 +797,87 @@ export default function AdminApp() {
           )}
           {tab === "resources" && (
             <ResourceWorkspace
+              initialId={
+                importedDraft?.tab === "resources"
+                  ? importedDraft.id
+                  : undefined
+              }
+              session={session}
+              onDirty={onDirty}
+              onUpdate={() => setRevision((v) => v + 1)}
+              onReview={(id) => openReview({ target: { id } })}
+              onPoint={(pointId) => {
+                if (navigate("points"))
+                  setImportedDraft({ tab: "points", id: pointId });
+              }}
+            />
+          )}
+          {tab === "imports" && (
+            <ImportWorkspace
+              session={session}
+              onDirty={onDirty}
+              onUpdate={() => setRevision((v) => v + 1)}
+              onReview={() => openReview()}
+              onOpenDraft={(kind, id, isTour) => {
+                const target: Tab =
+                  kind === "point"
+                    ? "points"
+                    : kind === "vr"
+                      ? "resources"
+                      : isTour
+                        ? "tours"
+                        : "experiences";
+                if (navigate(target)) setImportedDraft({ tab: target, id });
+              }}
+            />
+          )}
+          {tab === "configurations" && (
+            <ConfigurationWorkspace
+              initialId={
+                importedDraft?.tab === "configurations"
+                  ? importedDraft.id
+                  : undefined
+              }
+              initialIssue={
+                issueTarget?.page === tab && !issueTarget.changed
+                  ? issueTarget.issue
+                  : undefined
+              }
               session={session}
               onDirty={onDirty}
               onUpdate={() => setRevision((v) => v + 1)}
               onReview={(id) => openReview({ target: { id } })}
             />
           )}
-          {tab === "guide-settings" && session.user.role === "admin" && (
-            <GuideSettings onDirty={onDirty} />
+          {tab === "guide-settings" && (
+            <GuideSettings
+              initialId={
+                importedDraft?.tab === "guide-settings"
+                  ? importedDraft.id
+                  : undefined
+              }
+              initialIssue={
+                issueTarget?.page === tab && !issueTarget.changed
+                  ? issueTarget.issue
+                  : undefined
+              }
+              session={session}
+              onDirty={onDirty}
+              onUpdate={() => setRevision((v) => v + 1)}
+              onReview={(id) => openReview({ target: { id } })}
+            />
           )}
           {(tab === "experiences" || tab === "tours") && (
             <ExperienceWorkspace
               key={tab}
+              initialId={
+                importedDraft?.tab === tab ? importedDraft.id : undefined
+              }
+              initialIssue={
+                issueTarget?.page === tab && !issueTarget.changed
+                  ? issueTarget.issue
+                  : undefined
+              }
               kindScope={tab === "tours" ? "tours" : "places"}
               session={session}
               onDirty={onDirty}
@@ -674,6 +887,9 @@ export default function AdminApp() {
           )}
           {tab === "roads" && (
             <RoadWorkspace
+              initialMapId={
+                importedDraft?.tab === "roads" ? importedDraft.id : undefined
+              }
               maps={maps.data?.data ?? []}
               session={session}
               onDirty={onDirty}
@@ -683,6 +899,7 @@ export default function AdminApp() {
               }
             />
           )}
+          {tab === "backups" && <BackupWorkspace key={session.user.id} session={session} />}
           {tab === "audit" && <Audit />}
           {tab === "accounts" && (
             <>
@@ -704,6 +921,17 @@ export default function AdminApp() {
           TwinNKU · 校园导览内容管理<span>以经确认的资料为依据</span>
         </footer>
       </div>
+      {helpOpen && !locked && (
+        <HelpPanel
+          page={tab}
+          permissions={session.permissions}
+          onClose={() => {
+            setHelpOpen(false);
+            helpButton.current?.focus();
+          }}
+          onNavigate={navigate}
+        />
+      )}
     </div>
   );
 }

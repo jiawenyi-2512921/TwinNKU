@@ -40,7 +40,11 @@ export async function request<T>(
       throw error;
     }
   }
-  return performRequest<T>(path, method, body, signal);
+  return withRequestDeadline(
+    (writeSignal) => performRequest<T>(path, method, body, writeSignal),
+    signal,
+    body instanceof Blob ? 120_000 : 60_000,
+  );
 }
 async function performRequest<T>(
   path: string,
@@ -80,6 +84,43 @@ async function performRequest<T>(
   if (!result || !("data" in result))
     throw new Error("后台响应格式异常，请刷新重试");
   return result;
+}
+/** Authenticated CSV downloads use the same expiry boundary as JSON reads. */
+export async function readAdminFile(
+  path: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  return withRequestDeadline(async (readSignal) => {
+    const response = await fetch(`/api/v1/admin${path}`, {
+      signal: readSignal,
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { Accept: "text/csv" },
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => null);
+      if (readSignal.aborted)
+        throw new DOMException("Request cancelled", "AbortError");
+      if (response.status === 401)
+        window.dispatchEvent(new Event("staff-session-expired"));
+      throw new ApiError(
+        response.status,
+        result?.error?.message || "文件暂时无法读取，请稍后重试",
+      );
+    }
+    if (
+      !(response.headers.get("Content-Type") || "")
+        .toLowerCase()
+        .includes("text/csv")
+    )
+      throw new Error("下载响应格式异常，已停止保存文件。");
+    const file = await response.blob();
+    if (readSignal.aborted)
+      throw new DOMException("Request cancelled", "AbortError");
+    if (file.size > 10 * 1024 * 1024)
+      throw new Error("下载文件超过10MB，已停止。");
+    return file;
+  }, signal);
 }
 export function message(error: unknown) {
   return error instanceof Error ? error.message : "操作失败，请稍后重试";

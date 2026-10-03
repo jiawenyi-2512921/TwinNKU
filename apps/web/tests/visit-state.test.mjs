@@ -104,7 +104,7 @@ test("QR links contain only allowed public visit identifiers and opening them ca
     () => visit.visitLink("javascript:private", session),
     /Invalid visit origin/,
   );
-  assert.equal(link.pathname, "/");
+  assert.equal(link.pathname, `/visit/${tourId}`);
   assert.equal(link.hash, "");
   assert.deepEqual(
     [...link.searchParams.keys()],
@@ -145,18 +145,103 @@ test("local recovery rejects a different tour identity and storage failures rema
   });
   try {
     assert.equal(visit.saveVisit(session), true);
-    assert.deepEqual(visit.loadVisit(tourId), session);
+    const restored = visit.loadVisit(tourId);
+    assert.ok(restored.updatedAt > 0);
+    delete restored.updatedAt;
+    assert.deepEqual(restored, session);
     stored.set(
-      `twinnku:visit:${tourId}`,
+      visit.visitStorageKey(tourId, session.position.revision),
       JSON.stringify({ ...session, tourId: anotherTour }),
     );
     assert.equal(visit.loadVisit(tourId), null);
-    stored.set(`twinnku:visit:${tourId}`, "broken-json");
+    stored.set(
+      visit.visitStorageKey(tourId, session.position.revision),
+      "broken-json",
+    );
     assert.equal(visit.loadVisit(tourId), null);
     globalThis.localStorage.setItem = () => {
       throw new Error("storage denied");
     };
     assert.equal(visit.saveVisit(session), false);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, "localStorage", previous);
+    else delete globalThis.localStorage;
+  }
+});
+
+test("legacy progress migrates only after durable v2 storage and revisions retain independent private records", () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "localStorage"),
+    stored = new Map();
+  const legacyVisit = `twinnku:visit:${tourId}`,
+    legacyProgress = `twinnku:tour:${tourId}`;
+  stored.set(legacyVisit, JSON.stringify(session));
+  stored.set(
+    legacyProgress,
+    JSON.stringify({
+      revision: 4,
+      index: 1,
+      completed: [0],
+      segmentId: "detail",
+    }),
+  );
+  const storage = {
+    getItem: (key) => stored.get(key) ?? null,
+    setItem: (key, value) => stored.set(key, value),
+    removeItem: (key) => stored.delete(key),
+    key: (index) => [...stored.keys()][index] ?? null,
+    get length() {
+      return stored.size;
+    },
+  };
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: storage,
+  });
+  try {
+    const originalSet = storage.setItem;
+    storage.setItem = () => {
+      throw new Error("quota");
+    };
+    const pending = visit.loadVisit(tourId, 4);
+    assert.deepEqual(pending.completed, [0]);
+    assert.equal(stored.has(legacyVisit), true);
+    assert.equal(stored.has(legacyProgress), true);
+    storage.setItem = originalSet;
+    const migrated = visit.loadVisit(tourId, 4);
+    assert.deepEqual(migrated.completed, [0]);
+    assert.equal(stored.has(legacyVisit), false);
+    assert.equal(stored.has(legacyProgress), false);
+    const newer = {
+      ...session,
+      position: { revision: 5, stopIndex: 0, segmentId: "new" },
+      notes: { new: "私人的短笔记" },
+      collections: [
+        {
+          stopIndex: 0,
+          segmentId: "new",
+          resourceId: anotherTour,
+          privateToken: "must not persist",
+        },
+      ],
+    };
+    assert.equal(visit.saveVisit(newer), true);
+    assert.deepEqual(visit.loadVisit(tourId, 4).completed, [0]);
+    assert.equal(visit.loadVisit(tourId).position.revision, 5);
+    assert.equal(
+      JSON.stringify(visit.listVisits()).includes("privateToken"),
+      false,
+    );
+    stored.set(visit.visitStorageKey(anotherTour, 1), "corrupt-json");
+    stored.set(visit.visitStorageKey(anotherTour, 2), JSON.stringify(newer));
+    assert.equal(
+      visit.listVisits().length,
+      2,
+      "corrupt or mismatched key records cannot hide or impersonate real records",
+    );
+    assert.equal(visit.clearVisit(tourId, 4), true);
+    assert.equal(visit.loadVisit(tourId).position.revision, 5);
+    assert.equal(visit.clearVisit(tourId, 5), true);
+    assert.equal(visit.listVisits().length, 0);
   } finally {
     if (previous) Object.defineProperty(globalThis, "localStorage", previous);
     else delete globalThis.localStorage;
@@ -356,19 +441,25 @@ test("a mounted narrator pauses for a resource and resumes saved audio only afte
     },
   };
   const h = component("../src/features/visit/TourNarrator.tsx", {
+    "../agent/Companion": { Companion: () => null },
     "../agent/cloudVoice": {
       createBrowserSpeechFallback: () => ({ speak() {}, cancel() {} }),
       createCloudSpeaker: () => speaker,
     },
     "../agent/voice": { browserVoiceEnvironment: () => ({}) },
     "../../shared/visitorSession": {
-      prepareTourVoice: async (source) => {
+      prepareDraftVoice: async (source) => {
         prepared.push(source);
         return { chunks: [] };
       },
-      prepareDraftVoice: async () => {
-        throw new Error("Public test cannot use staff voice");
+    },
+    "../../shared/api/client": {
+      get: async () => {
+        throw new Error("No public request expected");
       },
+    },
+    "./recordedAudio": {
+      createRecordedPlayer: () => ({ cancel() {}, pause() {}, unlock() {} }),
     },
     "./audioOwner": audio,
   });
@@ -386,8 +477,11 @@ test("a mounted narrator pauses for a resource and resumes saved audio only afte
   h.render("TourNarrator", props);
   h.flush();
   await tick();
-  assert.equal(prepared.length, 1);
-  assert.equal(prepared[0].segment_id, "detail");
+  assert.equal(
+    prepared.length,
+    0,
+    "text narration has no paid or visitor-session request",
+  );
   assert.equal(spoken.length, 1);
   h.browser.dispatchEvent(new Event("twinnku:tour-pause"));
   let tree = h.render("TourNarrator", props);
@@ -395,19 +489,19 @@ test("a mounted narrator pauses for a resource and resumes saved audio only afte
   await tick();
   assert.ok(pauses > 0);
   assert.equal(saved.at(-1).time, 7.5);
-  assert.equal(prepared.length, 1);
+  assert.equal(prepared.length, 0);
   assert.ok(button(tree, "继续本站讲解"));
   tree = h.render("TourNarrator", props);
   h.flush();
   await tick();
   assert.equal(
     prepared.length,
-    1,
+    0,
     "returning to the same mounted narrator does not prepare or autoplay",
   );
   button(tree, "继续本站讲解").props.onClick();
   await tick();
-  assert.equal(prepared.length, 2);
+  assert.equal(prepared.length, 0);
   assert.equal(spoken[1].options.startChunk, 2);
   assert.equal(spoken[1].options.startTime, 7.5);
   h.dispose();

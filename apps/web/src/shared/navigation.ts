@@ -7,12 +7,88 @@ export type ExperienceSelection = {
   pointId?: string;
 };
 
+export type PublicPage =
+  | {
+      kind: "home" | "tours" | "explore" | "panoramas" | "visits";
+      mode?: "online" | "onsite";
+    }
+  | {
+      kind: "overview" | "visit" | "recap";
+      tourId: string;
+      mode?: "online" | "onsite";
+    };
+const publicUuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+/** One interpretation for new paths and the original public query links. */
+export function readPublicPage(href: string): PublicPage {
+  const url = new URL(href);
+  const mode =
+    url.searchParams.get("mode") === "onsite"
+      ? { mode: "onsite" as const }
+      : {};
+  const path = url.pathname.replace(/\/$/, "") || "/";
+  const route = path.match(/^\/(tours|visit)\/([^/]+)(\/recap)?$/);
+  if (route && publicUuid.test(route[2]))
+    return {
+      kind: route[3] ? "recap" : route[1] === "tours" ? "overview" : "visit",
+      tourId: route[2],
+      ...mode,
+    };
+  const direct: Record<string, PublicPage["kind"]> = {
+    "/tours": "tours",
+    "/explore": "explore",
+    "/panoramas": "panoramas",
+    "/visits": "visits",
+  };
+  if (direct[path])
+    return {
+      kind: direct[path] as "tours" | "explore" | "panoramas" | "visits",
+      ...mode,
+    };
+  const old = url.searchParams.get("experience");
+  if (old && publicUuid.test(old))
+    return { kind: "visit", tourId: old, ...mode };
+  if (old === "tour" || old === "all") return { kind: "tours" };
+  if (url.searchParams.has("point") || old || url.searchParams.has("panorama"))
+    return { kind: "explore" };
+  return { kind: "home" };
+}
+
+export function publicLocation(
+  href: string,
+  page: PublicPage,
+  campusId?: string,
+): string {
+  const url = new URL(href);
+  url.search = "";
+  url.hash = "";
+  url.pathname =
+    page.kind === "home"
+      ? "/"
+      : page.kind === "overview"
+        ? `/tours/${page.tourId}`
+        : page.kind === "visit" || page.kind === "recap"
+          ? `/visit/${page.tourId}${page.kind === "recap" ? "/recap" : ""}`
+          : `/${page.kind}`;
+  if ("tourId" in page) url.searchParams.set("experience", page.tourId);
+  if (campusId) url.searchParams.set("campus", campusId);
+  if (page.mode) url.searchParams.set("mode", page.mode);
+  return url.href;
+}
+
 export function readExperienceLocation(
   href: string,
 ): ExperienceSelection | null {
   const params = new URL(href).searchParams;
   const value = params.get("experience");
-  if (!value) return null;
+  if (!value) {
+    const path = new URL(href).pathname.match(
+      /^\/(?:tours|visit)\/([^/]+)(?:\/recap)?$/,
+    );
+    return path && publicUuid.test(path[1])
+      ? { id: path[1], kind: "tour" }
+      : null;
+  }
   const selection: ExperienceSelection = {};
   if (["media", "checkin", "tour"].includes(value))
     selection.kind = value as ExperienceSelection["kind"];
@@ -46,6 +122,8 @@ export function experienceLocation(
     url.searchParams.set("experience", selection.id || selection.kind || "all");
     if (selection.pointId)
       url.searchParams.set("experience_point", selection.pointId);
+  } else if (/^\/(?:visit|tours)\//.test(url.pathname)) {
+    url.pathname = "/explore";
   }
   return url.href;
 }
@@ -95,6 +173,7 @@ export function pointLocation(
 ): string {
   const url = new URL(href);
   if (!preserveExperience) {
+    if (/^\/visit\//.test(url.pathname)) url.pathname = "/explore";
     url.searchParams.delete("experience");
     url.searchParams.delete("experience_point");
     for (const key of ["revision", "stop", "segment", "mode"])

@@ -339,12 +339,20 @@ export function FloorPanel({
             {expanded && (
               <>
                 {selectors("expanded")}
+                {floor.description && (
+                  <p className="experience-prose">{floor.description}</p>
+                )}
                 {asset && (
                   <FloorViewer
                     key={`${floor.id}-${floor.revision}-${asset.section ?? "main"}`}
                     asset={asset}
                     title={title}
                   />
+                )}
+                {asset?.description && (
+                  <section aria-label="当前楼层分区文字说明">
+                    <p className="experience-prose">{asset.description}</p>
+                  </section>
                 )}
                 <footer>
                   <span role="status">{copyMessage}</span>

@@ -1,0 +1,40 @@
+.environment-banner {
+  position: relative;
+  flex: none;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  color: #492759;
+  background: #eee4f4;
+  border-bottom: 1px solid #c8b2d6;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.environment-banner.is-unknown {
+  color: #514d55;
+  background: #f5f2f6;
+}
+.environment-banner button {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #a988bc;
+  border-radius: 8px;
+  color: #492759;
+  background: white;
+  font: inherit;
+}
+.environment-banner button:focus-visible {
+  outline: 3px solid #713573;
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  .environment-banner {
+    align-items: flex-start;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+}

@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import type { Point } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import { PanoramaPanel } from "./PanoramaPanel";
-import { FloorPanel } from "../floors/FloorPanel";
+const FloorPanel = lazy(() =>
+  import("../floors/FloorPanel").then((module) => ({
+    default: module.FloorPanel,
+  })),
+);
 import { PointIntroduction } from "./PointIntroduction";
 import type { AgentContext } from "../agent/protocol";
 
@@ -91,7 +95,9 @@ export function PointDetails({
         </div>
       </header>
       <div className="detail-body">
-        <FloorPanel pointId={point.id} pointName={point.name} onAsk={onAsk} />
+        <Suspense fallback={<p role="status">正在读取公开楼层资料…</p>}>
+          <FloorPanel pointId={point.id} pointName={point.name} onAsk={onAsk} />
+        </Suspense>
         <PointIntroduction summary={point.summary} />
         <PanoramaPanel pointId={point.id} />
         {onExperiences && (

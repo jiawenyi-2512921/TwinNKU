@@ -105,6 +105,8 @@ function mount(kind) {
         path === "./FloorViewer"
       )
         return {};
+      if (path.endsWith("/VRPresentation")) return { VRPresentation: () => null };
+      if (path.endsWith("/audioOwner")) return { pauseTour() {} };
       throw new Error("Unexpected import: " + path);
     },
   });

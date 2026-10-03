@@ -525,7 +525,57 @@ test("map navigation remains available beside unsupported voice with typed fallb
   h.unmount();
 });
 
-test("closing during a selected action does not reopen the floating card on completion", async () => {
+test("a withdrawn navigation capability omits navigation in both authenticated and access-code views", async () => {
+  const signedIn = harness();
+  signedIn.props.onNavigate = undefined;
+  await signedIn.open();
+  signedIn.button("文字交流与记录").props.onClick();
+  assert.doesNotMatch(
+    words(signedIn.render()),
+    /地图选点导航|直接选择起终点导航/,
+  );
+  signedIn.unmount();
+  const guest = harness({ sessionError: new NativeError("需要口令", 401) });
+  guest.props.onNavigate = undefined;
+  await guest.open();
+  guest.button("文字交流与记录").props.onClick();
+  assert.ok(
+    find(guest.render(), (node) => node.props?.className === "native-login")
+      .length,
+  );
+  assert.doesNotMatch(words(guest.render()), /地图选点导航|直接选择起终点导航/);
+  guest.unmount();
+});
+
+test("reviewed welcome and questions use normal authenticated chat; configuration refresh cannot collapse an expanded companion", async () => {
+  const h = harness();
+  h.props.defaultMinimized = true;
+  h.props.welcomeText = "配置欢迎语";
+  h.props.recommendedQuestions = ["配置普通问题"];
+  assert.equal(
+    find(h.render(), (n) => n.type === "companion")[0].props.label,
+    "展开小开",
+  );
+  await h.open();
+  h.button("文字交流与记录").props.onClick();
+  assert.match(words(h.render()), /配置欢迎语/);
+  h.props.defaultMinimized = false;
+  h.render();
+  h.props.defaultMinimized = true;
+  assert.notEqual(
+    find(h.render(), (n) => n.type === "companion")[0].props.label,
+    "展开小开",
+  );
+  h.button("配置普通问题").props.onClick();
+  await settle();
+  const chat = h.posts.find((p) => p.path === "/agent/chat");
+  assert.equal(chat.body.query, "配置普通问题");
+  assert.equal(chat.body.system, undefined);
+  assert.equal(h.sessionReads.length, 1);
+  h.unmount();
+});
+
+test("closing during a selected action cancels it and its late completion cannot reopen the companion", async () => {
   const h = harness();
   await h.open();
   await h.ask();
@@ -543,8 +593,8 @@ test("closing during a selected action does not reopen the floating card on comp
   await settle();
   assert.equal(
     h.actions.length,
-    1,
-    "the explicitly requested action may complete",
+    0,
+    "closing invalidates the explicitly requested but unexecuted action",
   );
   assert.equal(
     find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
@@ -1070,7 +1120,7 @@ test("closing and reopening while chat waits cannot revive the old automatic com
       h.posts.some((post) => post.path === "/agent/actions/resolve"),
       false,
     );
-    assert.match(words(h.render()), /已经找到可用路线/);
+    assert.doesNotMatch(words(h.render()), /已经找到可用路线/);
     assert.equal(h.cancelledActions, 1);
     h.unmount();
   }

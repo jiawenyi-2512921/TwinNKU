@@ -1,0 +1,21 @@
+.vr-cover { margin: 12px 0; }
+.vr-cover img { display: block; width: 100%; max-height: 230px; object-fit: cover; border-radius: 10px; background: #f5f0f7; }
+.vr-cover figcaption { margin-top: 5px; color: #76657c; font-size: 12px; }
+.vr-presentation p { white-space: pre-line; overflow-wrap: anywhere; line-height: 1.65; }
+.vr-presentation .vr-description, .vr-observation p { font-size: 16px; }
+.vr-observation { margin-top: 12px; padding: 12px; border-left: 3px solid #885192; background: #faf6fb; border-radius: 8px; }
+.vr-observation strong { color: #67336f; }
+.vr-observation p { margin: 5px 0 0; }
+.vr-safe-checks { margin-top: 12px; font-size: 12px; color: #625469; }
+.vr-safe-checks summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; text-decoration: underline; }
+.vr-safe-checks dl, .ad-vr-check-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin: 10px 0; }
+.vr-safe-checks dl > div, .ad-vr-check-grid > div { border: 1px solid #e4dce8; padding: 9px; border-radius: 8px; }
+.vr-safe-checks dt, .ad-vr-check-grid dt { font-weight: 650; }
+.vr-safe-checks dd, .ad-vr-check-grid dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.vr-safe-checks summary:focus-visible { outline: 3px solid #a26aad; outline-offset: 2px; }
+.ad-vr-cover { width: min(100%,280px); max-height: 190px; object-fit: contain; display: block; margin: 10px 0; }
+.ad-vr-checks, .ad-vr-location { margin: 18px 0; padding: 14px; border: 1px solid #e4dce8; border-radius: 12px; }
+.ad-vr-checks button, .ad-vr-location button, .ad-vr-checks summary { min-height: 44px; }
+.ad-vr-checks ul { padding-left: 20px; }
+.ad-vr-checks li { margin-bottom: 14px; overflow-wrap: anywhere; }
+@media(max-width:560px) { .vr-safe-checks dl, .ad-vr-check-grid { grid-template-columns: 1fr; } }

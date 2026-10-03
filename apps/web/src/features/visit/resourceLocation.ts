@@ -1,4 +1,5 @@
 import type { Experience, TourResource } from "../experiences/types";
+import { sceneResource } from "../experiences/types";
 import { segmentsForStop } from "../experiences/segments";
 import type { VisitSession } from "./session";
 
@@ -132,8 +133,8 @@ export function isStopResource(
   if (!current || current.stop.point_id !== layer.pointId) return false;
   const refs = [...current.segment.resources];
   if (current.segment.main_view.type !== "map")
-    refs.push(current.segment.main_view);
-  if (!current.stop.segments?.length) {
+    refs.push(sceneResource(current.segment.main_view));
+  if (!current.stop.segments?.length || current.stop.legacy_media_compat) {
     for (const [type, id] of [
       ["video", current.stop.video_id],
       ["checkin", current.stop.checkin_id],

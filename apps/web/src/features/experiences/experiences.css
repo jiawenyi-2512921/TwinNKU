@@ -12,6 +12,26 @@
 .experience-panel a {
   touch-action: manipulation;
 }
+.experience-video-versions {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 14px;
+  border: 1px solid #ded5eb;
+  border-radius: 12px;
+  background: #faf7fd;
+}
+.experience-video-versions button {
+  min-height: 44px;
+  justify-self: start;
+}
+.experience-video-versions p {
+  margin: 0;
+  font-weight: 600;
+}
+.experience-video-versions small {
+  font-size: 14px;
+}
 .experience-panel button {
   font: inherit;
   cursor: pointer;

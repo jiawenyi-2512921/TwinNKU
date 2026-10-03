@@ -21,6 +21,15 @@ const compile = (path) =>
 const publicCode = compile("../src/features/experiences/ExperiencePanel.tsx");
 const adminCode = compile("../src/features/admin/ExperienceWorkspace.tsx");
 const editorCode = compile("../src/features/admin/ExperienceEditor.tsx");
+const draftExports = {};
+const operationExports = {};
+const issueExports = {};
+vm.runInNewContext(compile("../src/features/admin/WorkspaceIssues.tsx"), {
+  exports: issueExports,
+  require: (name) => name === "react/jsx-runtime" ? jsx : {},
+});
+vm.runInNewContext(compile("../src/features/admin/confirmedOperation.ts"), { exports: operationExports });
+vm.runInNewContext(compile("../src/features/admin/draftCoordinator.ts"), { exports: draftExports, crypto, structuredClone, Date, setTimeout: (fn, delay) => { const t = setTimeout(fn, delay); t.unref(); return t; }, clearTimeout });
 function find(tree, predicate) {
   if (Array.isArray(tree))
     return tree.flatMap((entry) => find(entry, predicate));
@@ -57,6 +66,8 @@ function harness(code, context = {}, overrides = {}) {
   let cursor = 0,
     effectCursor = 0;
   const react = {
+    lazy:()=>()=>null,
+    Suspense:Symbol.for("react.suspense"),
     createContext: (value) => ({ value, Provider: ({ children }) => children }),
     useContext: () => ({ active: true, ...context }),
     useState(initial) {
@@ -91,6 +102,8 @@ function harness(code, context = {}, overrides = {}) {
     URLSearchParams,
     AbortController,
     Date,
+    crypto,
+    structuredClone,
     window: {
       confirm: () => overrides.confirm ?? true,
       addEventListener() {},
@@ -101,7 +114,9 @@ function harness(code, context = {}, overrides = {}) {
       if (name === "react/jsx-runtime") return jsx;
       if (name.endsWith(".css")) return {};
       if (name.endsWith("/types") || name === "./types")
-        return { experienceNames: names };
+        return { experienceNames: names, sceneResource: (view) => ({...view,type:view.type === "vr_entry" ? "vr" : view.type}) };
+      if (name.endsWith("/FloorViewer")) return {FloorViewer: () => null};
+      if (name.endsWith("/VRPresentation")) return { VRPresentation: () => null };
       if (name.endsWith("/progress") || name === "./progress")
         return {
           ...progress,
@@ -112,6 +127,13 @@ function harness(code, context = {}, overrides = {}) {
           },
         };
       if (name.endsWith("/segments") || name === "./segments") return segments;
+      if (name === "./draftCoordinator") return draftExports;
+      if (name === "./confirmedOperation") return operationExports;
+      if (name === "./DraftStatus") return { DraftStatusBar: () => null };
+      if (name === "./NarrationStudio") return { NarrationStudio: () => null };
+      if (name === "./ExperienceHistory") return { ExperienceHistory: () => null };
+      if (name === "./VideoDescriptionPicker") return { VideoDescriptionPicker: () => null };
+      if (name === "./WorkspaceIssues") return issueExports;
       if (name === "./ExperienceEditor")
         return {
           ExperienceEditor: () => null,
@@ -634,10 +656,8 @@ test("segment editor offers current point-bound published resources, refreshes a
     labelText(tree),
     /其他地点图片|未审核图片|其他楼层|其他全景/,
   );
-  assert.doesNotMatch(
-    labelText(field(tree, "本段主画面")),
-    /示例测试视频|本站打卡|本站室外全景/,
-  );
+  assert.match(labelText(field(tree, "本段主画面")), /示例测试视频|本站室外全景/);
+  assert.doesNotMatch(labelText(field(tree, "本段主画面")), /本站打卡/);
   field(tree, "路线封面").props.onChange({ target: { value: "image-a:5" } });
   tree = h.render("ExperienceEditor", props);
   assert.equal(props.content.cover_image_revision, 5);
@@ -703,6 +723,37 @@ test("resource overlay passes an explicit playback request only after validating
     0,
   );
   assert.match(labelText(tree), /资料已变更/);
+});
+
+test("floor scene text follows the exact selected section even when consecutive segments reuse the same floor revision", async () => {
+  let reads=0;
+  const floor={id:"floor",point_id:"p1",revision:2,label:"实际楼层",description:"楼层总体测试说明",attribution:"测试出处",
+    images:[{variant:"labeled",section:"a",section_label:"A区",description:"A区原图文字说明"},
+      {variant:"labeled",section:"b",section_label:"B区",description:"B区原图文字说明"}]};
+  const h=harness(publicCode,{}, {get:async()=>{reads++;return {data:floor};}});
+  let props={resource:{type:"floor",id:"floor",revision:2,section_id:"a"},pointId:"p1",items:[]};
+  h.render("TourResourceView",props);h.flushEffects();await new Promise(resolve=>setImmediate(resolve));
+  let tree=h.render("TourResourceView",props);
+  assert.match(labelText(tree),/楼层总体测试说明/);
+  assert.match(labelText(tree),/A区原图文字说明/);
+  assert.doesNotMatch(labelText(tree),/B区原图文字说明/);
+  props={...props,resource:{...props.resource,section_id:"b"}};
+  h.render("TourResourceView",props);h.flushEffects();await new Promise(resolve=>setImmediate(resolve));
+  tree=h.render("TourResourceView",props);
+  assert.match(labelText(tree),/B区原图文字说明/);
+  assert.doesNotMatch(labelText(tree),/A区原图文字说明/);
+  assert.equal(reads,2);
+});
+
+test("floor scene refuses another id or a missing configured section without substituting its first image", async () => {
+  for(const bad of [{id:"other",images:[{variant:"labeled",section:"a"}]},{id:"floor",images:[{variant:"labeled",section:"b"}]}]) {
+    const h=harness(publicCode,{}, {get:async()=>({data:{...bad,point_id:"p1",revision:2}})});
+    const props={resource:{type:"floor",id:"floor",revision:2,section_id:"a"},pointId:"p1",items:[]};
+    h.render("TourResourceView",props);h.flushEffects();await new Promise(resolve=>setImmediate(resolve));
+    const tree=h.render("TourResourceView",props);
+    assert.match(labelText(tree),/资料已变更或暂不可用/);
+    assert.equal(find(tree,node=>node.props?.className==="experience-floor").length,0);
+  }
 });
 
 test("legacy prompt state survives temporarily hiding the route while segment resource instances change with the segment", () => {
@@ -903,6 +954,37 @@ test("external video pages use safe links rather than arbitrary iframes", () => 
   const link = find(tree, (node) => node.type === "a")[0];
   assert.equal(link.props.rel, "noopener noreferrer");
   assert.equal(link.props.target, "_blank");
+});
+
+test("published video captions bind exact source identity and retain the text equivalent when playback or captions fail", () => {
+  const h = harness(publicCode);
+  const id = "66666666-6666-4666-8666-666666666666", caption = "33333333-3333-4333-8333-333333333333";
+  const item = { ...media, id,
+    caption_url: `/api/v1/experiences/${id}/captions/3/${caption}`,
+    content: { ...media.content, caption_upload_id: caption, caption_language: "zh-CN", caption_label: "实际字幕",
+      transcript: "团队提供的测试文字稿" } };
+  let tree = h.render("MediaView", { item });
+  assert.match(labelText(tree), /团队提供的测试文字稿/);
+  assert.equal(find(tree, n => n.type === "video").length, 0, "captions cannot trigger video consent");
+  button(tree, "打开视频播放器").props.onClick();
+  tree = h.render("MediaView", { item });
+  const track = find(tree, n => n.type === "track")[0];
+  assert.equal(track.props.src, item.caption_url);
+  assert.equal(track.props.kind, "captions");
+  assert.equal(track.props.srcLang, "zh-CN");
+  track.props.onError();
+  tree = h.render("MediaView", { item });
+  assert.match(labelText(tree), /字幕暂时无法读取/);
+  assert.match(labelText(tree), /团队提供的测试文字稿/);
+  for (const invalid of [item.caption_url.replace("/3/", "/2/"), "https://example.com/subtitles.vtt",
+    `${item.caption_url}?token=secret`, item.caption_url.replace(caption, id)]) {
+    tree = h.render("MediaView", { item: { ...item, caption_url: invalid } });
+    assert.equal(find(tree, n => n.type === "track").length, 0);
+    assert.equal(find(tree, n => n.props?.download === "captions.vtt").length, 0);
+  }
+  tree = h.render("MediaView", { item: { ...item, media_url: "javascript:invalid" } });
+  assert.match(labelText(tree), /该媒体目前不可播放/);
+  assert.match(labelText(tree), /团队提供的测试文字稿/);
 });
 
 test("tour prompts follow intro confirmation and skipping does not claim participation", () => {
@@ -1224,7 +1306,7 @@ test("save-and-submit uses the returned revision and retains a saved draft when 
         };
         return { data: saved };
       }
-      if (path.endsWith("/review/submit")) throw new Error("暂时不能提交");
+      if (path.endsWith("/review/submit")) throw Object.assign(new Error("资料不完整，暂时不能提交"), { status: 422 });
       throw new Error("unexpected request");
     },
   });
@@ -1445,4 +1527,78 @@ test("experience publication controls exist only in the focused review center", 
   assert.equal(button(tree, "撤回草稿"), undefined);
   assert.equal(button(tree, "审核通过并发布").props.disabled, false);
   assert.ok(button(tree, "退回修改"));
+});
+
+test("saved issue navigation selects the exact repeated tour stop and refuses a stale report version", async () => {
+  const modern = {
+    ...tour.content, kind: "tour", campus_id: "campus-a", lead: "", narration_mode: "text", sort_order: 0,
+    stops: ["first", "middle", "second"].map((id) => ({
+      point_id: id === "middle" ? "p2" : "p1", title: "", narrative: "", prompt_timing: "manual",
+      video_id: null, video_revision: null, checkin_id: null, checkin_revision: null, legacy_media_compat: false,
+      segments: [{ id, text: "测试实际站段", source_note: "夹具", main_view: { type: "map" }, resources: [] }],
+    })),
+  };
+  const record = { id: "bound-tour", campus_id: "campus-a", revision: 5, published_revision: 2,
+    state: "draft", status: "published", content: modern, published_content: modern, contributor_ids: ["editor"],
+    submitted_by: null, operation: "upsert", review_note: "" };
+  for (const reportRevision of [5, 4]) {
+    const h = harness(adminCode, {}, { record, points: campusPoints, campuses: campusRows });
+    const props = { ...editorProps, initialId: record.id, initialIssue: {
+      entity_type: "tour", entity_id: record.id, revision: reportRevision, published_revision: 2,
+      stop_index: 2, segment_id: "second", path: "stops.2.segments.0.resources.0", resource_type: "image",
+    } };
+    h.render("ExperienceWorkspace", props); h.flushEffects();
+    await new Promise((resolve) => setImmediate(resolve));
+    const tree = h.render("ExperienceWorkspace", props);
+    const editor = find(tree, (node) => node.props?.mode && node.props?.activeStop !== undefined)[0];
+    assert.ok(editor);
+    assert.equal(editor.props.activeStop, reportRevision === 5 ? 2 : 0);
+    assert.equal(editor.props.focusSegmentId, reportRevision === 5 ? "second" : undefined);
+    assert.equal(h.calls.some(([, method]) => method && method !== "GET"), false);
+    assert.match(labelText(tree), reportRevision === 5 ? /已定位第 3 站/ : /旧检查位置不自动套用/);
+  }
+});
+
+test("historical renderer preserves legacy timing and replaces all writable checkin cards", () => {
+  const h = harness(publicCode), references = [];
+  const item = {...tour, content: {...tour.content, stops: [{point_id:"p1", narrative:"旧原文", video_id:"video", checkin_id:"checkin", prompt_timing:"after_intro"}]}};
+  const props = {item,items:[],preview:true,onSelectPoint(){},renderPreviewResource:(ref,point,path)=>{references.push({ref,point,path});return jsx.jsx("p",{children:`历史占位 ${path}`});}};
+  button(h.render("TourPlayer",props),"开始导览").props.onClick();
+  let tree = h.render("TourPlayer",props);
+  assert.equal(references.some(row=>row.ref.type === "video"),false);
+  assert.equal(find(tree,node=>node.type === h.exports.CheckinCard).length,0);
+  assert.ok(references.some(row=>row.path === "stops.0.checkin_id" && row.ref.revision === null));
+  button(tree,"我已阅读本站介绍").props.onClick();
+  tree = h.render("TourPlayer",props);
+  assert.ok(references.some(row=>row.path === "stops.0.video_id" && row.ref.revision === null));
+  assert.equal(find(tree,node=>node.type === h.exports.MediaView).length,0);
+  assert.equal(h.persisted.size,0);
+});
+
+test("historical resources retain original array offsets and repeated-stop identity", () => {
+  const h = harness(publicCode, { onNarrate() { throw new Error("history must not request current narration"); }, onNavigateStop() { throw new Error("history must not start public navigation"); } }), references = [];
+  const entry = {point_id:"p1",legacy_media_compat:true,video_id:"video",prompt_timing:"manual",segments:[{
+    id:"first",text:"原文",main_view:{type:"floor",id:"floor",revision:4,section_id:"east"},
+    resources:[{type:"video",id:"video",revision:2},{type:"image",id:"image",revision:3}],
+  }]};
+  const item = {...tour,content:{...tour.content,cover_image_id:"cover",cover_image_revision:7,stops:[entry,{...entry,segments:[{...entry.segments[0],id:"second"}]}]}};
+  const props = {item,items:[],preview:true,position:{revision:item.revision,stopIndex:1,segmentId:"second"},onSelectPoint(){},renderPreviewResource:(ref,point,path)=>{references.push({ref,point,path});return null;}};
+  button(h.render("TourPlayer",props),"开始导览").props.onClick();
+  const tree = h.render("TourPlayer",props);
+  assert.equal(button(tree,"听小开讲解"),undefined);
+  assert.equal(button(tree,"从上一站导航到本站"),undefined);
+  assert.ok(references.some(row=>row.path === "cover_image_id" && row.ref.revision === 7));
+  assert.ok(references.some(row=>row.path === "stops.1.segments.0.main_view" && row.ref.section_id === "east"));
+  assert.ok(references.some(row=>row.path === "stops.1.segments.0.resources.1" && row.ref.id === "image"));
+  assert.equal(references.some(row=>row.path === "stops.1.segments.0.resources.0"),false);
+  assert.equal(h.persisted.size,0);
+});
+
+test("public player cannot activate a supplied private history renderer", () => {
+  const h = harness(publicCode), calls = [];
+  const props = {item:tour,items:[media],onSelectPoint(){},renderPreviewResource:()=>calls.push("unexpected")};
+  button(h.render("TourPlayer",props),"开始导览").props.onClick();
+  h.render("TourPlayer",props);
+  assert.deepEqual(calls,[]);
+  assert.ok(h.persisted.size);
 });

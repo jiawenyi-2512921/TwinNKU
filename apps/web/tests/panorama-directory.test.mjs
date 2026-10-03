@@ -82,6 +82,12 @@ test("VR filters use actual categories, campus, safe URLs and source scene IDs",
   assert.equal(helpers.panoramaScene(items[0].url), "scene_1");
 });
 
+test("approved directory order precedes names and observation text remains searchable", () => {
+  const items=[row(1,{title:"A",sort_order:9}),row(2,{title:"Z",sort_order:1,observation_prompt:"留意水边标记"})];
+  assert.deepEqual(helpers.findPanoramas(items,"nku-jinnan","","all").map((item)=>item.id),["vr-2","vr-1"]);
+  assert.deepEqual(helpers.findPanoramas(items,"nku-jinnan","水边标记","all").map((item)=>item.id),["vr-2"]);
+});
+
 test("VR reads every page and rejects incomplete, duplicate and mixed-campus catalogs", async () => {
   const data = Array.from({ length: 135 }, (_, i) => row(i));
   const pages = [];
@@ -173,6 +179,8 @@ function component() {
           },
         };
       if (name.endsWith("/Icon")) return { Icon: () => null };
+      if (name.endsWith("/VRPresentation")) return { VRPresentation: () => null };
+      if (name.endsWith("/audioOwner")) return { pauseTour() {} };
       if (name.endsWith("/PointDetails"))
         return {
           categoryLabels: {

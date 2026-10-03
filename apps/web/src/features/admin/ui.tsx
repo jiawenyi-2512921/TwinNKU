@@ -1,19 +1,26 @@
 import { useEffect, useState } from "react";
 import { message, request, type Page, type Result } from "./api";
-export function useResource<T>(path: string | null, revision = 0) {
+export function useResource<T>(
+  path: string | null,
+  revision = 0,
+  loader?: (signal: AbortSignal) => Promise<Result<T>>,
+) {
   const [data, setData] = useState<Result<T> | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     setData(null);
     setError("");
-    if (!path) {
+    if (!path && !loader) {
       setLoading(false);
       return;
     }
     const abort = new AbortController();
     setLoading(true);
-    request<T>(path, "GET", undefined, abort.signal)
+    (loader
+      ? loader(abort.signal)
+      : request<T>(path!, "GET", undefined, abort.signal)
+    )
       .then((result) => {
         if (!abort.signal.aborted) setData(result);
       })

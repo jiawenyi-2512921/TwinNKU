@@ -5,6 +5,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
 import { appendMapLabelCorrections } from "../src/features/map/labelCorrections.ts";
+import * as mapDefaults from "../src/features/map/mapDefaults.ts";
 const compile = (file) =>
   ts.transpileModule(readFileSync(new URL(file, import.meta.url), "utf8"), {
     compilerOptions: {
@@ -364,7 +365,10 @@ test("road revision updates cancel pending routes and same-point routes stay dis
     h.dispose();
   }
 });
-function mapHarness() {
+function mapHarness(
+  viewport = null,
+  { reducedMotion = false, center = { lat: -1, lng: 1 } } = {},
+) {
   const h = hooks(),
     polygons = [],
     picks = [],
@@ -374,7 +378,14 @@ function mapHarness() {
     fits = [],
     groups = [],
     tileWatches = [],
-    lifecycle = [];
+    lifecycle = [],
+    views = [],
+    tileOptions = [],
+    zoomBounds = [],
+    mapEvents = {},
+    viewportStorage = new Map();
+  if (viewport)
+    viewportStorage.set("twinnku:map-view:map:3", JSON.stringify(viewport));
   const element = () => ({
     attributes: {},
     listeners: {},
@@ -412,10 +423,32 @@ function mapHarness() {
       options.push(config);
       return {
         setMaxBounds() {},
+        on(event, callback) {
+          mapEvents[event] = callback;
+        },
+        setView(...args) {
+          views.push(args);
+        },
+        setMinZoom(value) {
+          zoomBounds.push(["min", value]);
+        },
+        setMaxZoom(value) {
+          zoomBounds.push(["max", value]);
+        },
+        getCenter() {
+          return center;
+        },
+        getZoom() {
+          return 0;
+        },
         once() {},
         off() {},
-        getBounds() { return { contains: () => false }; },
-        whenReady(callback) { callback(); },
+        getBounds() {
+          return { contains: () => false };
+        },
+        whenReady(callback) {
+          callback();
+        },
         fitBounds(...args) {
           fits.push(args);
         },
@@ -428,7 +461,8 @@ function mapHarness() {
         },
       };
     },
-    tileLayer() {
+    tileLayer(_url, config) {
+      tileOptions.push(config);
       return {
         ...layer(),
         addTo() {
@@ -476,6 +510,9 @@ function mapHarness() {
   const props = {
     info: {
       ...map,
+      title: "测试第二校区",
+      width_px: 800,
+      height_px: 600,
       tiles: {
         min_zoom: -2,
         max_native_zoom: 3,
@@ -522,13 +559,20 @@ function mapHarness() {
     window: {
       setTimeout,
       clearTimeout,
-      matchMedia: () => ({ matches: false }),
+      matchMedia: (query) => ({
+        matches: reducedMotion && query.includes("prefers-reduced-motion"),
+      }),
+    },
+    sessionStorage: {
+      getItem: (key) => viewportStorage.get(key) ?? null,
+      setItem: (key, value) => viewportStorage.set(key, value),
     },
     require(name) {
       if (name === "react") return h.react;
       if (name === "react/jsx-runtime") return jsx;
       if (name === "leaflet") return leaflet;
       if (name === "./labelCorrections") return { appendMapLabelCorrections };
+      if (name === "./mapDefaults") return mapDefaults;
       if (name === "./tileLoad")
         return {
           watchMapTiles(_layer, _map, onChange) {
@@ -565,6 +609,11 @@ function mapHarness() {
     groups,
     tileWatches,
     lifecycle,
+    views,
+    tileOptions,
+    zoomBounds,
+    mapEvents,
+    viewportStorage,
     get cancelled() {
       return cancelled;
     },
@@ -590,6 +639,7 @@ test("map picks never open details; keyboard, Escape and endpoint badges work wi
     assert.equal(h.markers[0].config.icon.html.textContent, "起点");
     assert.equal(h.markers[1].config.icon.html.textContent, "终点");
     const canvas = walk(tree, (node) => node.props?.role === "region")[0];
+    assert.ok(canvas.props["aria-label"].startsWith("测试第二校区"));
     assert.ok(canvas.props["aria-label"].includes("双指缩放"));
     canvas.props.onKeyDown({
       key: "Escape",
@@ -690,4 +740,282 @@ test("omitted optional array props are stable and tile retry does not recreate t
     h.dispose();
   }
   assert.deepEqual(h.lifecycle.slice(-2), ["tiles released", "map removed"]);
+});
+
+test("map viewport resumes only matching dimensions and a bounded zoom, using native pixel coordinates", () => {
+  const h = mapHarness({ x: 100, y: 200, zoom: 1, width: 800, height: 600 });
+  h.props.routePickMode = null;
+  try {
+    h.render();
+    assert.equal(h.views.length, 1);
+    assert.deepEqual(h.views[0][0], [100, 200]);
+    h.mapEvents.moveend();
+    const saved = JSON.parse(h.viewportStorage.get("twinnku:map-view:map:3"));
+    assert.deepEqual(saved, { x: 8, y: 8, zoom: 0, width: 800, height: 600 });
+  } finally {
+    h.dispose();
+  }
+  for (const changed of [
+    { x: -1, y: 200, zoom: 1, width: 800, height: 600 },
+    { x: 100, y: 200, zoom: 9, width: 800, height: 600 },
+    { x: 100, y: 200, zoom: 1, width: 801, height: 600 },
+  ]) {
+    const invalid = mapHarness(changed);
+    try {
+      invalid.render();
+      assert.equal(invalid.views.length, 0);
+    } finally {
+      invalid.dispose();
+    }
+  }
+});
+
+test("private map preview neither resumes nor rewrites public viewport memory", () => {
+  const saved = { x: 100, y: 200, zoom: 1, width: 800, height: 600 };
+  const h = mapHarness(saved);
+  h.props.previewOnly = true;
+  h.props.routePickMode = null;
+  try {
+    h.render();
+    assert.equal(h.views.length, 0);
+    h.mapEvents.moveend();
+    assert.deepEqual(
+      JSON.parse(h.viewportStorage.get("twinnku:map-view:map:3")),
+      saved,
+    );
+    h.polygons[0].handlers.click();
+    assert.deepEqual(
+      h.details,
+      ["a"],
+      "real published geometry remains interactive",
+    );
+  } finally {
+    h.dispose();
+  }
+});
+
+test("route overview location dots use actual anchors only and do not change the map labels or click geometry", () => {
+  const h = mapHarness();
+  h.props.routePickMode = null;
+  h.props.routeStartId = null;
+  h.props.routeEndId = null;
+  h.props.highlightedPointIds = ["a", "missing"];
+  h.props.showLabels = false;
+  try {
+    h.render();
+    assert.equal(h.markers.length, 1);
+    assert.deepEqual(h.markers[0].point, [0, 2]);
+    assert.equal(h.markers[0].config.icon.html.className, "map-location-dot");
+    assert.equal(h.polygons[0].config.opacity, 1);
+    assert.equal(h.polygons[1].config.opacity, 0);
+    h.polygons[0].handlers.click();
+    assert.deepEqual(h.details, ["a"]);
+  } finally {
+    h.dispose();
+  }
+});
+
+test("hiding supplementary map labels keeps the actual geometry interactive and repeated locate is explicit", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const h = mapHarness();
+  h.props.routePickMode = null;
+  h.props.showLabels = false;
+  h.props.selectedId = "a";
+  try {
+    h.render();
+    t.mock.timers.tick(30);
+    h.polygons[0].handlers.click();
+    assert.deepEqual(h.details, ["a"]);
+    const fits = h.fits.length;
+    h.render();
+    t.mock.timers.tick(30);
+    assert.equal(h.fits.length, fits);
+    h.props.focusToken = 1;
+    h.render();
+    t.mock.timers.tick(30);
+    assert.equal(h.fits.length, fits + 1);
+  } finally {
+    h.dispose();
+  }
+});
+
+const defaultCamera = {
+  map_id: "map",
+  map_revision: 3,
+  center: { x: 210, y: 180 },
+  min_zoom: -3,
+  zoom: -1.25,
+  max_zoom: 4,
+};
+test("reviewed camera uses pixels and negative zoom while the tile source stays at its real native minimum", () => {
+  const h = mapHarness();
+  h.props.routePickMode = null;
+  h.props.info.tiles.min_zoom = 0;
+  h.props.defaultView = defaultCamera;
+  try {
+    h.render();
+    assert.equal(h.options[0].minZoom, -3);
+    assert.equal(h.options[0].maxZoom, 4);
+    assert.equal(h.tileOptions[0].minZoom, -8);
+    assert.equal(h.tileOptions[0].minNativeZoom, 0);
+    assert.equal(h.tileOptions[0].maxNativeZoom, 3);
+    assert.deepEqual(h.views[0][0], [210, 180]);
+    assert.equal(h.views[0][1], -1.25);
+    assert.equal(h.views[0][2].animate, false);
+    assert.equal(
+      h.viewportStorage.size,
+      0,
+      "initial default is not a visitor drag record",
+    );
+    h.props.defaultView = { ...defaultCamera, center: { x: 400, y: 300 } };
+    h.render();
+    assert.equal(
+      h.views.length,
+      1,
+      "later policy refresh cannot reposition the current map",
+    );
+    assert.equal(h.options.length, 1);
+  } finally {
+    h.dispose();
+  }
+});
+
+test("late first defaults initialize only an untouched map; manual movement and valid visitor memory take priority", () => {
+  for (const protectedBy of [null, "move", "memory"]) {
+    const h = mapHarness(
+      protectedBy === "memory"
+        ? { x: 50, y: 60, zoom: 1, width: 800, height: 600 }
+        : null,
+    );
+    h.props.routePickMode = null;
+    h.props.defaultsReady = false;
+    try {
+      h.render();
+      if (protectedBy === "move") h.mapEvents.movestart();
+      const before = h.views.length;
+      h.props.defaultsReady = true;
+      h.props.defaultView = defaultCamera;
+      h.render();
+      assert.equal(h.views.length, before + (protectedBy ? 0 : 1));
+      assert.equal(h.zoomBounds.length, protectedBy ? 0 : 2);
+      h.props.defaultView = { ...defaultCamera, zoom: 1 };
+      h.render();
+      assert.equal(h.views.length, before + (protectedBy ? 0 : 1));
+    } finally {
+      h.dispose();
+    }
+  }
+});
+
+test("invalid or different-version default cameras fit the actual map and do not reuse foreign pixels", () => {
+  for (const camera of [
+    { ...defaultCamera, map_id: "other-map" },
+    { ...defaultCamera, map_revision: 2 },
+    { ...defaultCamera, center: { x: 801, y: 20 } },
+    { ...defaultCamera, zoom: Number.NaN },
+    { ...defaultCamera, max_zoom: 5 },
+    { ...defaultCamera, min_zoom: 2 },
+  ]) {
+    const h = mapHarness();
+    h.props.routePickMode = null;
+    h.props.defaultView = camera;
+    try {
+      h.render();
+      assert.equal(h.views.length, 0);
+      assert.equal(h.fits.length, 1);
+    } finally {
+      h.dispose();
+    }
+  }
+});
+
+test("private current viewport capture uses native pixels without reading or writing visitor memory", () => {
+  const saved = { x: 100, y: 200, zoom: 1, width: 800, height: 600 },
+    h = mapHarness(saved),
+    captures = [];
+  h.props.previewOnly = true;
+  h.props.routePickMode = null;
+  h.props.onViewportChange = (camera) => captures.push(camera);
+  try {
+    h.render();
+    h.mapEvents.moveend();
+    assert.equal(h.views.length, 0);
+    assert.deepEqual(JSON.parse(JSON.stringify(captures[0])), {
+      map_id: "map",
+      map_revision: 3,
+      center: { x: 8, y: 8 },
+      zoom: 0,
+    });
+    assert.deepEqual(
+      JSON.parse(h.viewportStorage.get("twinnku:map-view:map:3")),
+      saved,
+    );
+  } finally {
+    h.dispose();
+  }
+});
+
+test("an out-of-image viewport is reported for editor validation but cannot replace valid visitor memory", () => {
+  const saved = { x: 100, y: 200, zoom: 1, width: 800, height: 600 };
+  const h = mapHarness(saved, { center: { lat: -1, lng: -1 } }),
+    captures = [];
+  h.props.routePickMode = null;
+  h.props.onViewportChange = (viewport) => captures.push(viewport);
+  try {
+    h.render();
+    h.mapEvents.moveend();
+    assert.equal(captures.at(-1).center.x, -8);
+    assert.equal(captures.at(-1).map_revision, 3);
+    assert.deepEqual(
+      JSON.parse(h.viewportStorage.get("twinnku:map-view:map:3")),
+      saved,
+    );
+  } finally {
+    h.dispose();
+  }
+});
+
+test("hiding optional point regions cannot hide base tiles or necessary route endpoints and selection targets", () => {
+  const h = mapHarness();
+  h.props.showRegions = false;
+  try {
+    h.render();
+    assert.ok(h.lifecycle.includes("tiles added"));
+    assert.equal(h.markers.length, 2);
+    assert.deepEqual(
+      h.polygons.map((polygon) => polygon.path.attributes["aria-label"]),
+      ["起点楼，设为起点", "终点楼，设为起点", "备用楼，设为起点"],
+    );
+    h.polygons[0].handlers.click();
+    assert.deepEqual(h.picks, ["a"]);
+  } finally {
+    h.dispose();
+  }
+});
+
+test("instant focus and reduced motion override short animation without policy refresh relocating the map", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  for (const [effect, reducedMotion, animate] of [
+    ["instant", false, false],
+    ["short", true, false],
+    ["short", false, true],
+  ]) {
+    const h = mapHarness(null, { reducedMotion });
+    h.props.routePickMode = null;
+    h.props.selectedId = "a";
+    h.props.focusEffect = effect;
+    try {
+      h.render();
+      t.mock.timers.tick(30);
+      assert.equal(h.fits.at(-1)[1].animate, animate);
+      assert.equal(h.fits.at(-1)[1].duration, 0.25);
+      const before = h.fits.length;
+      h.props.focusEffect = effect === "instant" ? "short" : "instant";
+      h.render();
+      t.mock.timers.tick(30);
+      assert.equal(h.fits.length, before);
+    } finally {
+      h.dispose();
+    }
+  }
 });

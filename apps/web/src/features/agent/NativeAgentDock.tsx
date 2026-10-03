@@ -49,11 +49,14 @@ type Props = {
   request: AgentRequest | null;
   autoActions: boolean;
   publicEnabled?: boolean;
+  welcomeText?: string;
+  recommendedQuestions?: string[];
+  defaultMinimized?: boolean;
   pointName: string;
   mediaActive?: boolean;
   onAction: (a: GuideAction, options?: GuideActionOptions) => boolean;
   onCancelAction?: () => void;
-  onNavigate: () => void;
+  onNavigate?: () => void;
 };
 export function NativeAgentDock({
   current,
@@ -65,10 +68,13 @@ export function NativeAgentDock({
   autoActions,
   publicEnabled = false,
   mediaActive = false,
+  welcomeText,
+  recommendedQuestions,
+  defaultMinimized = false,
 }: Props) {
   const [open, setOpen] = useState(false),
     [expanded, setExpanded] = useState(false);
-  const [minimized, setMinimized] = useState(false);
+  const [minimized, setMinimized] = useState(defaultMinimized);
   const [checkingSession, setCheckingSession] = useState(false);
   const [authRefresh, setAuthRefresh] = useState(0);
   const [csrf, setCsrf] = useState(""),
@@ -311,10 +317,9 @@ export function NativeAgentDock({
     actionGeneration.current++;
     setActionStatus("");
     onCancelAction?.();
-    if (pendingVr.current || automaticPending.current) {
-      actionAbort.current?.abort();
-      closePendingVr();
-    }
+    chatAbort.current?.abort();
+    actionAbort.current?.abort();
+    closePendingVr();
     panelOpen.current = false;
     setOpen(false);
     setExpanded(false);
@@ -487,6 +492,7 @@ export function NativeAgentDock({
     setError("");
     const controller = new AbortController();
     const generation = authGeneration.current;
+    const actionEpoch = actionGeneration.current;
     actionAbort.current = controller;
     let reservation: { tab: Window | null } | null = null;
     let navigated = false;
@@ -509,6 +515,7 @@ export function NativeAgentDock({
         !mounted.current ||
         controller.signal.aborted ||
         generation !== authGeneration.current ||
+        actionEpoch !== actionGeneration.current ||
         (automatic && !panelOpen.current)
       )
         return null;
@@ -533,7 +540,8 @@ export function NativeAgentDock({
         if (
           !mounted.current ||
           controller.signal.aborted ||
-          generation !== authGeneration.current
+          generation !== authGeneration.current ||
+          actionEpoch !== actionGeneration.current
         )
           return null;
         if (latest.current?.revision !== before) {
@@ -1221,15 +1229,17 @@ export function NativeAgentDock({
                 <button className="primary-button" disabled={busy}>
                   {busy ? "正在连接…" : "开始对话"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    collapse();
-                    onNavigate();
-                  }}
-                >
-                  直接选择起终点导航
-                </button>
+                {onNavigate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      collapse();
+                      onNavigate();
+                    }}
+                  >
+                    直接选择起终点导航
+                  </button>
+                )}
               </form>
             )
           ) : (
@@ -1242,9 +1252,24 @@ export function NativeAgentDock({
                 {!turns.length && (
                   <div className="native-welcome">
                     <h3>你想去哪里？</h3>
-                    <p>可以询问地点、楼层、全景，或说明从哪里出发。</p>
-                    {["帮我定位图书馆", "我想去周恩来雕像"].map((q) => (
-                      <button key={q} onClick={() => setQuery(q)}>
+                    <p>
+                      {welcomeText ||
+                        "可以询问地点、楼层、全景，或说明从哪里出发。"}
+                    </p>
+                    {(
+                      recommendedQuestions ?? [
+                        "帮我定位图书馆",
+                        "我想去周恩来雕像",
+                      ]
+                    ).map((q) => (
+                      <button
+                        key={q}
+                        disabled={busy || !current}
+                        onClick={() => {
+                          setQuery(q);
+                          void send(q);
+                        }}
+                      >
                         {q}
                       </button>
                     ))}
@@ -1343,15 +1368,17 @@ export function NativeAgentDock({
                 </div>
               </form>
               <div className="native-toolbar">
-                <button
-                  type="button"
-                  onClick={() => {
-                    collapse();
-                    onNavigate();
-                  }}
-                >
-                  地图选点导航
-                </button>
+                {onNavigate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      collapse();
+                      onNavigate();
+                    }}
+                  >
+                    地图选点导航
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {

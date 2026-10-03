@@ -8,6 +8,7 @@ import {
   type StaffUser,
 } from "./api";
 import { Empty, ErrorBox, Pager, useResource } from "./ui";
+import { ConfigurationPermissions } from "./ConfigurationPermissions";
 type Form = {
   username: string;
   display_name: string;
@@ -471,6 +472,13 @@ export function Accounts({
               </button>
             </fieldset>
           </form>
+        )}
+        {target && (
+          <ConfigurationPermissions
+            key={target.id}
+            user={target}
+            campuses={campuses}
+          />
         )}
       </div>
       {!list.loading && list.data?.data.length === 0 && (

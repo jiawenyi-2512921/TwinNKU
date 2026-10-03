@@ -1,0 +1,78 @@
+.ad-issues {
+  padding: 24px;
+  margin: 24px 0;
+}
+.ad-issues p {
+  line-height: 1.65;
+}
+.ad-issues-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+}
+.ad-issues-filters label {
+  display: grid;
+  gap: 6px;
+}
+.ad-issues-list {
+  padding: 0;
+  list-style: none;
+}
+.ad-issues-list li {
+  padding: 18px 0;
+  border-top: 1px solid #e7deec;
+}
+.ad-issues-list small {
+  display: block;
+  line-height: 1.6;
+  color: #65586d;
+}
+.ad-issue-level {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #f2edf7;
+  font-size: 12px;
+}
+.ad-issue-level.error {
+  background: #fff0ef;
+  color: #9b372d;
+}
+.ad-issue-level.warning {
+  background: #fff8eb;
+  color: #825400;
+}
+.ad-issue-actions,
+.ad-issues-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+.ad-issues button {
+  min-height: 40px;
+}
+.ad-issue-context {
+  padding: 18px;
+  margin-bottom: 20px;
+}
+.ad-segment-card[data-issue-focus] {
+  outline: 3px solid #795194;
+  outline-offset: 3px;
+}
+.ad-narration-list [data-issue-focus] {
+  outline: 3px solid #795194;
+  outline-offset: 3px;
+  padding: 8px;
+}
+@media (max-width: 700px) {
+  .ad-issues {
+    padding: 16px;
+  }
+  .ad-issues .ad-card-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}

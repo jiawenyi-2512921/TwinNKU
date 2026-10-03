@@ -15,6 +15,15 @@
   flex: 1;
   min-width: 180px;
 }
+.tour-narrator .tour-character {
+  width: 54px;
+  height: 61px;
+  padding: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
 .tour-narrator p {
   margin: 0.4rem 0;
   font-size: 0.9rem;

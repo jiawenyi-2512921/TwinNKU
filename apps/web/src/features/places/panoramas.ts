@@ -37,14 +37,15 @@ export function findPanoramas(
         externalPanoramaUrl(item.url) &&
         (group === "all" || panoramaGroup(item.point_category) === group) &&
         (!term ||
-          [item.title, item.point_name, panoramaScene(item.url) ?? ""].some(
+          [item.title, item.point_name, item.description ?? "", item.observation_prompt ?? "", panoramaScene(item.url) ?? ""].some(
             (s) => s.normalize("NFKC").toLocaleLowerCase().includes(term),
           )),
     )
     .sort(
       (a, b) =>
-        a.point_name.localeCompare(b.point_name, "zh-CN") ||
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
         a.title.localeCompare(b.title, "zh-CN") ||
+        a.point_name.localeCompare(b.point_name, "zh-CN") ||
         a.id.localeCompare(b.id),
     );
 }
