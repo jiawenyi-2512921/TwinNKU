@@ -177,6 +177,19 @@ export function visitStorageKey(tourId: string, revision: number) {
   return `twinnku:visit:v2:${tourId}:${revision}`;
 }
 
+/** A public link carries position only; it must not erase this device's record. */
+export function restoreVisitContext(linked: VisitSession | null, stored: VisitSession | null): VisitSession | null {
+  const current = normalizeVisit(linked), saved = normalizeVisit(stored);
+  if (!current) return saved;
+  if (!saved || saved.tourId !== current.tourId || saved.position.revision !== current.position.revision) return current;
+  const samePosition = saved.position.stopIndex === current.position.stopIndex && saved.position.segmentId === current.position.segmentId;
+  const result = { ...saved, ...current };
+  delete result.audio;
+  const audio = current.audio ?? (samePosition ? saved.audio : undefined);
+  if (audio) result.audio = audio;
+  return result;
+}
+
 export function loadVisit(
   tourId: string,
   revision?: number,

@@ -32,25 +32,29 @@
 .experience-video-versions small {
   font-size: 14px;
 }
-.experience-panel button {
+.experience-panel button,
+.experience-tour button {
   font: inherit;
   cursor: pointer;
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 13px;
   border: 1px solid #d8e2df;
   background: #fff;
   color: #214a43;
   border-radius: 10px;
 }
-.experience-panel button:hover {
+.experience-panel button:hover,
+.experience-tour button:hover {
   background: #f2f8f5;
 }
-.experience-panel button:disabled {
+.experience-panel button:disabled,
+.experience-tour button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 .experience-panel button:focus-visible,
 .experience-panel a:focus-visible,
+.experience-tour button:focus-visible,
 .ad-experience-workspace button:focus-visible {
   outline: 3px solid #137c64;
   outline-offset: 3px;

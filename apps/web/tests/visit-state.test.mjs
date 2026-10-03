@@ -169,6 +169,45 @@ test("local recovery rejects a different tour identity and storage failures rema
   }
 });
 
+test("a position-only public link retains this device's same-revision completed stops, notes and collections", () => {
+  const saved = {
+    ...session,
+    completed: [0],
+    skipped: [2],
+    arrived: [0],
+    collections: [{ stopIndex: 0, segmentId: "opening" }],
+    notes: { opening: "本设备测试笔记" },
+  };
+  const linked = visit.readVisit(visit.visitLink("https://guide.example/", session));
+  assert.equal(linked.completed, undefined);
+  const recovered = visit.restoreVisitContext(linked, saved);
+  assert.deepEqual(recovered, saved);
+  assert.equal(visit.visitLink("https://guide.example/", recovered).includes("笔记"), false);
+});
+
+test("opening a different route position retains progress but never carries the previous segment's audio bookmark", () => {
+  const saved = { ...session, completed: [0] };
+  for (const position of [
+    { revision: 4, stopIndex: 0, segmentId: "opening" },
+    { revision: 4, stopIndex: 1, segmentId: "another-segment" },
+  ]) {
+    const recovered = visit.restoreVisitContext({ tourId, position, mode: "online" }, saved);
+    assert.deepEqual(recovered.completed, [0]);
+    assert.deepEqual(recovered.position, position);
+    assert.equal(recovered.mode, "online");
+    assert.equal(recovered.audio, undefined);
+  }
+});
+
+test("local recovery never imports completed stops from another tour or published revision", () => {
+  const saved = { ...session, completed: [0], notes: { detail: "旧版测试笔记" } };
+  for (const linked of [
+    { ...session, tourId: anotherTour },
+    { ...session, position: { ...session.position, revision: 5 } },
+  ]) assert.deepEqual(visit.restoreVisitContext(linked, saved), linked);
+  assert.deepEqual(visit.restoreVisitContext({ ...session, completed: [] }, saved).completed, []);
+});
+
 test("legacy progress migrates only after durable v2 storage and revisions retain independent private records", () => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, "localStorage"),
     stored = new Map();

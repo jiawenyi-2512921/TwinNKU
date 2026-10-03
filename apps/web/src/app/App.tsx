@@ -109,6 +109,7 @@ import {
   readVisit,
   loadVisit,
   saveVisit,
+  restoreVisitContext,
   visitLink,
   type VisitSession,
   type VisitMode,
@@ -315,7 +316,7 @@ export function App() {
     const old = restart
       ? null
       : linked?.tourId === tour.id && linked.position.revision === tour.revision
-        ? linked
+        ? restoreVisitContext(linked, loadVisit(tour.id, tour.revision))
         : loadVisit(tour.id, tour.revision);
     const index = Math.max(
       0,
@@ -1978,6 +1979,17 @@ export function App() {
               }}
             />
           )}
+          {!selected &&
+            !showList &&
+            !navigation &&
+            !experience &&
+            catalog?.map && (
+              <div className="map-hint">
+                <Icon name="pin" size={17} />
+                <span>点击图上地点，探索校园故事</span>
+              </div>
+            )}
+        </section>
           {experience && needsMap && !handoff && !awaitingVersion && (
             <aside
               className="experience-sheet"
@@ -2210,17 +2222,6 @@ export function App() {
               )}
             </aside>
           )}
-          {!selected &&
-            !showList &&
-            !navigation &&
-            !experience &&
-            catalog?.map && (
-              <div className="map-hint">
-                <Icon name="pin" size={17} />
-                <span>点击图上地点，探索校园故事</span>
-              </div>
-            )}
-        </section>
         <PanoramaOverlay />
         {(resourceLayer || resourcePending) && (
           <aside

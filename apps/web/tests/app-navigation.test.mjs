@@ -611,6 +611,39 @@ test("a QR visit waits for published content and explicit handoff, preserving po
   testApp.dispose();
 });
 
+test("completing a stop and refreshing its public URL retains completed stops after explicit resume", async () => {
+  const first = app(
+    `https://guide.example/visit/${tourId}?experience=${tourId}&revision=4&stop=0&segment=opening&mode=online`,
+    { experiences: [publishedTour] },
+  );
+  first.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  clickButton(first.render(), "继续参观").props.onClick();
+  first.render();
+  first.node("VisitTransport").props.onComplete({ revision: 4, stopIndex: 1, segmentId: "detail" });
+  first.render();
+  assert.deepEqual(Array.from(first.node("ExperiencePanel").props.progress.completed), [0]);
+  assert.equal(first.node("ExperiencePanel").props.position.stopIndex, 1);
+  const savedHref = first.browser.location.href;
+  const savedStorage = [...first.storage.entries()];
+  first.dispose();
+
+  const refreshed = app(savedHref, { experiences: [publishedTour], storage: savedStorage });
+  refreshed.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  const handoff = refreshed.render();
+  assert.equal(refreshed.node("ExperiencePanel"), undefined);
+  clickButton(handoff, "继续参观").props.onClick();
+  refreshed.render();
+  const progress = refreshed.node("ExperiencePanel").props.progress;
+  assert.deepEqual(Array.from(progress.completed), [0]);
+  assert.equal(progress.index, 1);
+  assert.equal(progress.segmentId, "detail");
+  assert.equal(refreshed.node("TourNarrator").props.narration, null);
+  assert.deepEqual(JSON.parse(refreshed.storage.get(`twinnku:visit:v2:${tourId}:4`)).completed, [0]);
+  refreshed.dispose();
+});
+
 test("opening tour resources pauses narration while retaining its mounted component and route position", async () => {
   const { testApp } = await loadPublishedTour();
   const position = testApp.node("ExperiencePanel").props.position;
