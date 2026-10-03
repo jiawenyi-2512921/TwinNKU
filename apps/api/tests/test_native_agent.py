@@ -221,7 +221,11 @@ def test_upstream_timeout_log_uses_same_server_request_id_as_error_envelope(
 
 
 def test_admin_runtime_controls_are_enforced(client, db):
-    _, m, points, _ = setup_roads(client, db)
+    from test_configurations import create as create_configuration
+    from test_configurations import publish as publish_configuration
+    from test_configurations import save as save_configuration
+
+    users, m, points, _ = setup_roads(client, db)
     enable(
         client,
         lambda: json.dumps(
@@ -233,27 +237,20 @@ def test_admin_runtime_controls_are_enforced(client, db):
     login(client, "editor")
     assert client.get("/api/v1/admin/guide-settings").status_code == 403
     login(client, "admin")
-    state = client.get("/api/v1/admin/guide-settings").json()["data"]
-    policy = {**state["policy"], "allowed_actions": []}
-    assert (
-        client.put(
-            "/api/v1/admin/guide-settings",
-            json={"expected_revision": 0, "policy": policy, "note": "暂时关闭动作"},
-        ).status_code
-        == 200
-    )
+    for role, permission in (("admin", "runtime.edit"), ("reviewer", "runtime.review")):
+        response = client.put(
+            f"/api/v1/admin/configuration-permissions/{users[role].id}/{permission}",
+            json={"scope": "global", "enabled": True, "note": "独立授权运行策略维护"},
+        )
+        assert response.status_code == 200, response.text
+    policy = {"kind": "runtime", "allowed_actions": []}
+    runtime_policy = publish_configuration(client, create_configuration(client, "runtime", content=policy))
     client.headers["x-csrf-token"] = agent_csrf
     result = client.post("/api/v1/agent/chat", json=turn(m, points[0]))
     assert result.status_code == 200 and not result.json()["data"]["actions"]
     login(client, "admin")
     policy["chat_enabled"] = False
-    assert (
-        client.put(
-            "/api/v1/admin/guide-settings",
-            json={"expected_revision": 1, "policy": policy, "note": "暂停服务"},
-        ).status_code
-        == 200
-    )
+    publish_configuration(client, save_configuration(client, runtime_policy, policy))
     assert not client.get("/api/v1/agent/web-config").json()["data"]["enabled"]
     client.headers["x-csrf-token"] = agent_csrf
     assert client.post("/api/v1/agent/chat", json=turn(m, points[0])).status_code == 503

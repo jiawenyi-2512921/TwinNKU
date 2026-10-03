@@ -134,6 +134,7 @@ def system_status(request: Request, db: DB):
         request,
         SystemStatus(
             version=request.app.state.settings.app_version,
+            environment="practice" if request.app.state.settings.practice_mode else "standard",
             capabilities=Capabilities(
                 chat=request.app.state.settings.api_agent_configured and guide_policy.chat_enabled,
                 routing=has_routes,

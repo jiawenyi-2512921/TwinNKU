@@ -22,13 +22,13 @@ IMPLEMENTED = {"x-implementation-status": "implemented", "x-module": "M04", "x-a
 )
 def web_config(request: Request, db: DB):
     from app.modules.guide_settings import policy_for
-    policy = policy_for(db)
+    policy = policy_for(db, request.app.state.settings)
     settings = request.app.state.settings
     return envelope(
         request,
         AgentWebConfig(
             enabled=settings.api_agent_configured and policy.chat_enabled,
-            public_enabled=settings.agent_public_enabled,
+            public_enabled=settings.agent_public_enabled and policy.chat_enabled,
             auto_actions=policy.auto_actions,
             provider="nk-genios-api",
             app_key=None,

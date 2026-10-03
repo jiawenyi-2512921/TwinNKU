@@ -247,7 +247,7 @@ async def test_duplicate_clip_shares_attempt_and_cancelled_waiter_is_cleaned(
     assert len(attempts) == 1
 
 
-def test_staff_draft_voice_remains_private_revision_scoped_and_revocable(
+def test_legacy_staff_preview_cannot_trigger_paid_synthesis(
     client, db, monkeypatch, tmp_path
 ):
     from test_admin import login, seed_staff
@@ -279,26 +279,12 @@ def test_staff_draft_voice_remains_private_revision_scoped_and_revocable(
         "segment_id": "draft-one",
     }
     prepared = client.post("/api/v1/admin/voice/prepare", json={"source": source})
-    assert prepared.status_code == 200, prepared.text
-    payload = {"permit": prepared.json()["data"]["permit"], "chunk_index": 0}
-    assert client.post("/api/v1/admin/voice/speech", json=payload).status_code == 200
-    assert all(not key.startswith("public:") for key in voice_module._AUDIO_CACHE)
-    saved = save(
-        client,
-        content(
-            point,
-            "tour",
-            stops=[
-                {
-                    "point_id": point.id,
-                    "segments": [{"id": "draft-one", "text": "更新后的测试讲解"}],
-                }
-            ],
-        ),
-        draft,
-    )
-    assert saved["revision"] > draft["revision"]
-    assert client.post("/api/v1/admin/voice/speech", json=payload).status_code == 409
-    assert len(calls) == 1
+    assert prepared.status_code == 410, prepared.text
+    assert prepared.json()["error"]["code"] == "DRAFT_SYNTHESIS_RETIRED"
+    payload = {"permit": "previously-issued-synthetic-permit", "chunk_index": 0}
+    result = client.post("/api/v1/admin/voice/speech", json=payload)
+    assert result.status_code == 410
+    assert result.json()["error"]["code"] == "DRAFT_SYNTHESIS_RETIRED"
+    assert not calls and not voice_module._AUDIO_CACHE
     client.cookies.clear()
     assert client.post("/api/v1/admin/voice/speech", json=payload).status_code == 401

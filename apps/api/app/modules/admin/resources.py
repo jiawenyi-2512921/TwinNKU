@@ -13,7 +13,7 @@ from typing import Literal
 from uuid import UUID, uuid4, uuid5
 
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from PIL import Image
 from sqlalchemy import func, select
 
@@ -42,12 +42,22 @@ from app.models import (
     FloorUploadRecord,
     MapRecord,
     PanoramaRecord,
+    PanoramaVerificationRecord,
     PointRecord,
     ResourceChangeRecord,
     now_utc,
 )
+from app.modules import content_control_service as control
 from app.modules.admin.router import STAFF, WRITE
-from app.modules.admin.security import Actor, audit, point_scope, require_point, utc
+from app.modules.admin.security import (
+    PERMISSIONS,
+    Actor,
+    audit,
+    point_scope,
+    require_point,
+    require_recent_mfa,
+    utc,
+)
 from app.modules.admin.service import conflict
 from app.modules.floors.import_bundle import (
     MAX_BYTES,
@@ -59,6 +69,18 @@ from app.modules.floors.import_bundle import (
     inspect_image,
 )
 from app.modules.uploads import inspect_upload, reserve_copy, storage_guard, upload_slot
+from app.modules.vr import (
+    StaffVRCheck,
+    StaffVRChecks,
+    VRCheckSave,
+    check_fingerprint,
+    evidence_source,
+    latest_manual_checks,
+    private_check,
+    public_checks,
+    public_panorama,
+    validate_cover,
+)
 
 router = APIRouter(tags=["resources"])
 ACTIVE = {"draft", "in_review", "rejected"}
@@ -70,14 +92,19 @@ def published_content(record):
             label=record.label,
             ordinal=record.ordinal,
             attribution=record.attribution,
+            description=record.description,
             images=[
-                {"section": i.get("section", "main"), "section_label": i.get("section_label")}
+                {
+                    "section": i.get("section", "main"),
+                    "section_label": i.get("section_label"),
+                    "description": i.get("description", ""),
+                }
                 for i in record.images
                 if i["variant"] == "labeled"
             ],
         )
     if record:
-        return PanoramaContent(title=record.title, url=record.url, description=record.description)
+        return PanoramaContent.model_validate(record)
     return None
 
 
@@ -110,11 +137,34 @@ def resolved_images(db, root, point_id, content, current):
             path = root / ".uploads" / upload.id / meta["filename"]
             contributor = upload.uploaded_by
         else:
+            source_images = current.images if current else []
+            source_revision = image.source_revision or (current.revision if current else None)
+            if current and source_revision != current.revision:
+                from app.content_control_models import ContentVersionRecord
+
+                historical = db.scalars(
+                    select(ContentVersionRecord)
+                    .where(
+                        ContentVersionRecord.entity_type == "floor",
+                        ContentVersionRecord.entity_id == current.id,
+                        ContentVersionRecord.published_revision == source_revision,
+                    )
+                    .order_by(ContentVersionRecord.created_at.desc())
+                ).all()
+                source = next(
+                    (
+                        item.content.get("published")
+                        for item in historical
+                        if item.content.get("published") and item.content["published"].get("images")
+                    ),
+                    None,
+                )
+                source_images = source["images"] if source else []
             meta = (
                 next(
                     (
                         a
-                        for a in current.images
+                        for a in source_images
                         if a["variant"] == "labeled" and a.get("section", "main") == image.section
                     ),
                     None,
@@ -124,7 +174,7 @@ def resolved_images(db, root, point_id, content, current):
             )
             if not meta:
                 raise DomainError("IMAGE_REQUIRED", "新增楼层或分区需要上传标注图", 422)
-            path = root / current.id / str(current.revision) / meta["filename"]
+            path = root / current.id / str(source_revision) / meta["filename"]
             contributor = None
         suffix = "" if image.section == "main" else "-" + image.section
         extension = "png" if meta["media_type"] == "image/png" else "jpg"
@@ -132,11 +182,12 @@ def resolved_images(db, root, point_id, content, current):
             **{
                 k: v
                 for k, v in meta.items()
-                if k not in {"filename", "variant", "section", "section_label"}
+                if k not in {"filename", "variant", "section", "section_label", "description"}
             },
             variant="labeled",
             section=image.section,
             section_label=image.section_label,
+            description=image.description,
             filename=f"labeled{suffix}.{extension}",
         )
         result.append((asset, contained(path, root), contributor))
@@ -217,6 +268,7 @@ def validate_candidate(db, point, resource_id, content, current, root):
         images = resolved_images(db, root, point.id, content, current)
         check_images(images)
         return images
+    validate_cover(db, point.id, content)
     return []
 
 
@@ -419,13 +471,26 @@ def get_resource(resource_id: UUID, request: Request, actor: Actor, db: DB):
     )
 
 
-def save_resource(point_id, resource_id, payload, request, actor, db):
+@control.write_guard
+def save_resource(point_id, resource_id, payload, request, actor, db, *, commit=True):
     with storage_guard(request.app.state.settings):
-        return _save_resource(point_id, resource_id, payload, request, actor, db)
+        return _save_resource(point_id, resource_id, payload, request, actor, db, commit=commit)
 
 
-def _save_resource(point_id, resource_id, payload, request, actor, db):
+def _save_resource(point_id, resource_id, payload, request, actor, db, *, commit=True):
     actor.require("points.edit")
+    entity_type = "floor" if payload.content.kind == "floor" else "vr"
+    fingerprint, old = control.operation(
+        db,
+        actor,
+        payload.operation_id,
+        entity_type,
+        "save",
+        str(resource_id) if resource_id else None,
+        payload.model_dump(mode="json"),
+    )
+    if old is not None:
+        return envelope(request, old)
     if resource_id:
         point, current, change = load_resource(db, actor, resource_id, lock=True)
         key = str(resource_id)
@@ -455,20 +520,43 @@ def _save_resource(point_id, resource_id, payload, request, actor, db):
         current,
         request.app.state.settings.floor_assets_dir.resolve(),
     )
+    values = payload.model_dump(
+        mode="json", exclude={"expected_revision", "expected_published_revision", "operation_id"}
+    )
+    if change and change.operation == "upsert" and change.payload == values:
+        result = as_resource(
+            db, request.app.state.settings, key, point, current, change
+        ).model_dump(mode="json")
+        control.finish_operation(
+            db, actor, payload.operation_id, entity_type, key, "save", fingerprint, result
+        )
+        if commit:
+            db.commit()
+        return envelope(request, result)
     contributors = (
         set(change.contributor_ids) if change and change.state in {"draft", "rejected"} else set()
     )
     contributors.add(actor.user.id)
     contributors.update(user for _, _, user in images if user)
+    # Reusing a published original still includes its real uploader. The exact
+    # point and verified byte digest bind provenance without inventing an actor
+    # for files imported before upload attribution existed.
+    reused_hashes = {asset.sha256 for asset, _, user in images if not user}
+    if reused_hashes:
+        contributors.update(
+            upload.uploaded_by
+            for upload in db.scalars(
+                select(FloorUploadRecord).where(FloorUploadRecord.point_id == point.id)
+            )
+            if upload.image.get("sha256") in reused_hashes
+        )
     if change is None:
         change = ResourceChangeRecord(resource_id=key, point_id=point.id, kind=kind, revision=1)
         db.add(change)
     else:
         change.revision += 1
     change.base_revision = current.revision if current else 0
-    change.payload = payload.model_dump(
-        mode="json", exclude={"expected_revision", "expected_published_revision"}
-    )
+    change.payload = values
     change.contributor_ids = sorted(contributors)
     change.editor_id = actor.user.id
     change.state, change.operation = "draft", "upsert"
@@ -487,10 +575,20 @@ def _save_resource(point_id, resource_id, payload, request, actor, db):
             "payload": change.payload,
         },
     )
-    db.commit()
-    return envelope(
-        request, as_resource(db, request.app.state.settings, key, point, current, change)
+    db.flush()
+    control.unfreeze(db, entity_type, key)
+    control.record_history(db, entity_type, key, "autosave", actor)
+    result = as_resource(db, request.app.state.settings, key, point, current, change).model_dump(
+        mode="json"
     )
+    control.finish_operation(
+        db, actor, payload.operation_id, entity_type, key, "save", fingerprint, result
+    )
+    if commit:
+        db.commit()
+    else:
+        db.flush()
+    return envelope(request, result)
 
 
 @router.post(
@@ -563,6 +661,7 @@ def publish_floor(db, settings, point, key, content, current, actor, source_note
         label=content.label,
         ordinal=content.ordinal,
         attribution=content.attribution,
+        description=content.description,
         revision=current.revision + 1 if current else 1,
         images=[a for a, _, _ in images],
     )
@@ -610,6 +709,20 @@ def retire_resource(
 ):
     actor.require("points.edit")
     point, current, change = load_resource(db, actor, resource_id, lock=True)
+    entity_type = (
+        "floor" if (change.kind if change else published_content(current).kind) == "floor" else "vr"
+    )
+    fingerprint, old = control.operation(
+        db,
+        actor,
+        payload.operation_id,
+        entity_type,
+        "retire",
+        str(resource_id),
+        payload.model_dump(mode="json"),
+    )
+    if old is not None:
+        return envelope(request, old)
     if not current or current.status != "published" or (change and change.state in ACTIVE):
         conflict("请先处理已有草稿；只能为已发布资料申请下架")
     if (
@@ -646,11 +759,24 @@ def retire_resource(
         note=payload.note,
         details={"resource_id": str(resource_id), "revision": change.revision},
     )
-    db.commit()
-    return envelope(
-        request,
-        as_resource(db, request.app.state.settings, str(resource_id), point, current, change),
+    db.flush()
+    control.freeze(db, entity_type, str(resource_id))
+    control.record_history(db, entity_type, str(resource_id), "retire_request", actor, force=True)
+    result = as_resource(
+        db, request.app.state.settings, str(resource_id), point, current, change
+    ).model_dump(mode="json")
+    control.finish_operation(
+        db,
+        actor,
+        payload.operation_id,
+        entity_type,
+        str(resource_id),
+        "retire",
+        fingerprint,
+        result,
     )
+    db.commit()
+    return envelope(request, result)
 
 
 @router.post(
@@ -671,9 +797,30 @@ def review_resource(
         return _review_resource(resource_id, action, payload, request, actor, db)
 
 
+@control.write_guard
 def _review_resource(resource_id, action, payload, request, actor, db):
     actor.require("points.review" if action in {"publish", "reject"} else "points.edit")
+    if action == "publish":
+        require_recent_mfa(actor)
     point, current, change = load_resource(db, actor, resource_id, lock=True)
+    entity_type = (
+        "floor" if (change.kind if change else published_content(current).kind) == "floor" else "vr"
+    )
+    fingerprint, old = control.operation(
+        db,
+        actor,
+        payload.operation_id,
+        entity_type,
+        action,
+        str(resource_id),
+        payload.model_dump(mode="json"),
+    )
+    if old is not None:
+        return envelope(request, old)
+    if payload.expected_published_revision is not None and payload.expected_published_revision != (
+        current.revision if current else 0
+    ):
+        conflict()
     if not change or change.revision != payload.expected_revision:
         conflict()
     if not payload.note.strip():
@@ -713,6 +860,7 @@ def _review_resource(resource_id, action, payload, request, actor, db):
             conflict("只能审核已提交的资料")
         if actor.user.id in change.contributor_ids or actor.user.id == change.submitted_by:
             raise DomainError("SELF_REVIEW_DENIED", "不能审核自己上传、编辑或提交的资料", 403)
+        control.check_frozen(db, entity_type, str(resource_id))
         if action == "reject":
             change.state = "rejected"
         else:
@@ -731,7 +879,7 @@ def _review_resource(resource_id, action, payload, request, actor, db):
                     or point.visibility != "public"
                     or not campus.is_active
                 ):
-                    raise DomainError("POINT_NOT_PUBLIC", "请先发布所属建筑，再发布其资料", 409)
+                    raise DomainError("POINT_NOT_PUBLIC", "请先发布所属地点，再发布其资料", 409)
                 candidate = ResourceDraftData.model_validate(change.payload)
                 if isinstance(candidate.content, FloorContent):
                     publish_floor(
@@ -746,13 +894,17 @@ def _review_resource(resource_id, action, payload, request, actor, db):
                     )
                     current = db.get(FloorRecord, str(resource_id))
                 else:
-                    values = candidate.content.model_dump(exclude={"kind"})
+                    validate_candidate(db, point, str(resource_id), candidate.content, current,
+                                       request.app.state.settings.floor_assets_dir.resolve())
+                    values = candidate.content.model_dump(mode="json", exclude={"kind"})
                     if current is None:
                         current = PanoramaRecord(
                             id=str(resource_id), point_id=point.id, revision=1, **values
                         )
                         db.add(current)
                     else:
+                        if current.url != candidate.content.url:
+                            current.verification_generation += 1
                         for k, v in values.items():
                             setattr(current, k, v)
                         current.revision += 1
@@ -782,11 +934,20 @@ def _review_resource(resource_id, action, payload, request, actor, db):
             note=payload.note,
             details={"resource_id": str(resource_id), "revision": change.revision},
         )
-    db.commit()
-    return envelope(
-        request,
-        as_resource(db, request.app.state.settings, str(resource_id), point, current, change),
+    db.flush()
+    if action == "submit":
+        control.freeze(db, entity_type, str(resource_id))
+    else:
+        control.unfreeze(db, entity_type, str(resource_id))
+    control.record_history(db, entity_type, str(resource_id), action, actor, force=True)
+    result = as_resource(
+        db, request.app.state.settings, str(resource_id), point, current, change
+    ).model_dump(mode="json")
+    control.finish_operation(
+        db, actor, payload.operation_id, entity_type, str(resource_id), action, fingerprint, result
     )
+    db.commit()
+    return envelope(request, result)
 
 
 @router.get(
@@ -802,9 +963,32 @@ def public_panoramas(point_id: UUID, request: Request, db: DB):
     rows = db.scalars(
         select(PanoramaRecord)
         .where(PanoramaRecord.point_id == str(point_id), PanoramaRecord.status == "published")
-        .order_by(PanoramaRecord.title, PanoramaRecord.id)
-    )
-    return envelope(request, [Panorama.model_validate(r) for r in rows])
+        .order_by(PanoramaRecord.sort_order, PanoramaRecord.title, PanoramaRecord.id)
+    ).all()
+    checks = public_checks(db, rows)
+    return envelope(request, [public_panorama(db, row, checks) for row in rows])
+
+
+@router.get(
+    "/api/v1/points/{point_id}/panoramas/{resource_id}/cover/{revision}/{image_id}/{image_revision}",
+    response_class=FileResponse, operation_id="getPanoramaCover", openapi_extra={"x-implementation-status": "implemented", "x-module": "M02"},
+)
+def public_panorama_cover(point_id: UUID, resource_id: UUID, revision: int, image_id: UUID,
+                          image_revision: int, request: Request, db: DB):
+    get_point(point_id, request, db)
+    current = db.get(PanoramaRecord, str(resource_id))
+    if (not request.app.state.settings.vr_enabled or not current or current.status != "published"
+        or current.point_id != str(point_id) or current.revision != revision
+        or current.cover_image_id != str(image_id) or current.cover_image_revision != image_revision):
+        raise DomainError("NOT_FOUND", "VR封面引用已更新或不可用", 404)
+    from app.modules.experiences import public_media, referenced_media
+
+    record, content = referenced_media(db, image_id, "image", point_id)
+    if record.published_revision != image_revision:
+        raise DomainError("NOT_FOUND", "VR封面图片版本已改变", 404)
+    if content.url:
+        return RedirectResponse(content.url, status_code=307, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+    return public_media(image_id, request, db)
 
 
 @router.get(
@@ -835,15 +1019,16 @@ def public_panorama_directory(
         return envelope(request, [], Pagination(page=page, page_size=page_size, total=0))
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     rows = db.execute(
-        query.order_by(PointRecord.name, PanoramaRecord.title, PanoramaRecord.id)
+        query.order_by(PanoramaRecord.sort_order, PanoramaRecord.title, PanoramaRecord.id)
         .offset((page - 1) * page_size)
         .limit(page_size)
-    )
+    ).all()
+    checks = public_checks(db, [panorama for panorama, _ in rows])
     return envelope(
         request,
         [
             PanoramaDirectoryItem(
-                **Panorama.model_validate(panorama).model_dump(),
+                **public_panorama(db, panorama, checks).model_dump(),
                 campus_id=point.campus_id,
                 point_name=point.name,
                 point_category=point.category,
@@ -852,3 +1037,82 @@ def public_panorama_directory(
         ],
         Pagination(page=page, page_size=page_size, total=total),
     )
+
+
+def vr_check_target(db, actor, resource_id, *, lock=False):
+    point, current, change = load_resource(db, actor, resource_id, lock=lock)
+    content = (ResourceDraftData.model_validate(change.payload).content
+               if change and change.state in ACTIVE and change.payload
+               else published_content(current))
+    if not isinstance(content, PanoramaContent):
+        raise DomainError("NOT_FOUND", "VR资料不存在", 404)
+    return point, current, change, content
+
+
+@router.get(
+    "/api/v1/admin/resources/{resource_id}/vr-checks",
+    response_model=Envelope[StaffVRChecks], operation_id="listVRManualChecks", openapi_extra=STAFF,
+)
+def list_vr_checks(resource_id: UUID, request: Request, actor: Actor, db: DB,
+                   limit: int = Query(50, ge=1, le=100)):
+    actor.require("points.read")
+    point, current, change, content = vr_check_target(db, actor, resource_id)
+    rows = db.scalars(select(PanoramaVerificationRecord).where(
+        PanoramaVerificationRecord.resource_id == str(resource_id),
+        PanoramaVerificationRecord.point_id == point.id,
+    ).order_by(PanoramaVerificationRecord.recorded_at.desc(), PanoramaVerificationRecord.id.desc()).limit(limit + 1)).all()
+    source = evidence_source(current, content)
+    return envelope(request, StaffVRChecks(resource_id=resource_id,
+        expected_revision=change.revision if change else 0,
+        expected_published_revision=current.revision if current else 0,
+        items=[private_check(row, source) for row in rows[:limit]],
+        latest=latest_manual_checks(db, resource_id, point.id, source), has_more=len(rows) > limit))
+
+
+@router.post(
+    "/api/v1/admin/resources/{resource_id}/vr-checks",
+    response_model=Envelope[StaffVRCheck], status_code=201,
+    operation_id="recordVRManualCheck", openapi_extra=WRITE,
+)
+def record_vr_check(resource_id: UUID, payload: VRCheckSave, request: Request, actor: Actor, db: DB):
+    actor.require("points.read")
+    if not PERMISSIONS[actor.user.role].intersection({"points.edit", "points.review"}):
+        raise DomainError("FORBIDDEN", "账号没有登记核查记录的权限", 403)
+    point, current, change, content = vr_check_target(db, actor, resource_id, lock=True)
+    source = evidence_source(current, content)
+    fingerprint = check_fingerprint(resource_id, payload)
+    old = db.scalar(select(PanoramaVerificationRecord).where(PanoramaVerificationRecord.operation_id == str(payload.operation_id)))
+    if old:
+        if old.recorded_by != actor.user.id or old.payload_sha256 != fingerprint:
+            conflict("原核查操作已使用，请先查询历史记录")
+        return envelope(request, private_check(old, source))
+    if (change.revision if change else 0) != payload.expected_revision or (current.revision if current else 0) != payload.expected_published_revision:
+        conflict("VR草稿或正式链接已改变，请重新读取后登记人工核查")
+    row = PanoramaVerificationRecord(operation_id=str(payload.operation_id), payload_sha256=fingerprint,
+        resource_id=str(resource_id), point_id=point.id, generation=source[0], url_sha256=source[1],
+        dimension=payload.dimension, platform=payload.platform, result=payload.result, reason=payload.reason,
+        environment=payload.environment, notes=payload.notes, recorded_by=actor.user.id, recorded_at=now_utc())
+    db.add(row)
+    db.flush()
+    audit(db, actor.user, "vr.manual_check_recorded", point=point, details={"resource_id":str(resource_id),
+        "check_id":row.id,"dimension":row.dimension,"platform":row.platform,"result":row.result,
+        "method":"manual","generation":row.generation})
+    db.commit()
+    return envelope(request, private_check(row, source))
+
+
+@router.get(
+    "/api/v1/admin/resources/{resource_id}/vr-checks/operations/{operation_id}",
+    response_model=Envelope[StaffVRCheck | None], operation_id="getVRManualCheckOperation", openapi_extra=STAFF,
+)
+def vr_check_operation(resource_id: UUID, operation_id: UUID, request: Request, actor: Actor, db: DB):
+    """A missing receipt is only an observation; this GET never repeats a write."""
+    actor.require("points.read")
+    point, current, change, content = vr_check_target(db, actor, resource_id)
+    row = db.scalar(select(PanoramaVerificationRecord).where(
+        PanoramaVerificationRecord.operation_id == str(operation_id),
+        PanoramaVerificationRecord.resource_id == str(resource_id),
+        PanoramaVerificationRecord.point_id == point.id,
+        PanoramaVerificationRecord.recorded_by == actor.user.id,
+    ))
+    return envelope(request, private_check(row, evidence_source(current, content)) if row else None)

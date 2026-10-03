@@ -5,12 +5,15 @@ configuration into /etc, start the application or expose a port. Python 3.8+.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import secrets
 import subprocess
+import wave
 from pathlib import Path, PurePosixPath
+from uuid import uuid4
 
 from backup import checked_path, file_sha256, inside, inventory, private_file
 
@@ -32,6 +35,127 @@ REQUIRED_TABLES = {
     "guide_settings",
     "navigation_graphs",
 }
+
+RESTORE_PAID_JOBS_SQL = (
+    "UPDATE narration_jobs SET state='paused', lease_until=NULL, "
+    "lease_version=lease_version+1, last_error='RESTORED_REQUIRES_REVIEW' "
+    "WHERE state IN ('queued','running','unknown');"
+)
+
+RESTORE_ACTOR = "maintenance.database-restore"
+RESTORE_AUTH_TABLES = {
+    "staff_users", "staff_sessions", "staff_credentials", "staff_mfa_challenges",
+    "staff_recovery_codes", "admin_audit", "public_agent_sessions",
+    "public_agent_requests", "public_agent_capabilities", "public_agent_leases",
+    "public_agent_counters",
+}
+RESTORE_STOPS = ("chat", "voice", "narration_generation", "narration_playback", "navigation")
+
+
+def recovery_security_sql(tables, batch_sha):
+    """Quarantine a restored database; no content, attempt count or budget reset.
+
+    This is called only after isolated restore verification, before any app or
+    worker starts. Frozen table names support the existing 0012 backup baseline.
+    Account identity is retained for content attribution; authorization is not.
+    """
+    tables = set(tables)
+    if not RESTORE_AUTH_TABLES.issubset(tables) or not re.fullmatch(r"[0-9a-f]{64}", batch_sha):
+        raise ValueError("Recovery authentication schema or batch identity is incomplete")
+    actor_id, audit_id = str(uuid4()), str(uuid4())
+    statements = [
+        "BEGIN;",
+        "SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='60s';",
+        "DO $$ BEGIN IF EXISTS (SELECT 1 FROM staff_users WHERE username='" + RESTORE_ACTOR + "' "
+        "AND (is_active OR role<>'viewer' OR campus_ids::jsonb<>'[]'::jsonb OR point_ids::jsonb<>'[]'::jsonb)) "
+        "THEN RAISE EXCEPTION 'Recovery audit identity is not disabled and scopeless'; END IF; END $$;",
+        "INSERT INTO staff_users (id,username,display_name,password_hash,role,campus_ids,point_ids,"
+        "is_active,must_change_password,mfa_enabled,mfa_recovery_until,revision,created_at,updated_at) "
+        f"VALUES ('{actor_id}','{RESTORE_ACTOR}','数据库恢复维护（不可登录）','!disabled',"
+        "'viewer','[]','[]',false,true,true,NULL,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) "
+        "ON CONFLICT (username) DO NOTHING;",
+    ]
+    for name in ("staff_sessions", "staff_mfa_challenges", "staff_credentials", "staff_recovery_codes",
+                 "public_agent_requests", "public_agent_capabilities", "public_agent_leases",
+                 "public_agent_sessions", "configuration_grants", "backup_grants", "backup_status"):
+        if name in tables:
+            statements.append(f"DELETE FROM {name};")
+    statements.append(
+        f"UPDATE staff_users SET is_active=false,password_hash='!restore:{batch_sha}',role='viewer',"
+        "campus_ids='[]',point_ids='[]',must_change_password=true,mfa_enabled=true,mfa_recovery_until=NULL,"
+        f"revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE username<>'{RESTORE_ACTOR}';"
+    )
+    if "narration_jobs" in tables:
+        statements.append(RESTORE_PAID_JOBS_SQL)
+    if "backup_jobs" in tables:
+        statements.append(
+            "UPDATE backup_jobs SET state='expired',lease_until=NULL,execution_id=NULL,cancel_requested=true,"
+            "authorized_until=CURRENT_TIMESTAMP,finished_at=CURRENT_TIMESTAMP,"
+            "failure_code='RESTORED_REQUIRES_REVIEW' WHERE state IN ('queued','running','unknown');"
+        )
+    if "backup_control" in tables:
+        statements.append("UPDATE backup_control SET generation=generation+1;")
+    if "configuration_emergency_stops" in tables:
+        values = ",".join(f"('{service}')" for service in RESTORE_STOPS)
+        statements.append(
+            "INSERT INTO configuration_emergency_stops(service,revision,stopped,reason,actor_id,updated_at) "
+            "SELECT services.name,1,true,'数据库恢复隔离：须核对当前权限、预算及停用记录',staff.id,CURRENT_TIMESTAMP "
+            f"FROM (VALUES {values}) AS services(name) CROSS JOIN staff_users AS staff "
+            f"WHERE staff.username='{RESTORE_ACTOR}' ON CONFLICT (service) DO UPDATE "
+            "SET revision=configuration_emergency_stops.revision+1,stopped=true,reason=EXCLUDED.reason,"
+            "actor_id=EXCLUDED.actor_id,updated_at=EXCLUDED.updated_at;"
+        )
+    statements.extend([
+        "INSERT INTO admin_audit(id,actor_id,actor_name,action,campus_id,point_id,note,details,created_at) "
+        f"SELECT '{audit_id}',id,display_name,'system.restore_quarantine',NULL,NULL,"
+        "'恢复隔离：旧身份和临时许可撤销，成员须核对现行权限后重新登记',"
+        f"json_build_object('batch_sha256','{batch_sha}','permissions_reset',true,'paid_resume_allowed',false),"
+        f"CURRENT_TIMESTAMP FROM staff_users WHERE username='{RESTORE_ACTOR}';",
+        "COMMIT;",
+    ])
+    return "\n".join(statements)
+
+
+def recovery_security_summary_sql(tables):
+    tables = set(tables)
+    if not RESTORE_AUTH_TABLES.issubset(tables):
+        raise ValueError("Recovery authentication schema is incomplete")
+    empty = [name for name in ("staff_sessions", "staff_mfa_challenges", "staff_credentials",
+                              "staff_recovery_codes", "public_agent_requests", "public_agent_capabilities",
+                              "public_agent_leases", "public_agent_sessions", "configuration_grants",
+                              "backup_grants", "backup_status") if name in tables]
+    cleared = " AND ".join(f"NOT EXISTS (SELECT 1 FROM {name})" for name in empty)
+    entries = [
+        f"'credentials_and_permissions_cleared', ({cleared})",
+        "'staff_quarantined', NOT EXISTS(SELECT 1 FROM staff_users WHERE is_active OR role<>'viewer' "
+        "OR campus_ids::jsonb<>'[]'::jsonb OR point_ids::jsonb<>'[]'::jsonb OR mfa_recovery_until IS NOT NULL)",
+        "'quota_fingerprint', (SELECT md5(COALESCE(json_agg(row_to_json(counter))::text,'[]')) "
+        "FROM (SELECT key,amount,expires_at FROM public_agent_counters ORDER BY key) counter)",
+    ]
+    if "configuration_emergency_stops" in tables:
+        values = ",".join(f"'{name}'" for name in RESTORE_STOPS)
+        entries.append("'services_stopped', (SELECT count(*)=5 FROM configuration_emergency_stops "
+                       f"WHERE service IN ({values}) AND stopped)")
+    if "narration_jobs" in tables:
+        entries.append("'paid_jobs_paused', NOT EXISTS(SELECT 1 FROM narration_jobs WHERE state IN ('queued','running','unknown'))")
+    if "backup_jobs" in tables:
+        entries.append("'backup_jobs_frozen', NOT EXISTS(SELECT 1 FROM backup_jobs WHERE state IN ('queued','running','unknown'))")
+    return "SELECT json_build_object(" + ",".join(entries) + ");"
+
+
+def quarantine_recovered_database(container, tables, batch_sha):
+    prefix = ["docker", "exec", container, "psql", "-X", "-v", "ON_ERROR_STOP=1",
+              "-U", "postgres", "-d", "postgres", "-At", "-c"]
+    query = recovery_security_summary_sql(tables)
+    before = json.loads(run([*prefix, query]))
+    run([*prefix, recovery_security_sql(tables, batch_sha)])
+    after = json.loads(run([*prefix, query]))
+    if (any(value is not True for key, value in after.items() if key != "quota_fingerprint")
+            or after["quota_fingerprint"] != before["quota_fingerprint"]):
+        raise ValueError("Recovered authentication quarantine or budget preservation failed")
+    return {**{key: value for key, value in after.items() if key != "quota_fingerprint"},
+            "quota_rows_preserved": True, "paid_resume_allowed": False,
+            "account_reenrollment_required": True}
 
 
 def run(args, *, env=None, stdin=None):
@@ -205,12 +329,28 @@ def verify_database_assets(data, volumes):
             row["size_bytes"],
         )
         verified["media_originals"] += 1
-    uploads = {row["id"] for row in data["experience_uploads"]}
+    upload_rows = {row["id"]: row for row in data["experience_uploads"]}
+    uploads = set(upload_rows)
     floor_uploads = {row["id"] for row in data["floor_uploads"]}
+    experience_payloads = []
     for row in data["experiences"]:
-        for payload in (row["draft"], row["published"]):
-            if payload and payload.get("upload_id") and payload["upload_id"] not in uploads:
-                raise ValueError("Recovered media draft or public snapshot lost its original")
+        experience_payloads.extend((row["draft"], row["published"]))
+    for table in ("experience_versions", "experience_operations", "content_versions"):
+        if table in counts and table not in data:
+            raise ValueError("Recovered retained history metadata is incomplete")
+    for row in data.get("experience_versions", []):
+        experience_payloads.extend((row["content"], row["published_content"]))
+    for row in data.get("experience_operations", []):
+        experience_payloads.append((row.get("result") or {}).get("content"))
+    for payload in experience_payloads:
+        if payload and payload.get("upload_id") and payload["upload_id"] not in uploads:
+            raise ValueError("Recovered media draft or public snapshot lost its original")
+        if payload and payload.get("caption_upload_id"):
+            caption = upload_rows.get(payload["caption_upload_id"])
+            if (not caption or caption.get("media_type") != "subtitle"
+                    or caption.get("mime_type") != "text/vtt"
+                    or caption.get("point_id") != payload.get("point_id")):
+                raise ValueError("Recovered video caption lost its scoped original")
     for row in data["resource_changes"]:
         content = (row.get("payload") or {}).get("content", {})
         if content.get("kind") == "floor" and any(
@@ -218,6 +358,54 @@ def verify_database_assets(data, volumes):
             for image in content.get("images", [])
         ):
             raise ValueError("Recovered floor draft lost its original")
+    for row in data.get("content_versions", []):
+        if row["entity_type"] != "floor":
+            continue
+        snapshot = row["content"]
+        content = ((snapshot.get("draft") or {}).get("content") or {})
+        if any(image.get("upload_id") and image["upload_id"] not in floor_uploads
+               for image in content.get("images", [])):
+            raise ValueError("Recovered floor history lost its original")
+        published = snapshot.get("published") or {}
+        for image in published.get("images", []):
+            verify_asset(floor_root, [row["entity_id"], str(published["revision"]), image["filename"]],
+                         image["sha256"], image["size_bytes"])
+    if "narration_assets" in counts:
+        if "narration_assets" not in data or "narration_jobs" not in data:
+            raise ValueError("Recovered narration metadata is incomplete")
+        verified["narration_chunks"] = 0
+        assets = {row["id"]: row for row in data["narration_assets"]}
+        for row in data["narration_jobs"]:
+            for chunk in row["completed_chunks"]:
+                verify_asset(floor_root, [".narration", row["id"], chunk["sha256"] + ".wav"],
+                             chunk["sha256"], chunk["byte_size"])
+        for row in assets.values():
+            canonical = json.dumps({"fingerprint": row["fingerprint"], "chunks": row["chunks"]},
+                                   sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+            if hashlib.sha256(canonical.encode()).hexdigest() != row["manifest_sha256"]:
+                raise ValueError("Recovered narration manifest differs")
+            for chunk in row["chunks"]:
+                parts = [".narration", row["id"], chunk["sha256"] + ".wav"]
+                verify_asset(floor_root, parts, chunk["sha256"], chunk["byte_size"])
+                if not 0 < chunk["byte_size"] <= 32 * 1024 * 1024:
+                    raise ValueError("Recovered narration chunk exceeds limits")
+                try:
+                    with wave.open(str(local_asset(floor_root, *parts)), "rb") as audio:
+                        expected = audio.getnframes() * audio.getnchannels() * audio.getsampwidth()
+                        duration = audio.getnframes() / audio.getframerate()
+                        if (not 0 < duration <= 180 or abs(duration - chunk["duration_seconds"]) > 0.001
+                                or expected > 32 * 1024 * 1024
+                                or len(audio.readframes(audio.getnframes())) != expected):
+                            raise ValueError("Recovered narration waveform is incomplete")
+                except (wave.Error, EOFError, ZeroDivisionError):
+                    raise ValueError("Recovered narration waveform is invalid") from None
+                verified["narration_chunks"] += 1
+        for payload in experience_payloads:
+            for stop in (payload or {}).get("stops", []):
+                for segment in stop.get("segments") or []:
+                    asset_id = segment.get("narration_asset_id")
+                    if asset_id and asset_id not in assets:
+                        raise ValueError("Recovered tour lost adopted narration")
     return verified
 
 
@@ -268,10 +456,20 @@ def read_database(container):
         "maps": "id, revision, kind",
         "floors": "id, revision, images",
         "floor_uploads": "id, image",
-        "experience_uploads": "id, filename, sha256, size_bytes",
+        "experience_uploads": "id, point_id, media_type, mime_type, filename, sha256, size_bytes",
         "experiences": "draft, published",
         "resource_changes": "payload",
     }
+    for name, fields in (
+        ("narration_jobs", "id, completed_chunks"),
+        ("narration_assets", "id, fingerprint, manifest_sha256, chunks"),
+        ("experience_versions", "content, published_content"),
+        ("experience_operations", "result"),
+        ("content_versions", "entity_type, entity_id, content"),
+    ):
+        if name in tables:
+            keys.append(name)
+            columns[name] = fields
     entries = [
         f"'counts', (SELECT json_object_agg(name,n) FROM ({count_queries}) counted)",
         "'migration_heads', (SELECT COALESCE(json_agg(version_num), '[]'::json) FROM alembic_version)",
@@ -360,6 +558,9 @@ def restore(args):
                 "Restored schema or migration heads differ from the captured deployment"
             )
         verified = verify_database_assets(data, volumes)
+        security = quarantine_recovered_database(
+            container, data["counts"], file_sha256(staging / "database.dump"),
+        )
         return {
             "database_restore": "passed",
             "repository_read_check": "passed",
@@ -370,6 +571,8 @@ def restore(args):
             "dump_sha256": file_sha256(staging / "database.dump"),
             "database_image_id": image_id,
             "production_modified": False,
+            "restored_paid_jobs": "paused" if "narration_jobs" in data["counts"] else "not_present",
+            "restored_security": security,
         }
     finally:
         result = subprocess.run(

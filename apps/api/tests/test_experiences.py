@@ -45,7 +45,11 @@ def content(point, kind="media", **values):
         base["campus_id"] = point.campus_id
     if kind == "media":
         base.update(media_type="image", url="https://example.com/test.png")
-    return {**base, **values}
+    result = {**base, **values}
+    if result.get("media_type") == "video":
+        result.setdefault("video_visual_information", "audio_complete")
+        result.setdefault("video_accessibility_note", "测试夹具：人工核对声音已描述关键画面；不代表真实内容验收")
+    return result
 
 
 def save(client, data, previous=None, expected=None):
@@ -65,7 +69,8 @@ def save(client, data, previous=None, expected=None):
 def action(client, item, verb, expected=200):
     response = client.post(
         f"{ADMIN}/{item['id']}/review/{verb}",
-        json={"expected_revision": item["revision"], "note": "已核对来源和公开权限"},
+        json={"expected_revision": item["revision"], "note": "已核对来源和公开权限",
+              "video_accessibility_confirmed": True},
     )
     assert response.status_code == expected, response.text
     return response.json().get("data")

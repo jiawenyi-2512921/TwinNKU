@@ -36,7 +36,7 @@ def upload_refs(value):
     refs = set()
     if isinstance(value, dict):
         for key, item in value.items():
-            if key == "upload_id" and isinstance(item, str):
+            if key in {"upload_id", "caption_upload_id"} and isinstance(item, str):
                 refs.add(item)
             else:
                 refs.update(upload_refs(item))
@@ -47,6 +47,8 @@ def upload_refs(value):
 
 
 def protected_uploads(db):
+    from app.content_control_models import ContentVersionRecord
+    from app.content_history_models import ExperienceVersionRecord
     from app.models import ResourceChangeRecord
 
     refs = set()
@@ -55,6 +57,21 @@ def protected_uploads(db):
     for row in db.scalars(select(ExperienceRecord)):
         refs.update(upload_refs(row.draft))
         refs.update(upload_refs(row.published))
+    # Retained immutable checkpoints are recovery roots even when the current
+    # editable/public record has moved to another file. Never infer reachability
+    # from only the latest draft or the older audit format.
+    historical_hashes = set()
+    for kind, payload in db.execute(select(ContentVersionRecord.entity_type, ContentVersionRecord.content)):
+        refs.update(upload_refs(payload))
+        if kind == "floor":
+            for side in (payload.get("draft"), payload.get("published")):
+                if isinstance(side, dict):
+                    historical_hashes.update(image.get("sha256") for image in side.get("images", [])
+                                             if isinstance(image, dict))
+    for content, published in db.execute(select(ExperienceVersionRecord.content,
+                                                ExperienceVersionRecord.published_content)):
+        refs.update(upload_refs(content))
+        refs.update(upload_refs(published))
     # Upload creation itself is not a reference. Retained edit/publication audit
     # snapshots protect old versions even after the mutable draft is replaced.
     for action, details in db.execute(select(AdminAuditRecord.action, AdminAuditRecord.details)):
@@ -64,7 +81,7 @@ def protected_uploads(db):
         image.get("sha256") for floor in db.scalars(select(FloorRecord)) for image in floor.images
     }
     for upload in db.scalars(select(FloorUploadRecord)):
-        if upload.image.get("sha256") in published_hashes:
+        if upload.image.get("sha256") in published_hashes | historical_hashes:
             refs.add(upload.id)
     return refs
 
@@ -73,7 +90,9 @@ def owned_folder(settings, kind, key):
     root = settings.floor_assets_dir.resolve()
     parent = root / (".uploads" if kind == "floor" else ".experience-media")
     folder = parent / key
-    if folder.is_symlink() or not folder.resolve().is_relative_to(parent.resolve()):
+    if (kind not in {"floor", "media"} or parent.is_symlink() or folder.is_symlink()
+            or folder.resolve().parent != parent.resolve()
+            or not folder.resolve().is_relative_to(root)):
         raise ValueError("Upload folder escapes owned storage")
     if folder.exists() and any(path.is_symlink() for path in folder.rglob("*")):
         raise ValueError("Symlink in owned upload; manual investigation required")

@@ -105,7 +105,7 @@ def login(payload: StaffLogin, request: Request, response: Response, db: DB):
     principal = new_session(db, user, request, response)
     audit(db, user, "session.login")
     db.commit()
-    return envelope(request, session_view(principal))
+    return envelope(request, session_view(principal, db))
 
 
 @router.get(
@@ -114,8 +114,8 @@ def login(payload: StaffLogin, request: Request, response: Response, db: DB):
     operation_id="getStaffSession",
     openapi_extra=STAFF,
 )
-def me(request: Request, auth: Auth):
-    return envelope(request, session_view(auth))
+def me(request: Request, auth: Auth, db: DB):
+    return envelope(request, session_view(auth, db))
 
 
 @router.post(
@@ -247,9 +247,7 @@ def point(point_id: UUID, request: Request, actor: Actor, db: DB):
     openapi_extra=WRITE,
 )
 def create_point(payload: PointDraftInput, request: Request, actor: Actor, db: DB):
-    point = service.save_draft(db, actor, payload)
-    db.commit()
-    return envelope(request, service.as_admin_point(db, point))
+    return point_write("save", None, payload, request, actor, db)
 
 
 @router.put(
@@ -259,9 +257,7 @@ def create_point(payload: PointDraftInput, request: Request, actor: Actor, db: D
     openapi_extra=WRITE,
 )
 def update_point(point_id: UUID, payload: PointDraftUpdate, request: Request, actor: Actor, db: DB):
-    point = service.save_draft(db, actor, payload, point_id)
-    db.commit()
-    return envelope(request, service.as_admin_point(db, point))
+    return point_write("save", point_id, payload, request, actor, db)
 
 
 @router.post(
@@ -271,9 +267,7 @@ def update_point(point_id: UUID, payload: PointDraftUpdate, request: Request, ac
     openapi_extra=WRITE,
 )
 def submit_point(point_id: UUID, payload: ReviewRequest, request: Request, actor: Actor, db: DB):
-    point = service.transition(db, actor, point_id, "submit", payload)
-    db.commit()
-    return envelope(request, service.as_admin_point(db, point))
+    return point_write("submit", point_id, payload, request, actor, db)
 
 
 @router.post(
@@ -283,9 +277,7 @@ def submit_point(point_id: UUID, payload: ReviewRequest, request: Request, actor
     openapi_extra=WRITE,
 )
 def publish_point(point_id: UUID, payload: ReviewRequest, request: Request, actor: Actor, db: DB):
-    point = service.transition(db, actor, point_id, "publish", payload)
-    db.commit()
-    return envelope(request, service.as_admin_point(db, point))
+    return point_write("publish", point_id, payload, request, actor, db)
 
 
 @router.post(
@@ -295,9 +287,7 @@ def publish_point(point_id: UUID, payload: ReviewRequest, request: Request, acto
     openapi_extra=WRITE,
 )
 def reject_point(point_id: UUID, payload: ReviewRequest, request: Request, actor: Actor, db: DB):
-    point = service.transition(db, actor, point_id, "reject", payload)
-    db.commit()
-    return envelope(request, service.as_admin_point(db, point))
+    return point_write("reject", point_id, payload, request, actor, db)
 
 
 @router.post(
@@ -307,9 +297,7 @@ def reject_point(point_id: UUID, payload: ReviewRequest, request: Request, actor
     openapi_extra=WRITE,
 )
 def discard_point(point_id: UUID, payload: ReviewRequest, request: Request, actor: Actor, db: DB):
-    point = service.transition(db, actor, point_id, "discard", payload)
-    db.commit()
-    return envelope(request, service.as_admin_point(db, point))
+    return point_write("discard", point_id, payload, request, actor, db)
 
 
 @router.post(
@@ -321,9 +309,45 @@ def discard_point(point_id: UUID, payload: ReviewRequest, request: Request, acto
 def retire_point(
     point_id: UUID, payload: PointRetireRequest, request: Request, actor: Actor, db: DB
 ):
-    point = service.request_retire(db, actor, point_id, payload)
-    db.commit()
-    return envelope(request, service.as_admin_point(db, point))
+    return point_write("retire", point_id, payload, request, actor, db)
+
+
+def point_write(action, point_id, payload, request, actor, db):
+    from sqlalchemy.orm.exc import StaleDataError
+
+    from app.modules.content_control_service import finish_operation, operation
+
+    actor.require("points.review" if action in {"publish", "reject"} else "points.edit")
+    if action == "publish":
+        require_recent_mfa(actor)
+    fingerprint, old = operation(
+        db,
+        actor,
+        payload.operation_id,
+        "point",
+        action,
+        str(point_id) if point_id else None,
+        payload.model_dump(mode="json"),
+    )
+    if old is not None:
+        return envelope(request, old)
+    try:
+        point = (
+            service.save_draft(db, actor, payload, point_id)
+            if action == "save"
+            else service.request_retire(db, actor, point_id, payload)
+            if action == "retire"
+            else service.transition(db, actor, point_id, action, payload)
+        )
+        result = service.as_admin_point(db, point).model_dump(mode="json")
+        finish_operation(
+            db, actor, payload.operation_id, "point", point.id, action, fingerprint, result
+        )
+        db.commit()
+    except (IntegrityError, StaleDataError):
+        db.rollback()
+        service.conflict()
+    return envelope(request, result)
 
 
 @router.get(

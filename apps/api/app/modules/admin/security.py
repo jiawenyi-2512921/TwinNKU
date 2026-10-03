@@ -63,6 +63,8 @@ def digest(value: str) -> str:
 
 
 def cookie_name(request: Request, base: str = COOKIE) -> str:
+    if request.app.state.settings.practice_mode:
+        return "twinnku_practice_" + base.removeprefix("twinnku_")
     return "__Secure-" + base if request.app.state.settings.app_env == "production" else base
 
 
@@ -160,10 +162,21 @@ class Principal:
             raise DomainError("FORBIDDEN", "当前账号没有此操作权限", 403)
 
 
-def session_view(principal):
+def session_view(principal, db=None):
+    permissions = set(PERMISSIONS[principal.user.role])
+    if db is not None:
+        from app.backup_models import BackupGrantRecord
+        from app.configuration_models import ConfigurationGrantRecord
+
+        permissions.update(db.scalars(select(BackupGrantRecord.permission).where(
+            BackupGrantRecord.user_id == principal.user.id,
+        )))
+        permissions.update(db.scalars(select(ConfigurationGrantRecord.permission).where(
+            ConfigurationGrantRecord.user_id == principal.user.id,
+        )))
     return StaffSession(
         user=as_user(principal.user),
-        permissions=sorted(PERMISSIONS[principal.user.role]),
+        permissions=sorted(permissions),
         csrf_token=principal.session.csrf_token,
         expires_at=utc(principal.session.expires_at),
         mfa_verified=principal.session.mfa_verified_at is not None,

@@ -26,6 +26,7 @@ class BundleImage(DTO):
     variant: Literal["labeled", "clean"]
     section: str = Field(default="main", pattern=FLOOR_SECTION_PATTERN)
     section_label: str | None = Field(default=None, min_length=1, max_length=64)
+    description: str = Field(default="", max_length=4000)
     filename: str = Field(pattern=r"^(labeled(-[a-z0-9][a-z0-9_-]{0,31})?|clean)\.(png|jpg)$")
     width_px: int = Field(gt=0, le=20000)
     height_px: int = Field(gt=0, le=20000)
@@ -56,6 +57,7 @@ class BundleFloor(DTO):
     ordinal: int = Field(ge=-20, le=200)
     revision: Revision
     attribution: str = Field(min_length=1, max_length=2000)
+    description: str = Field(default="", max_length=4000)
     images: list[BundleImage] = Field(min_length=1, max_length=32)
 
     @model_validator(mode="after")
@@ -245,6 +247,9 @@ def import_bundle(
         )
         db.flush()
         values = floor.model_dump(mode="json", exclude_defaults=True)
+        # Clearing an optional description must replace the previous published
+        # value; an omitted ORM attribute would preserve it during merge.
+        values["description"] = floor.description
         db.merge(
             FloorRecord(**values, status=status, visibility=visibility, manifest_sha256=digest)
         )

@@ -1,7 +1,7 @@
 name: Foundation CI
 on:
   push:
-    branches: [main, feat/admin-console]
+    branches: [main, feat/admin-console, feat/configurable-tours-security]
   pull_request:
   workflow_dispatch:
 permissions:

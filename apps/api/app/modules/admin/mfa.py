@@ -344,7 +344,7 @@ def authentication_verify(payload: StaffMfaProof, request: Request, response: Re
     audit(db, user, "session.mfa_verified")
     db.commit()
     clear_cookie(response, request, base=PENDING_COOKIE, path="/api/v1/admin/auth/mfa")
-    return envelope(request, session_view(principal))
+    return envelope(request, session_view(principal, db))
 
 
 @router.post("/enrollment", response_model=Envelope[StaffMfaPending], openapi_extra=META)
@@ -533,7 +533,7 @@ def remove_credential(
     principal.session.mfa_verified_at = verified_at
     audit(db, user, "user.mfa_removed", details={"name": target.name})
     db.commit()
-    return envelope(request, session_view(principal))
+    return envelope(request, session_view(principal, db))
 
 
 @router.post("/recovery-codes", response_model=Envelope[StaffMfaRecoveryCodes], openapi_extra=META)
@@ -554,7 +554,7 @@ def recovery_codes(request: Request, response: Response, actor: Actor, db: DB):
     principal.session.mfa_verified_at = verified_at
     audit(db, user, "user.mfa_recovery_codes_regenerated")
     db.commit()
-    return envelope(request, StaffMfaRecoveryCodes(codes=codes, session=session_view(principal)))
+    return envelope(request, StaffMfaRecoveryCodes(codes=codes, session=session_view(principal, db)))
 
 
 @router.post("/recovery", response_model=Envelope[StaffMfaPending], openapi_extra=META)

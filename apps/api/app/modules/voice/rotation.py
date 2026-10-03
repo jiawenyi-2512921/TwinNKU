@@ -322,6 +322,7 @@ class VoiceSynthesizer:
                 expected = parsed.getnframes() * parsed.getnchannels() * parsed.getsampwidth()
                 if (
                     expected > self._max_audio_bytes
+                    or parsed.getnframes() / parsed.getframerate() > 180
                     or len(parsed.readframes(parsed.getnframes())) != expected
                 ):
                     raise ValueError("audio length")

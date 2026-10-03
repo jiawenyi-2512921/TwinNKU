@@ -9,6 +9,10 @@ from sqlalchemy.orm.exc import StaleDataError
 from starlette.exceptions import HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app import (
+    backup_models,  # noqa: F401 -- register current metadata before DB initialization
+    content_control_models,  # noqa: F401 -- register current metadata before DB initialization
+)
 from app.api import router
 from app.core.config import Settings, get_settings
 from app.core.errors import (
@@ -23,11 +27,17 @@ from app.modules.admin.resources import router as resources_router
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.workbench import router as workbench_router
 from app.modules.assistant import router as assistant_router
+from app.modules.backups.router import router as backups_router
+from app.modules.configurations import router as configurations_router
+from app.modules.content_control import router as content_control_router
+from app.modules.experience_history_preview import router as experience_history_preview_router
 from app.modules.experiences import router as experiences_router
 from app.modules.floors.router import router as floors_router
 from app.modules.guide.router import router as guide_router
 from app.modules.guide_settings import router as guide_settings_router
+from app.modules.imports.router import router as imports_router
 from app.modules.maps.router import router as maps_router
+from app.modules.narration.router import router as narration_router
 from app.modules.navigation import router as navigation_router
 from app.modules.road_assist import router as road_assist_router
 from app.modules.voice.router import router as voice_router
@@ -130,8 +140,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(road_assist_router)
     app.include_router(assistant_router)
     app.include_router(experiences_router)
+    app.include_router(experience_history_preview_router)
     app.include_router(guide_settings_router)
     app.include_router(voice_router)
+    app.include_router(narration_router)
+    app.include_router(configurations_router)
+    app.include_router(imports_router)
+    app.include_router(content_control_router)
+    app.include_router(backups_router)
     return app
 
 

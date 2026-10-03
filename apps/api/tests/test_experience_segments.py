@@ -136,7 +136,7 @@ def test_typed_references_are_validated_at_save(client, db, experiences, mutatio
         stop["segments"][0]["resources"].append(dict(ref))
         expected = 422
     else:
-        stop["segments"][0]["main_view"] = {**ref, "type": "video"}
+        stop["segments"][0]["main_view"] = {**ref, "type": "script"}
         expected = 422
     login(client)
     save(client, content(point, "tour", stops=[stop]), expected=expected)
@@ -175,7 +175,7 @@ def test_retired_reference_blocks_submit_review_and_whole_public_route(client, d
     )
     item = publish(client, data)
     login(client)
-    editing = save(client, data, item)
+    editing = save(client, {**data, "description": "准备审核的更新说明"}, item)
     pending = action(client, editing, "submit")
     retire(client, image)
     assert client.get(f"{PUBLIC}/{item['id']}").status_code == 404
@@ -184,8 +184,11 @@ def test_retired_reference_blocks_submit_review_and_whole_public_route(client, d
     action(client, pending, "publish", expected=409)
     login(client)
     discarded = action(client, pending, "discard")
-    # Invalid references are also blocked before a new draft can be saved.
-    save(client, data, discarded, expected=409)
+    # Existing invalid references remain editable privately, but cannot be submitted.
+    repaired_later = save(client, data, discarded)
+    action(client, repaired_later, "submit", expected=409)
+    # A new draft cannot adopt an unavailable resource.
+    save(client, data, expected=409)
 
 
 def test_private_saved_preview_requires_session_scope_and_current_revision(client, db, experiences):

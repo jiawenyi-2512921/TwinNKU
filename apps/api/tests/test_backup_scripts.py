@@ -4,7 +4,9 @@ import ast
 import importlib.util
 import json
 import os
+import subprocess
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -119,6 +121,126 @@ def test_backup_destination_cannot_overlap_deployment(tmp_path, monkeypatch, nes
     monkeypatch.setattr(backup.os, "geteuid", lambda: 0, raising=False)
     with pytest.raises(ValueError, match="outside the deployment"):
         backup.backup(root, root / "backup" if nested else tmp_path, tmp_path / "key", 10)
+
+
+@pytest.fixture
+def dump_workflow(tmp_path, monkeypatch):
+    """Run the real staging/status flow without Docker, root or private data."""
+    root, destination, key = tmp_path / "deployment", tmp_path / "backups", tmp_path / "key"
+    root.mkdir()
+    (root / "compose.yaml").write_text("services: {}")
+    (root / ".env").write_text("fixture")
+    destination.mkdir()
+    repository = destination / "repository"
+    repository.mkdir()
+    (repository / "config").write_text("fixture existing repository")
+    key.write_bytes(b"fixture password, never logged")
+    volumes = {name: tmp_path / name for name in ("map_assets", "floor_assets")}
+    for path in volumes.values():
+        path.mkdir()
+    original_stat = Path.stat
+
+    def root_private_stat(path, *args, **kwargs):
+        info = original_stat(path, *args, **kwargs)
+        if path in (destination, key):
+            values = list(info)
+            values[0], values[4] = info.st_mode & ~0o077, 0
+            return os.stat_result(values)
+        return info
+
+    monkeypatch.setattr(Path, "stat", root_private_stat)
+    monkeypatch.setattr(backup.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(backup, "backup_lock", lambda _: nullcontext())
+    monkeypatch.setattr(backup, "maintenance_lock", lambda _: nullcontext())
+    monkeypatch.setattr(backup.shutil, "disk_usage", lambda _: SimpleNamespace(free=100 * 1024**3))
+    calls, phases = [], []
+
+    def command(args, **kwargs):
+        calls.append(args)
+        if args[:3] == ["docker", "compose", "config"]:
+            return json.dumps({
+                "services": {"db": {"environment": {"POSTGRES_USER": "fixture", "POSTGRES_DB": "fixture"}}},
+                "volumes": {name: {"name": name} for name in volumes},
+            }).encode()
+        if args[:3] == ["docker", "volume", "inspect"]:
+            return json.dumps([{"Mountpoint": str(volumes[args[-1]])}]).encode()
+        if "psql" in args:
+            return b'{"schema_tables":["fixture"],"migration_heads":["fixture"]}'
+        assert args[0] == "restic"
+        return b""
+
+    monkeypatch.setattr(backup, "command", command)
+    monkeypatch.setattr(backup, "report_phase", lambda phase, **_: phases.append(phase))
+    return SimpleNamespace(root=root, destination=destination, key=key, calls=calls, phases=phases)
+
+
+def assert_fixed_dump_command(args, kwargs, workflow):
+    assert args == [
+        "docker", "compose", "exec", "-T", "db", "/bin/busybox", "timeout", "-s", "KILL",
+        "1140", "pg_dump", "-U", "fixture", "-d", "fixture", "-Fc", "--no-owner", "--no-acl",
+    ]
+    assert kwargs["cwd"] == workflow.root
+    assert kwargs["check"] is True and kwargs["stderr"] == subprocess.PIPE
+    assert kwargs["timeout"] == 1200 > backup.DUMP_CONTAINER_TIMEOUT_SECONDS
+    assert "shell" not in kwargs
+
+
+@pytest.mark.parametrize("failure", ["container_deadline", "missing_watchdog", "host_deadline"])
+def test_dump_deadline_failure_preserves_last_success_and_never_encrypts(
+    dump_workflow, monkeypatch, capsys, failure
+):
+    workflow = dump_workflow
+    backup.write_status(workflow.destination, {"status": "success", "last_success_at": "before"})
+    dump_calls = []
+
+    def failed_dump(args, **kwargs):
+        assert_fixed_dump_command(args, kwargs, workflow)
+        dump_calls.append(args)
+        kwargs["stdout"].write(b"partial dump must not be backed up")
+        if failure == "host_deadline":
+            raise subprocess.TimeoutExpired(args, kwargs["timeout"], stderr=b"private failure fixture")
+        raise subprocess.CalledProcessError(
+            137 if failure == "container_deadline" else 127, args, stderr=b"private failure fixture"
+        )
+
+    monkeypatch.setattr(backup.subprocess, "run", failed_dump)
+    monkeypatch.setattr(sys, "argv", [
+        "backup.py", "--root", str(workflow.root), "--destination", str(workflow.destination),
+        "--key-file", str(workflow.key), "--min-free-gib", "1", "--progress-json",
+    ])
+    with pytest.raises(SystemExit) as stopped:
+        backup.main()
+    assert stopped.value.code == 1
+    assert len(dump_calls) == 1 and workflow.phases == ["preflight", "dump"]
+    assert not any(args[0] == "restic" or "psql" in args for args in workflow.calls)
+    assert not list(workflow.destination.glob(".staging-*"))
+    status = json.loads((workflow.destination / "status.json").read_text())
+    assert status["status"] == "failed" and status["last_success_at"] == "before"
+    assert status["failure_code"] == (
+        "TimeoutExpired" if failure == "host_deadline" else "CalledProcessError"
+    )
+    assert "private failure fixture" not in capsys.readouterr().out
+    assert "private failure fixture" not in json.dumps(status)
+
+
+def test_successful_guarded_dump_enters_encrypt_and_checks_repository(dump_workflow, monkeypatch):
+    workflow = dump_workflow
+    dump_calls = []
+
+    def successful_dump(args, **kwargs):
+        assert_fixed_dump_command(args, kwargs, workflow)
+        dump_calls.append(args)
+        kwargs["stdout"].write(b"complete database dump fixture")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(backup.subprocess, "run", successful_dump)
+    result = backup._backup(
+        workflow.root, workflow.destination, workflow.key, 1, progress=workflow.phases.append
+    )
+    assert result["status"] == "success" and len(dump_calls) == 1
+    assert workflow.phases == ["preflight", "dump", "encrypt", "retention", "integrity", "complete"]
+    assert [args[1] for args in workflow.calls if args[0] == "restic"] == ["backup", "forget", "check"]
+    assert not list(workflow.destination.glob(".staging-*"))
 
 
 def test_complete_batch_verifies_dump_config_and_volume_inventory(recovered):
@@ -304,6 +426,42 @@ def test_missing_map_floor_media_or_draft_dependency_fails_recovery(recovered, k
         restore.verify_database_assets(data, volumes)
 
 
+def test_restore_verifies_narration_manifest_waveform_and_adoption(recovered):
+    import hashlib
+    import io
+    import wave
+
+    _, _, _, volumes = recovered
+    data = database_assets(volumes)
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(16000)
+        audio.writeframes(b"\0\0" * 1600)
+    raw = buffer.getvalue()
+    checksum = hashlib.sha256(raw).hexdigest()
+    folder = volumes["floor_assets"] / ".narration" / "fixture-asset"
+    folder.mkdir(parents=True)
+    (folder / (checksum + ".wav")).write_bytes(raw)
+    chunks = [{"sha256": checksum, "byte_size": len(raw), "duration_seconds": 0.1,
+               "chunk_id": "0", "text": "fixture"}]
+    manifest = {"fingerprint": "a" * 64, "chunks": chunks}
+    canonical = json.dumps(manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    data["counts"].update(narration_assets=1, narration_jobs=1)
+    data["narration_assets"] = [{"id": "fixture-asset", **manifest,
+                                 "manifest_sha256": hashlib.sha256(canonical.encode()).hexdigest()}]
+    data["narration_jobs"] = [{"id": "fixture-asset", "completed_chunks": chunks}]
+    assert restore.verify_database_assets(data, volumes)["narration_chunks"] == 1
+    data["experiences"][0]["published"] = {"stops": [{"segments": [{"narration_asset_id": "missing"}]}]}
+    with pytest.raises(ValueError, match="lost adopted narration"):
+        restore.verify_database_assets(data, volumes)
+    data["experiences"][0]["published"] = None
+    data["narration_assets"][0]["manifest_sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="manifest differs"):
+        restore.verify_database_assets(data, volumes)
+
+
 def test_symlink_ancestors_are_rejected_before_resolution(tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -314,3 +472,69 @@ def test_symlink_ancestors_are_rejected_before_resolution(tmp_path):
         pytest.skip("Platform does not grant symlink creation")
     with pytest.raises(ValueError, match="Symlink"):
         backup.checked_path(link / "new-backup")
+
+
+@pytest.mark.parametrize("source", ["experience_versions", "experience_operations"])
+def test_recovery_checks_originals_referenced_only_by_retained_history(recovered, source):
+    _, _, _, volumes = recovered
+    data = database_assets(volumes)
+    payload = {"kind": "media", "upload_id": "missing-history-original"}
+    data["counts"][source] = 1
+    data[source] = ([{"content": payload, "published_content": None}]
+                    if source == "experience_versions" else [{"result": {"content": payload}}])
+    with pytest.raises(ValueError, match="lost its original"):
+        restore.verify_database_assets(data, volumes)
+
+
+def test_recovery_checks_old_floor_revision_files_and_originals(recovered):
+    _, _, _, volumes = recovered
+    data = database_assets(volumes)
+    data["counts"]["content_versions"] = 1
+    current = data["floors"][0]
+    history = {"entity_type": "floor", "entity_id": current["id"], "content": {
+        "draft": None, "published": {"revision": current["revision"], "images": current["images"]}}}
+    data["content_versions"] = [history]
+    assert restore.verify_database_assets(data, volumes)["floor_images"] == 1
+    history["content"]["published"]["revision"] = 1
+    with pytest.raises(ValueError, match="missing recovered asset"):
+        restore.verify_database_assets(data, volumes)
+    history["content"] = {"draft": {"content": {"images": [{"upload_id": "missing"}]}}, "published": None}
+    with pytest.raises(ValueError, match="floor history lost"):
+        restore.verify_database_assets(data, volumes)
+
+
+def test_recovery_checks_narration_referenced_only_by_old_route(recovered):
+    _, _, _, volumes = recovered
+    data = database_assets(volumes)
+    data["counts"].update(narration_assets=0, narration_jobs=0, experience_versions=1)
+    data["narration_assets"], data["narration_jobs"] = [], []
+    data["experience_versions"] = [{"content": None, "published_content": {
+        "stops": [{"segments": [{"narration_asset_id": "missing-historical-asset"}]}]}}]
+    with pytest.raises(ValueError, match="lost adopted narration"):
+        restore.verify_database_assets(data, volumes)
+
+
+@pytest.mark.parametrize("change", ["point", "type", "mime", "missing"])
+def test_recovery_caption_must_belong_to_the_same_point_and_valid_type(recovered, change):
+    _, _, _, volumes = recovered
+    data = database_assets(volumes)
+    root = volumes["floor_assets"] / ".experience-media" / "caption-original"
+    root.mkdir()
+    path = root / "original.vtt"
+    path.write_bytes(b"WEBVTT\n\n00:00.000 --> 00:01.000\nFixture\n")
+    caption = {"id": "caption-original", "point_id": "point-a", "media_type": "subtitle",
+               "mime_type": "text/vtt", "filename": path.name,
+               "sha256": backup.file_sha256(path), "size_bytes": path.stat().st_size}
+    data["experience_uploads"].append(caption)
+    data["experiences"][0]["draft"].update(point_id="point-a", caption_upload_id=caption["id"])
+    assert restore.verify_database_assets(data, volumes)["media_originals"] == 2
+    if change == "point":
+        caption["point_id"] = "point-b"
+    elif change == "type":
+        caption["media_type"] = "video"
+    elif change == "mime":
+        caption["mime_type"] = "text/html"
+    else:
+        data["experience_uploads"].pop()
+    with pytest.raises(ValueError, match="caption lost its scoped original"):
+        restore.verify_database_assets(data, volumes)

@@ -171,14 +171,16 @@ def reserve(db, entries):
 
 def http_budget(db, request, owner):
     cfg = request.app.state.settings
+    from app.modules.configurations import effective_runtime
+    policy = effective_runtime(db, cfg)
     ip = digest(client_ip(request) + ":" + now_utc().date().isoformat())
     reserve(
         db,
         [
-            ("http:global", setting(cfg, "agent_http_requests_per_hour", 2400), 1, 3600),
-            ("http:global", setting(cfg, "agent_http_requests_per_day", 14400), 1, 86400),
-            ("http:ip:" + ip, setting(cfg, "agent_ip_requests_per_hour", 180), 1, 3600),
-            ("http:ip:" + ip, setting(cfg, "agent_ip_requests_per_day", 1080), 1, 86400),
+            ("http:global", policy.http_requests_per_hour, 1, 3600),
+            ("http:global", policy.http_requests_per_day, 1, 86400),
+            ("http:ip:" + ip, policy.ip_requests_per_hour, 1, 3600),
+            ("http:ip:" + ip, policy.ip_requests_per_day, 1, 86400),
             ("http:visitor:" + owner, 480, 1, 3600),
         ],
     )
@@ -186,31 +188,34 @@ def http_budget(db, request, owner):
 
 def paid_attempt(db, request, owner, kind, visitor_limit, total_limit, characters=0):
     cfg = request.app.state.settings
+    from app.modules.configurations import effective_runtime
+    policy = effective_runtime(db, cfg)
+    enabled = policy.chat_enabled if kind == "model" else policy.voice_enabled
+    if not enabled:
+        raise DomainError("SERVICE_PAUSED", "此收费服务当前未获启用或已暂停", 503)
+    visitor_limit = min(visitor_limit, policy.visitor_turns_per_hour if kind == "model" else policy.voice_visitor_requests_per_hour)
+    total_limit = min(total_limit, policy.total_turns_per_hour if kind == "model" else policy.voice_total_requests_per_hour)
     ip = digest(client_ip(request) + ":" + now_utc().date().isoformat())
-    daily = setting(
-        cfg,
-        "agent_model_requests_per_day" if kind == "model" else "agent_voice_requests_per_day",
-        720 if kind == "model" else 1200,
-    )
+    daily = policy.model_requests_per_day if kind == "model" else policy.voice_requests_per_day
     entries = [
         (f"supplier:{kind}:global", total_limit, 1, 3600),
         (f"supplier:{kind}:global", daily, 1, 86400),
         (f"supplier:{kind}:visitor:{owner}", visitor_limit, 1, 3600),
-        ("supplier:global", setting(cfg, "agent_supplier_requests_per_day", 1920), 1, 86400),
+        ("supplier:global", policy.supplier_requests_per_day, 1, 86400),
         (
             "supplier:visitor:" + owner,
-            setting(cfg, "agent_supplier_session_requests_per_day", 450),
+            policy.supplier_session_requests_per_day,
             1,
             86400,
         ),
-        ("supplier:ip:" + ip, setting(cfg, "agent_supplier_ip_requests_per_day", 1080), 1, 86400),
-        ("supplier:ip:" + ip, setting(cfg, "agent_ip_requests_per_hour", 180), 1, 3600),
+        ("supplier:ip:" + ip, min(setting(cfg, "agent_supplier_ip_requests_per_day", 1080), policy.ip_requests_per_day), 1, 86400),
+        ("supplier:ip:" + ip, policy.ip_requests_per_hour, 1, 3600),
     ]
     if characters:
         entries.append(
             (
                 "supplier:voice:characters",
-                setting(cfg, "agent_supplier_characters_per_day", 360000),
+                policy.supplier_characters_per_day,
                 characters,
                 86400,
             )

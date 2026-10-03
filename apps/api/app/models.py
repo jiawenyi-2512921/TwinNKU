@@ -169,6 +169,7 @@ class FloorRecord(Base):
     ordinal: Mapped[int] = mapped_column(Integer)
     revision: Mapped[int] = mapped_column(Integer)
     attribution: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
     status: Mapped[str] = mapped_column(String(24), default="draft")
     visibility: Mapped[str] = mapped_column(String(24), default="internal")
     manifest_sha256: Mapped[str] = mapped_column(String(64))
@@ -380,8 +381,39 @@ class PanoramaRecord(Base):
     title: Mapped[str] = mapped_column(String(120))
     url: Mapped[str] = mapped_column(String(2048))
     description: Mapped[str] = mapped_column(Text, default="")
+    observation_prompt: Mapped[str] = mapped_column(Text, default="", server_default="")
+    cover_image_id: Mapped[str | None] = mapped_column(String(36))
+    cover_image_revision: Mapped[int | None] = mapped_column(Integer)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    verification_generation: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     revision: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(24), default="published")
+
+
+class PanoramaVerificationRecord(Base):
+    __tablename__ = "panorama_verifications"
+    __table_args__ = (
+        CheckConstraint("generation >= 1", name="ck_vr_check_generation"),
+        CheckConstraint("dimension IN ('technical','scene','device')", name="ck_vr_check_dimension"),
+        CheckConstraint("result IN ('passed','failed','uncertain')", name="ck_vr_check_result"),
+        CheckConstraint("(dimension = 'device' AND platform IS NOT NULL AND platform IN ('desktop','android','ios','wechat')) OR (dimension != 'device' AND platform IS NULL)", name="ck_vr_check_platform"),
+        Index("ix_vr_check_source", "resource_id", "generation", "url_sha256", "recorded_at"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    operation_id: Mapped[str] = mapped_column(String(36), unique=True)
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    resource_id: Mapped[str] = mapped_column(String(36))
+    point_id: Mapped[str] = mapped_column(ForeignKey("points.id", ondelete="RESTRICT"))
+    generation: Mapped[int] = mapped_column(Integer)
+    url_sha256: Mapped[str] = mapped_column(String(64))
+    dimension: Mapped[str] = mapped_column(String(16))
+    platform: Mapped[str | None] = mapped_column(String(16))
+    result: Mapped[str] = mapped_column(String(16))
+    reason: Mapped[str] = mapped_column(String(40))
+    environment: Mapped[str] = mapped_column(String(200), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    recorded_by: Mapped[str] = mapped_column(ForeignKey("staff_users.id", ondelete="RESTRICT"))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
 
 class ResourceChangeRecord(Base):

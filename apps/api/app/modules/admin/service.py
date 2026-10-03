@@ -203,8 +203,10 @@ def save_draft(db, actor, payload, point_id=None):
         db.add(point)
         db.flush()
     values = PointDraftInput.model_validate(
-        payload.model_dump(exclude={"expected_revision", "expected_point_revision"})
-    ).model_dump(mode="json")
+        payload.model_dump(exclude={"expected_revision", "expected_point_revision", "operation_id"})
+    ).model_dump(mode="json", exclude={"operation_id"})
+    if current and current.operation == "upsert" and current.payload == values:
+        return point
     contributors = (
         set(current.contributor_ids)
         if current and current.state in {"draft", "rejected"}
@@ -241,6 +243,10 @@ def save_draft(db, actor, payload, point_id=None):
         details={"draft_revision": current.revision, "payload": values},
     )
     db.flush()
+    from app.modules.content_control_service import record_history, unfreeze
+
+    unfreeze(db, "point", point.id)
+    record_history(db, "point", point.id, "autosave", actor)
     return point
 
 
@@ -255,6 +261,17 @@ def change_for_action(db, actor, point_id, expected_revision):
 def transition(db, actor, point_id, action, payload):
     actor.require("points.review" if action in {"publish", "reject"} else "points.edit")
     point, change = change_for_action(db, actor, point_id, payload.expected_revision)
+    from app.modules.content_control_service import check_frozen, freeze, record_history, unfreeze
+
+    if (
+        payload.expected_published_revision is not None
+        and payload.expected_published_revision != point.revision
+    ):
+        conflict()
+    if action == "publish":
+        from app.modules.admin.security import require_recent_mfa
+
+        require_recent_mfa(actor)
     note = payload.note.strip()
     if not note:
         raise DomainError("NOTE_REQUIRED", "请填写操作说明", 422)
@@ -284,6 +301,7 @@ def transition(db, actor, point_id, action, payload):
             raise DomainError(
                 "SELF_REVIEW_DENIED", "不能审核自己参与编辑或提交的内容，请交由另一名审核员", 403
             )
+        check_frozen(db, "point", point.id)
         if action == "reject":
             change.state = "rejected"
         else:
@@ -334,6 +352,11 @@ def transition(db, actor, point_id, action, payload):
             details={"draft_revision": change.revision},
         )
     db.flush()
+    if action == "submit":
+        freeze(db, "point", point.id)
+    else:
+        unfreeze(db, "point", point.id)
+    record_history(db, "point", point.id, action, actor, force=True)
     return point
 
 
@@ -377,6 +400,10 @@ def request_retire(db, actor, point_id, payload):
         details={"draft_revision": current.revision},
     )
     db.flush()
+    from app.modules.content_control_service import freeze, record_history
+
+    freeze(db, "point", point.id)
+    record_history(db, "point", point.id, "retire_request", actor, force=True)
     return point
 
 

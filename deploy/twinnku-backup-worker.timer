@@ -1,0 +1,11 @@
+[Unit]
+Description=Observe TwinNKU backup status and process authorized requests
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=30s
+AccuracySec=5s
+Unit=twinnku-backup-worker.service
+
+[Install]
+WantedBy=timers.target

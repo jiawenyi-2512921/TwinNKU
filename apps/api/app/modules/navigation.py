@@ -14,6 +14,7 @@ from app.api import DB, envelope, require_campus
 from app.contracts import DTO, XY, Envelope, RouteSegment
 from app.core.errors import DomainError
 from app.models import MapRecord, NavigationRecord, PointGeometryRecord, PointRecord, now_utc
+from app.modules import content_control_service as control
 from app.modules.admin.security import Actor, audit
 from app.modules.guide_settings import policy_for
 
@@ -90,11 +91,15 @@ def road_path(edge, nodes):
 
 
 class RoadDraft(DTO):
+    operation_id: UUID | None = None
+    expected_published_revision: int | None = Field(default=None, ge=0)
     expected_revision: int = Field(ge=0)
     graph: RoadGraph
 
 
 class RoadReview(DTO):
+    operation_id: UUID | None = None
+    expected_published_revision: int | None = Field(default=None, ge=0)
     expected_revision: int = Field(ge=1)
     action: Literal["submit", "publish", "reject", "withdraw"]
     note: str = Field(min_length=1, max_length=1000)
@@ -205,11 +210,13 @@ def validate_graph(db, m, graph, *, publish=False):
         )
 
 
-def availability(db, map_id):
+def availability(db, map_id, settings=None):
     m = public_map(db, map_id)
     row = db.get(NavigationRecord, m.id)
     graph = RoadGraph.model_validate(row.published) if row and row.published else None
-    ready = bool(policy_for(db).navigation_enabled and graph and graph.map_revision == m.revision)
+    ready = bool(
+        policy_for(db, settings).navigation_enabled and graph and graph.map_revision == m.revision
+    )
     points = public_points(db, m.campus_id, m.id, m.revision)
     usable = (
         {v for e in graph.edges if e.verified and not e.closed for v in (e.start, e.end)}
@@ -240,8 +247,8 @@ def availability(db, map_id):
     )
 
 
-def calculate(db, payload, *, draft=None):
-    if not draft and not policy_for(db).navigation_enabled:
+def calculate(db, payload, *, draft=None, settings=None):
+    if not draft and not policy_for(db, settings).navigation_enabled:
         raise DomainError("NAVIGATION_DISABLED", "导航暂时关闭，仍可查看地点与资料", 503)
     m = public_map(db, payload.map_id)
     row = db.get(NavigationRecord, m.id)
@@ -400,7 +407,7 @@ def list_workspaces(request: Request, actor: Actor, db: DB):
     openapi_extra=PUBLIC,
 )
 def get_availability(map_id: UUID, request: Request, db: DB):
-    return envelope(request, availability(db, map_id))
+    return envelope(request, availability(db, map_id, request.app.state.settings))
 
 
 @router.post(
@@ -410,7 +417,7 @@ def get_availability(map_id: UUID, request: Request, db: DB):
     openapi_extra=PUBLIC,
 )
 def route(payload: NavigationRequest, request: Request, db: DB):
-    return envelope(request, calculate(db, payload))
+    return envelope(request, calculate(db, payload, settings=request.app.state.settings))
 
 
 @router.get(
@@ -430,18 +437,41 @@ def workspace(map_id: UUID, request: Request, actor: Actor, db: DB):
     operation_id="saveRoadDraft",
     openapi_extra=STAFF,
 )
+@control.write_guard
 def save(map_id: UUID, payload: RoadDraft, request: Request, actor: Actor, db: DB):
     m = scoped_map(db, actor, map_id)
     if actor.user.role not in {"admin", "editor"}:
         raise DomainError("FORBIDDEN", "当前角色不能编辑路网", 403)
+    fingerprint, old = control.operation(
+        db,
+        actor,
+        payload.operation_id,
+        "navigation",
+        "save",
+        str(map_id),
+        payload.model_dump(mode="json"),
+    )
+    if old is not None:
+        return envelope(request, old)
     # Lock map row as well: serializes the first graph creation on PostgreSQL.
     db.scalar(select(MapRecord).where(MapRecord.id == m.id).with_for_update())
     row = db.get(NavigationRecord, m.id, populate_existing=True)
     if payload.expected_revision != (row.revision if row else 0):
         raise DomainError("REVISION_CONFLICT", "路网已被修改，请重新加载", 409)
+    if payload.expected_published_revision is not None and payload.expected_published_revision != (
+        row.published_revision if row else 0
+    ):
+        raise DomainError("REVISION_CONFLICT", "正式路网已被修改，请重新加载", 409)
     if row and row.state == "in_review":
         raise DomainError("IN_REVIEW", "请先撤回待审路网", 409)
     validate_graph(db, m, payload.graph)
+    if row and row.draft == payload.graph.model_dump(mode="json"):
+        result = view(row, m.id).model_dump(mode="json")
+        control.finish_operation(
+            db, actor, payload.operation_id, "navigation", m.id, "save", fingerprint, result
+        )
+        db.commit()
+        return envelope(request, result)
     if row is None:
         row = NavigationRecord(
             map_id=m.id, revision=0, published_revision=0, contributor_ids=[], review_note=""
@@ -454,8 +484,15 @@ def save(map_id: UUID, payload: RoadDraft, request: Request, actor: Actor, db: D
     row.revision += 1
     row.updated_at = now_utc()
     audit(db, actor.user, "navigation.save", details={"map_id": m.id, "revision": row.revision})
+    db.flush()
+    control.unfreeze(db, "navigation", m.id)
+    control.record_history(db, "navigation", m.id, "autosave", actor)
+    result = view(row, m.id).model_dump(mode="json")
+    control.finish_operation(
+        db, actor, payload.operation_id, "navigation", m.id, "save", fingerprint, result
+    )
     db.commit()
-    return envelope(request, view(row, m.id))
+    return envelope(request, result)
 
 
 @router.post(
@@ -464,17 +501,40 @@ def save(map_id: UUID, payload: RoadDraft, request: Request, actor: Actor, db: D
     operation_id="reviewRoadDraft",
     openapi_extra=STAFF,
 )
+@control.write_guard
 def review(map_id: UUID, payload: RoadReview, request: Request, actor: Actor, db: DB):
+    return review_navigation(map_id, payload, request, actor, db)
+
+
+@control.write_guard
+def review_navigation(map_id, payload, request, actor, db):
+    """Shared transition service; both entry points retain every authorization check."""
     if payload.action == "publish":
         from app.modules.admin.security import require_recent_mfa
 
         require_recent_mfa(actor)
     m = scoped_map(db, actor, map_id)
+    fingerprint, old = control.operation(
+        db,
+        actor,
+        payload.operation_id,
+        "navigation",
+        payload.action,
+        str(map_id),
+        payload.model_dump(mode="json"),
+    )
+    if old is not None:
+        return envelope(request, old)
     row = db.scalar(
         select(NavigationRecord).where(NavigationRecord.map_id == m.id).with_for_update()
     )
     if not row or row.revision != payload.expected_revision:
         raise DomainError("REVISION_CONFLICT", "路网已变化，请重新加载", 409)
+    if (
+        payload.expected_published_revision is not None
+        and payload.expected_published_revision != row.published_revision
+    ):
+        raise DomainError("REVISION_CONFLICT", "正式路网已变化，请重新加载", 409)
     u = actor.user
     if payload.action in {"submit", "withdraw"}:
         if u.role not in {"admin", "editor"}:
@@ -491,6 +551,7 @@ def review(map_id: UUID, payload: RoadReview, request: Request, actor: Actor, db
             raise DomainError("REVIEW_FORBIDDEN", "需要未参与本次编辑和提交的审核员处理", 403)
         if row.state != "in_review":
             raise DomainError("INVALID_STATE", "路网当前不在待审状态", 409)
+        control.check_frozen(db, "navigation", m.id)
         if payload.action == "publish":
             validate_graph(db, m, RoadGraph.model_validate(row.draft), publish=True)
             row.published = row.draft
@@ -505,8 +566,18 @@ def review(map_id: UUID, payload: RoadReview, request: Request, actor: Actor, db
         note=payload.note,
         details={"map_id": m.id, "revision": row.revision},
     )
+    db.flush()
+    if payload.action == "submit":
+        control.freeze(db, "navigation", m.id)
+    else:
+        control.unfreeze(db, "navigation", m.id)
+    control.record_history(db, "navigation", m.id, payload.action, actor, force=True)
+    result = view(row, m.id).model_dump(mode="json")
+    control.finish_operation(
+        db, actor, payload.operation_id, "navigation", m.id, payload.action, fingerprint, result
+    )
     db.commit()
-    return envelope(request, view(row, m.id))
+    return envelope(request, result)
 
 
 @router.post(
@@ -520,4 +591,12 @@ def preview(map_id: UUID, payload: NavigationRequest, request: Request, actor: A
     row = db.get(NavigationRecord, m.id)
     if str(payload.map_id) != m.id or not row or not row.draft:
         raise DomainError("DRAFT_UNAVAILABLE", "请先保存本地图路网草稿", 409)
-    return envelope(request, calculate(db, payload, draft=RoadGraph.model_validate(row.draft)))
+    return envelope(
+        request,
+        calculate(
+            db,
+            payload,
+            draft=RoadGraph.model_validate(row.draft),
+            settings=request.app.state.settings,
+        ),
+    )

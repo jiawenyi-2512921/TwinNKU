@@ -1,4 +1,4 @@
-"""Scoped public narration and private staff preview; never an arbitrary TTS proxy."""
+"""Scoped public speech; staff preview reads immutable narration assets."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ from app.core.errors import DomainError
 from app.integrations.public_agent_security import (
     acquire_lease,
     capability,
-    digest,
     http_budget,
     issue,
     paid_attempt,
@@ -123,13 +122,15 @@ def _manifest(db, request, owner, source, text):
 
 
 @router.get("/api/v1/voice/status", operation_id="getVoiceStatus", openapi_extra=META)
-def voice_status(request: Request):
+def voice_status(request: Request, db: DB):
     config = voice_config(request.app.state.settings)
+    from app.modules.configurations import effective_runtime
+    enabled = config.enabled and effective_runtime(db, request.app.state.settings).voice_enabled
     return {
-        "enabled": config.enabled,
-        "provider": "bailian" if config.enabled else "browser",
-        "tiers": [tier.name for tier in config.tiers] if config.enabled else [],
-        "models": [tier.model for tier in config.tiers] if config.enabled else [],
+        "enabled": enabled,
+        "provider": "bailian" if enabled else "browser",
+        "tiers": [tier.name for tier in config.tiers] if enabled else [],
+        "models": [tier.model for tier in config.tiers] if enabled else [],
         "max_characters": config.max_characters,
         "cached_clips": len(_AUDIO_CACHE),
     }
@@ -156,14 +157,9 @@ def prepare(payload: VoicePrepare, request: Request, db: DB):
     openapi_extra={**META, "x-auth": "staff"},
 )
 def prepare_draft(payload: DraftVoicePrepare, request: Request, actor: Actor, db: DB):
-    owner = digest("staff:" + actor.session.token_hash)
-    http_budget(db, request, owner)
-    return _manifest(
-        db,
-        request,
-        owner,
-        payload.source,
-        _draft_text(db, actor, payload.source, request.app.state.settings),
+    actor.require("points.read")
+    raise DomainError(
+        "DRAFT_SYNTHESIS_RETIRED", "请在讲解制作中明确生成音频；预览只播放已生成的音频", 410
     )
 
 
@@ -207,7 +203,8 @@ def _synthesizer_for(config, before_attempt=None):
 
 async def _speech(payload, request, db, owner, actor=None):
     config = voice_config(request.app.state.settings)
-    if not config.enabled:
+    from app.modules.configurations import effective_runtime
+    if not config.enabled or not effective_runtime(db, request.app.state.settings).voice_enabled:
         raise DomainError("VOICE_UNAVAILABLE", "云端语音未启用，请使用浏览器朗读", 503)
     http_budget(db, request, owner)
     grant = capability(db, payload.permit, owner, "speech")
@@ -330,4 +327,6 @@ async def create_speech(payload: SpeechRequest, request: Request, db: DB):
 )
 async def create_draft_speech(payload: SpeechRequest, request: Request, actor: Actor, db: DB):
     actor.require("points.read")
-    return await _speech(payload, request, db, digest("staff:" + actor.session.token_hash), actor)
+    raise DomainError(
+        "DRAFT_SYNTHESIS_RETIRED", "草稿付费预览已停用，请试听讲解制作中已生成的音频", 410
+    )

@@ -13,16 +13,46 @@ import secrets
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 UTC = timezone.utc  # noqa: UP017 -- the Ubuntu host runs Python 3.8.
+# The in-container watchdog survives a killed Docker CLI. Keep the existing
+# 20-minute host bound, leaving a minute to collect the container's failure.
+DUMP_CONTAINER_TIMEOUT_SECONDS = 1140
+DUMP_HOST_TIMEOUT_SECONDS = 1200
 
 
 class StorageLocationError(ValueError):
     """An invalid destination must not receive even a failure-status write."""
+
+
+class BackupBusy(ValueError):
+    """A second caller must not overwrite the status of an active backup."""
+
+
+@contextmanager
+def backup_lock(destination):
+    """All scheduled, CLI and queued entry points use this private outer lock."""
+    import fcntl
+
+    destination = checked_path(destination)
+    if os.geteuid() != 0 or destination.stat().st_uid != 0:
+        raise StorageLocationError("Backup lock directory must belong to root")
+    fd = os.open(str(destination / ".backup.lock"), os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "r+b") as lock:
+        info = os.fstat(lock.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1:
+            raise StorageLocationError("Invalid backup lock inode")
+        os.fchmod(lock.fileno(), 0o600)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise BackupBusy("Backup already running") from None
+        yield
 
 
 def inside(path, parent):
@@ -100,7 +130,9 @@ def write_status(destination, status):
 
 
 def command(args, *, cwd=None, env=None):
-    return subprocess.run(args, cwd=cwd, env=env, check=True, capture_output=True).stdout
+    return subprocess.run(
+        args, cwd=cwd, env=env, check=True, capture_output=True, timeout=1200
+    ).stdout
 
 
 def private_file(path, content):
@@ -109,7 +141,49 @@ def private_file(path, content):
         stream.write(content)
 
 
-def backup(root: Path, destination: Path, key_file: Path, min_free_gib: int, nginx_sites=()):
+def report_phase(phase, *, acknowledge=False):
+    print(json.dumps({"phase": phase}), flush=True)
+    if acknowledge:
+        import select
+
+        ready, _, _ = select.select([sys.stdin], [], [], 30)
+        if not ready or sys.stdin.readline(32) != "continue\n":
+            raise ValueError("Maintenance authorization was not renewed")
+
+
+def backup(
+    root: Path,
+    destination: Path,
+    key_file: Path,
+    min_free_gib: int,
+    nginx_sites=(),
+    *,
+    progress=None,
+):
+    root, destination = checked_path(root), checked_path(destination)
+    if inside(destination, root) or inside(root, destination):
+        raise StorageLocationError("Backup destination must be outside the deployment")
+    if os.geteuid() != 0:
+        raise ValueError("Backup must run as root")
+    destination.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if destination.stat().st_uid != 0:
+        raise StorageLocationError("Backup destination must belong to root")
+    destination.chmod(0o700)
+    with backup_lock(destination):
+        return _backup(root, destination, key_file, min_free_gib, nginx_sites, progress=progress)
+
+
+def _backup(
+    root: Path,
+    destination: Path,
+    key_file: Path,
+    min_free_gib: int,
+    nginx_sites=(),
+    *,
+    progress=None,
+):
+    report = progress or (lambda phase: None)
+    report("preflight")
     root, destination, key_file = (
         checked_path(root),
         checked_path(destination),
@@ -139,6 +213,19 @@ def backup(root: Path, destination: Path, key_file: Path, min_free_gib: int, ngi
         raise ValueError("A positive disk reserve is required")
     if shutil.disk_usage(destination).free < min_free_gib * 1024**3:
         raise ValueError("Insufficient backup disk reserve")
+    config = json.loads(command(["docker", "compose", "config", "--format", "json"], cwd=root))
+    db = config["services"]["db"]["environment"]
+    volumes = {}
+    for name in ("map_assets", "floor_assets"):
+        volume_name = config["volumes"][name]["name"]
+        details = json.loads(command(["docker", "volume", "inspect", volume_name]))[0]
+        path = Path(details["Mountpoint"]).resolve()
+        if inside(destination, path) or inside(path, destination):
+            raise StorageLocationError("Backup repository cannot overlap served assets")
+        if inside(key_file, path):
+            raise ValueError("Backup key cannot be included in served assets")
+        volumes[name] = str(path)
+    # Validate served-volume overlap before creating a secret or repository.
     key_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     if not key_file.exists():
         private_file(key_file, secrets.token_hex(32).encode())
@@ -153,20 +240,9 @@ def backup(root: Path, destination: Path, key_file: Path, min_free_gib: int, ngi
     checked_path(destination / "repository")
     if not (destination / "repository/config").is_file():
         command(["restic", "init"], env=env)
-    config = json.loads(command(["docker", "compose", "config", "--format", "json"], cwd=root))
-    db = config["services"]["db"]["environment"]
-    volumes = {}
-    for name in ("map_assets", "floor_assets"):
-        volume_name = config["volumes"][name]["name"]
-        details = json.loads(command(["docker", "volume", "inspect", volume_name]))[0]
-        path = Path(details["Mountpoint"]).resolve()
-        if inside(destination, path) or inside(path, destination):
-            raise StorageLocationError("Backup repository cannot overlap served assets")
-        if inside(key_file, path):
-            raise ValueError("Backup key cannot be included in served assets")
-        volumes[name] = str(path)
     lock_path = Path(volumes["floor_assets"]) / ".maintenance.lock"
     with maintenance_lock(lock_path):
+        report("dump")
         with tempfile.TemporaryDirectory(prefix=".staging-", dir=destination) as staging_name:
             staging = Path(staging_name)
             dump_path = staging / "database.dump"
@@ -178,6 +254,11 @@ def backup(root: Path, destination: Path, key_file: Path, min_free_gib: int, ngi
                         "exec",
                         "-T",
                         "db",
+                        "/bin/busybox",
+                        "timeout",
+                        "-s",
+                        "KILL",
+                        str(DUMP_CONTAINER_TIMEOUT_SECONDS),
                         "pg_dump",
                         "-U",
                         db["POSTGRES_USER"],
@@ -191,6 +272,7 @@ def backup(root: Path, destination: Path, key_file: Path, min_free_gib: int, ngi
                     stdout=stream,
                     stderr=subprocess.PIPE,
                     check=True,
+                    timeout=DUMP_HOST_TIMEOUT_SECONDS,
                 )
             if not dump_path.stat().st_size:
                 raise ValueError("Empty database dump")
@@ -240,10 +322,12 @@ def backup(root: Path, destination: Path, key_file: Path, min_free_gib: int, ngi
                 **database_meta,
             }
             (staging / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            report("encrypt")
             command(
                 ["restic", "backup", "--tag", "twinnku-complete", str(staging), *volumes.values()],
                 env=env,
             )
+        report("retention")
         command(
             [
                 "restic",
@@ -260,7 +344,9 @@ def backup(root: Path, destination: Path, key_file: Path, min_free_gib: int, ngi
             ],
             env=env,
         )
+        report("integrity")
         command(["restic", "check"], env=env)
+    report("complete")
     return {
         "status": "success",
         "last_success_at": datetime.now(UTC).isoformat(),
@@ -278,6 +364,14 @@ def main():
     parser.add_argument("--destination", type=Path, default=Path("/var/backups/twinnku"))
     parser.add_argument("--key-file", type=Path, default=Path("/etc/twinnku/backup-password"))
     parser.add_argument("--min-free-gib", type=int, default=10)
+    parser.add_argument(
+        "--progress-json",
+        action="store_true",
+        help="Emit only fixed phase codes for the host executor",
+    )
+    parser.add_argument(
+        "--progress-ack", action="store_true", help="Wait for host authorization before each phase"
+    )
     parser.add_argument(
         "--nginx-site",
         type=Path,
@@ -297,9 +391,25 @@ def main():
             pass
     try:
         status = backup(
-            args.root, args.destination, args.key_file, args.min_free_gib, args.nginx_site
+            args.root,
+            args.destination,
+            args.key_file,
+            args.min_free_gib,
+            args.nginx_site,
+            progress=(lambda phase: report_phase(phase, acknowledge=args.progress_ack))
+            if args.progress_json
+            else None,
         )
-    except (OSError, ValueError, KeyError, TypeError, IndexError, subprocess.SubprocessError) as exc:
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        IndexError,
+        subprocess.SubprocessError,
+    ) as exc:
+        if isinstance(exc, BackupBusy):
+            raise SystemExit("Another complete backup is running; status was preserved") from None
         if isinstance(exc, StorageLocationError):
             raise SystemExit(
                 "Backup storage location rejected; no status file was written"

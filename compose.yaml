@@ -57,6 +57,10 @@ services:
       ADMIN_PUBLIC_ORIGIN: ${ADMIN_PUBLIC_ORIGIN:-}
       ADMIN_SESSION_HOURS: ${ADMIN_SESSION_HOURS:-8}
       ADMIN_MFA_ENFORCED: ${ADMIN_MFA_ENFORCED:-false}
+      BACKUP_REQUESTS_ENABLED: ${BACKUP_REQUESTS_ENABLED:-false}
+      BACKUP_STAFF_REQUESTS_PER_DAY: ${BACKUP_STAFF_REQUESTS_PER_DAY:-2}
+      BACKUP_GLOBAL_REQUESTS_PER_DAY: ${BACKUP_GLOBAL_REQUESTS_PER_DAY:-6}
+      BACKUP_MIN_INTERVAL_SECONDS: ${BACKUP_MIN_INTERVAL_SECONDS:-3600}
       ADMIN_SESSION_IDLE_MINUTES: ${ADMIN_SESSION_IDLE_MINUTES:-30}
       PUBLIC_SITE_ORIGIN: ${PUBLIC_SITE_ORIGIN:-https://2512921.cn}
       NK_GENIOS_API_ENABLED: ${NK_GENIOS_API_ENABLED:-false}
@@ -88,6 +92,11 @@ services:
       VOICE_ALLOWED_AUDIO_HOSTS: ${VOICE_ALLOWED_AUDIO_HOSTS:-[]}
       VOICE_MAX_AUDIO_BYTES: ${VOICE_MAX_AUDIO_BYTES:-8388608}
       VOICE_CACHE_MAX_BYTES: ${VOICE_CACHE_MAX_BYTES:-67108864}
+      NARRATION_GENERATION_ENABLED: ${NARRATION_GENERATION_ENABLED:-false}
+      NARRATION_STAFF_REQUESTS_PER_HOUR: ${NARRATION_STAFF_REQUESTS_PER_HOUR:-45}
+      NARRATION_STAFF_REQUESTS_PER_DAY: ${NARRATION_STAFF_REQUESTS_PER_DAY:-270}
+      NARRATION_MAX_STORAGE_BYTES: ${NARRATION_MAX_STORAGE_BYTES:-2147483648}
+      NARRATION_UNADOPTED_DAYS: ${NARRATION_UNADOPTED_DAYS:-30}
       FORWARDED_ALLOW_IPS: 172.30.251.3
     depends_on:
       db: {condition: service_healthy}
@@ -132,6 +141,27 @@ services:
       frontend:
         ipv4_address: 172.30.251.2
       database: {}
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  narration-worker:
+    image: twinnku-api:${APP_VERSION:-0.4.0}
+    command: [python, -m, app.modules.narration.worker]
+    restart: unless-stopped
+    environment: *runtime-environment
+    volumes:
+      - floor_assets:/data/floors
+    depends_on:
+      db: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 64
+    networks: [database, narration-egress]
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
@@ -200,6 +230,7 @@ volumes:
   map_assets:
   floor_assets:
 networks:
+  narration-egress: {}
   frontend:
     ipam:
       config: [{subnet: 172.30.251.0/28}]

@@ -9,10 +9,11 @@ from sqlalchemy.engine import URL, make_url
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     app_env: Literal["development", "test", "production"] = "development"
     app_version: str = "0.4.0"
+    practice_mode: bool = False
     map_enabled: bool = True
     map_assets_dir: Path = Path("var/map-assets")
     floors_enabled: bool = True
@@ -30,6 +31,10 @@ class Settings(BaseSettings):
     admin_public_origin: str | None = None
     admin_session_hours: int = Field(default=8, ge=1, le=24)
     admin_mfa_enforced: bool = False
+    backup_requests_enabled: bool = False
+    backup_staff_requests_per_day: int = Field(default=2, ge=1, le=2)
+    backup_global_requests_per_day: int = Field(default=6, ge=1, le=6)
+    backup_min_interval_seconds: int = Field(default=3600, ge=3600)
     admin_session_idle_minutes: int = Field(default=30, ge=5, le=120)
     database_url: SecretStr | None = None
     db_host: str = "db"
@@ -80,6 +85,11 @@ class Settings(BaseSettings):
     voice_allowed_audio_hosts: list[str] = []
     voice_max_audio_bytes: int = Field(default=8 * 1024 * 1024, ge=1024, le=32 * 1024 * 1024)
     voice_cache_max_bytes: int = Field(default=64 * 1024 * 1024, ge=1024, le=256 * 1024 * 1024)
+    narration_generation_enabled: bool = False
+    narration_staff_requests_per_hour: int = Field(default=45, ge=1, le=1000)
+    narration_staff_requests_per_day: int = Field(default=270, ge=1, le=6000)
+    narration_max_storage_bytes: int = Field(default=2147483648, ge=104857600)
+    narration_unadopted_days: int = Field(default=30, ge=7, le=365)
 
     @property
     def web_agent_configured(self) -> bool:
@@ -110,15 +120,19 @@ class Settings(BaseSettings):
         ):
             raise ValueError("NK_GENIOS_API_ENABLED requires API key and 16+ character AGENT_ACCESS_CODE")
         origin = urlsplit(self.public_site_origin)
+        practice_http = (
+            self.practice_mode and origin.scheme == "http" and origin.hostname == "localhost"
+            and origin.port is not None and 1024 <= origin.port <= 65535
+        )
         if (
-            origin.scheme != "https"
+            (origin.scheme != "https" and not practice_http)
             or not origin.hostname
             or origin.path
             or origin.query
             or origin.fragment
             or origin.username
             or origin.password
-            or origin.port not in (None, 443)
+            or (origin.port not in (None, 443) and not practice_http)
             or any(c.isspace() for c in self.public_site_origin)
             or "\\" in self.public_site_origin
         ):
@@ -172,6 +186,41 @@ class Settings(BaseSettings):
                 )
             if "*" in self.allowed_hosts:
                 raise ValueError("production ALLOWED_HOSTS must be explicit")
+        return self
+
+    @model_validator(mode="after")
+    def practice_is_isolated(self):
+        if not self.practice_mode:
+            return self
+        if self.app_env == "production" or self.admin_mfa_enforced:
+            raise ValueError("Practice is a separate local content-training environment")
+        if self.backup_requests_enabled:
+            raise ValueError("Practice mode forbids host backup operations")
+        if any((self.nk_genios_api_enabled, self.nk_genios_web_enabled,
+                self.agent_public_enabled, self.voice_enabled, self.narration_generation_enabled)):
+            raise ValueError("Practice mode forbids supplier and paid-generation capabilities")
+        if any(value and value.get_secret_value() for value in (
+            self.nk_genios_api_key, self.nk_genios_web_app_key,
+            self.voice_api_key, self.agent_access_code,
+        )):
+            raise ValueError("Practice mode must not receive supplier or public-agent credentials")
+        url = make_url(self.resolved_database_url)
+        if (
+            url.drivername != "postgresql+psycopg" or url.host != "db" or url.port not in (None, 5432) or url.query
+            or url.database != "twinnku_practice" or url.username not in {
+                "practice_owner", "practice_runtime"
+            }
+            or len(url.password or "") < 24
+        ):
+            raise ValueError("Practice requires its dedicated PostgreSQL database and role")
+        origin = urlsplit(self.admin_public_origin or "")
+        if (
+            origin.scheme != "http" or origin.hostname != "localhost"
+            or origin.port is None or not 1024 <= origin.port <= 65535
+            or origin.password or origin.username or origin.path or origin.query or origin.fragment
+            or self.admin_public_origin != self.public_site_origin
+        ):
+            raise ValueError("Practice origins must match the explicit localhost HTTP port")
         return self
 
 

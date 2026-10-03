@@ -273,6 +273,29 @@ def test_gc_preserves_all_retained_and_audit_versions_and_only_removes_old_unuse
     assert not actor.is_active and not actor.campus_ids and actor.role == "viewer"
 
 
+@pytest.mark.parametrize("reference", ["draft_upload", "published_hash"])
+def test_gc_retains_floor_original_referenced_only_by_new_history(client, db, storage, reference):
+    from app.content_control_models import ContentVersionRecord
+
+    _, point, settings = storage
+    retained, orphan = [upload(client, point, image_bytes(color)) for color in ("green", "blue")]
+    row = db.get(FloorUploadRecord, retained["id"])
+    payload = ({"draft": {"content": {"images": [{"upload_id": row.id}]}}}
+               if reference == "draft_upload" else {"published": {"images": [row.image]}})
+    db.add(ContentVersionRecord(entity_type="floor", entity_id=str(uuid4()), event="checkpoint",
+                                revision=1, published_revision=1, content=payload,
+                                content_sha256="a" * 64, contributor_ids=[]))
+    for item in (retained, orphan):
+        db.get(FloorUploadRecord, item["id"]).created_at = now_utc() - timedelta(days=8)
+    db.commit()
+    with storage_guard(settings, exclusive=True):
+        plan = maintenance_plan(db, settings)
+        assert [item["id"] for item in plan["uploads"]] == [orphan["id"]]
+        apply_gc(db, settings, expected_sha=plan["sha256"], reason="只回收不被历史引用的原件")
+    assert db.get(FloorUploadRecord, retained["id"]) is not None
+    assert (settings.floor_assets_dir / ".uploads" / retained["id"]).is_dir()
+
+
 def test_parser_timeout_kills_child_without_blocking_event_loop(tmp_path, monkeypatch):
     monkeypatch.setenv("DB_PASSWORD", "TEST_ONLY_NOT_FOR_DECODER")
     monkeypatch.setenv("VOICE_API_KEY", "TEST_ONLY_NOT_FOR_DECODER")
