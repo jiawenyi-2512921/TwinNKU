@@ -1,6 +1,6 @@
 # 可配置校园导览与安全加固交付
 
-记录日期：2026-10-02—03。本文描述当前源码与本轮实际验证，不构成部署或生产迁移完成记录。旧文档中的 SDK、任意文字云播报、内存访客限流和四站样板不再作为本批实现说明。
+记录日期：2026-10-02—03。宿主系统、Docker 与公网代理已完成本轮维护验证；生产应用仍为 `1.6.4`、数据库仍为 `0008_campus_tours`，本批应用、迁移和数据库角色尚未部署。本文区分源码、隔离验证与生产控制，不能作为整批上线完成记录。旧文档中的 SDK、任意文字云播报、内存访客限流和四站样板不再作为本批实现说明。
 
 ## 产品与内容边界
 
@@ -64,21 +64,25 @@
 
 ## 部署预检与顺序
 
-本批源码迁移链为 `0008_campus_tours` → `0009_staff_mfa` → `0010_public_agent_security` → `0011_upload_budgets` → `0012_staff_session_ids`。四项新迁移须顺序执行，不能漏掉持久上传预算和员工会话 UUID。0012 保留既有 token 哈希、CSRF 与时间字段，只新增随机会话定位 ID；SQLite 升降级保真测试通过，生产和 PostgreSQL 实证另行记录。API/web/契约必须配套升级。路线配置继续在既有 JSON 内容快照中存储，不需要导入团队路线或重做地图。
+本批源码迁移链为 `0008_campus_tours` → `0009_staff_mfa` → `0010_public_agent_security` → `0011_upload_budgets` → `0012_staff_session_ids`。四项新迁移须顺序执行，不能漏掉持久上传预算和员工会话 UUID。0012 单项迁移保留既有 token 哈希、CSRF 与时间字段，只新增随机会话定位 ID；SQLite 和实际隔离 PostgreSQL 升降级保真测试已通过。0009 会按计划撤销升级前员工会话，两者不能混为账号或内容损失。API/web/契约必须配套升级。路线配置继续在既有 JSON 内容快照中存储，不需要导入团队路线或重做地图。
 
-1. 先处理服务器系统维护。最初确认 Ubuntu 20.04 未启用 ESM，用户没有 Ubuntu Pro；20.04 标准安全维护已于 2025-05 结束。本轮已按官方顺序升级至 22.04，首次重启与健康检查通过；22.04 → 24.04 尚在执行，当前 SSH 暂不可达，等待 VNC 状态与第二次重启后验收。代码和容器加固不能补齐宿主机安全更新，不能将升级启动称为目标系统验收完成。[Ubuntu 官方维护周期](https://ubuntu.com/about/release-cycle)。SSH 加固也须保留独立会话和控制台后验证，当前不能写成已经修改。
+1. 宿主已按官方顺序从 Ubuntu 20.04 经 22.04 升级至 `24.04.5 LTS`，实际内核 `6.8.0-146`；目标系统重启、运维登录及原容器健康检查通过。最初未启用 ESM、没有 Ubuntu Pro 的 20.04 已离开标准安全维护，不能继续以应用容器加固替代宿主更新。[Ubuntu 官方维护周期](https://ubuntu.com/about/release-cycle)。SSH 后续状态见下文；当前 TCP 22 不可达阻止部署，需通过 VNC 核验恢复。
 2. 取得完整备份、恢复密钥及恢复结果。保留用户选择的服务器本机加密 restic 备份，不声称已配置异地副本。`scripts/backup.py` 备份 DB dump、地图/楼层/媒体原件、私有部署配置及明确指定的 Nginx 配置；`scripts/restore_backup.py` 只恢复到新私有目录和隔离 PostgreSQL，不切换生产。密码文件不得进入 Git、日志或公网目录。
 3. 核对准确 HTTPS Origin、允许主机、可信代理链、独立 `DB_APP_USER` / `DB_APP_PASSWORD` 和迁移 owner；`.env` 为未跟踪的 0600 文件。先保持 `AGENT_PUBLIC_ENABLED=false`，收费服务先关闭待验；沿用实际服务商/模型/音色配置。不要输出包含密钥的 `docker compose config`，使用 `docker compose config --quiet`。
-4. 对备份恢复得到的隔离数据库先执行 Alembic 到 head、角色分权、全部 PostgreSQL/预算并发测试和只读烟测。在线 API 只拿受限 DML 账号，迁移容器单独持 owner；在线账号不得拥有对象、超级用户/创建角色/DDL 权限，不得更新 `alembic_version`。新角色及迁移在生产尚未执行。
-5. 在维护窗口按 `scripts/deploy.sh` 配套构建 API/web，运行一次性 migrate（含角色授权），检查健康和原公开资料；升级中不 seed、不重导地图、不自动审核路线。更新公网 Nginx 可信头配置后执行 `nginx -t` 和外部 HTTPS 检查，确认第三方 SDK 入口已关闭。自动脚本并未代替前述预检或执行外部付费验收。
+4. 最新加密备份已在隔离数据库实际恢复并迁移到 `0012_staff_session_ids`，受限角色与旧内容保真验收通过，具体范围见下文。在线 API 应只拿受限 DML 账号，迁移容器单独持 owner；在线账号不得拥有对象、超级用户/创建角色/DDL 权限，不得更新 `alembic_version`。新角色及迁移在生产尚未执行，隔离结果不能描述为现网降权完成。
+5. 等待完整镜像测试证据及测试环境修复结果、恢复迁移证据和运维入口恢复，再按固定源码及实际验收的不可变镜像 ID 发布；本轮候选不得在切换时另行重建产生漂移。私有源码/配置暂存已创建，原源码和 0600 环境文件保留，正式应用尚未执行。随后运行一次性 migrate（含角色授权），检查健康、运行身份和原公开资料；升级中不 seed、不重导地图、不自动审核路线。公网 Nginx 已完成本轮维护，应用切换后仍须检查配套容器头与第三方 SDK 关闭边界。自动脚本不代替员工真机或外部付费验收。
 6. 按上一节完成员工主/备用/恢复码与强制 MFA。随后在批准的小额度内逐项真实验收学校会话/问答、TTS 内联或精确下载域名、费用计数、设备发声和取消，记录供应商真实结果；只有这些及 PostgreSQL 保护通过后才考虑开启公众开关。
 7. 内容负责人在后台预览、提审并独立发布实际路线；逐段检查真实来源、资源 revision、返回讲解、二维码接续和下架失效。自动测试夹具不是校园实际内容。
 
-2026-10-02 已完成一次服务器完整加密备份和隔离恢复验证：旧 schema 20 表、head `0008_campus_tours`；`restic check` 与 `pg_restore` 成功；逐 DB 引用验证 265 张 map tiles、100 张 floor images、1 个 floor original、46 个 media originals。地图卷 532 文件 / 173794199 字节，楼层卷 150 文件 / 395050061 字节。恢复结果 `production_modified=false`，没有把恢复数据写回生产。这证明旧版本备份可恢复，不证明新迁移、在线权限、全量新版本 PostgreSQL 并发或新版本恢复已经通过。
+2026-10-03 `03:43 UTC`（北京时间 11:43）的最新本机加密备份已通过 `restic check` 和实际隔离 `pg_restore`；逐 DB 引用验证 265 张 map tiles、100 张 floor images、1 个 floor original、53 个 media originals。恢复结果 `production_modified=false`，没有把恢复数据写回生产。它覆盖备份当时的资料；团队之后编辑的内容应由后续快照保存。
 
-本机备份 timer 已在服务器启用，执行冻结预检目录 `/root/twinnku-release-preflight-20261002/backup.py --root /root/TwinNKU`，并显式覆盖现用 Nginx site；每天约 03:00（Asia/Shanghai，随机延迟最多 5 分钟），保留 14 个日快照、4 个周快照。restic 固定 0.19.1，安装时核对官方 SHA256。`twinnkuops` 已用既有 authorized keys 登录并验证 sudo uid 0；root/密码 SSH 入口仍开启，尚未关闭，不能把备用运维登录验证称为 SSH 加固完成。
+该恢复副本使用固定候选 API/DB 镜像实际完成 `0008` → `0012`，检查运行角色所有高权限 flags、成员关系、对象归属以及 DDL、`alembic_version` 写入拒绝。18 张旧业务/账号表的原有列按行规范化 SHA256 在迁移前后相同，包含 `staff_users`；升级前 4 条 `staff_sessions` 按 0009 计划撤销为 0，单独记录。`restored-migration-receipt.json` 实际为 `status=passed`、`runtime_role_verified=true`、`content_unchanged=true`、`production_modified=false`，绑定源码树 `44af266ab2d7fb3d0efeaa2cca58f43780f18113`、API `sha256:2a1c95646e6eb9b4263cc161303ff37acbb97bdb26df741f8321506f92d5c655` 和 DB `sha256:39e67f9e9de647545f367c24000762ffb0ccfbc3b391aa87fdb5a2c9ad2e70ce`。这证明该副本的恢复迁移和角色行为，生产仍未迁移或降权。
 
-宿主升级前快照为 Docker Engine 28.1.1、containerd 1.7.27、overlay2、`/var/lib/docker`。两者分别位于 [CVE-2026-92543 注册表 TLS 降级](https://github.com/moby/moby/security/advisories/GHSA-7cfq-22r6-qp73) 和 [CVE-2026-53493 OCI 索引拉取耗尽资源](https://github.com/containerd/containerd/security/advisories/GHSA-pg57-6jwg-q645) 的影响范围。目标系统验收须经 [官方签名 APT 源](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository) 更新；本轮只读核到 noble stable 的 CE/CLI 29.8.2、containerd 2.3.6、Buildx 0.37.1、Compose 5.5.1。官方 Ubuntu 公钥主指纹实际核为 `9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88`，来源为 `https://download.docker.com/linux/ubuntu/gpg`；服务器 APT 签名、安装与运行版本仍待验证。保留原 daemon 配置、容器及卷；[官方存储说明](https://docs.docker.com/engine/storage/containerd/) 明确旧版原地升级继续 overlay2，不能主动启用 snapshotter/实验迁移或删除旧数据目录。
+本机备份 timer 已启用，每天约 03:00（Asia/Shanghai，随机延迟最多 5 分钟），保留 14 个日快照、4 个周快照，并明确覆盖现用 Nginx site。restic 固定 0.19.1，安装时核对官方 SHA256。升级后发现的 systemd 服务未提供 HOME 或 XDG_CACHE_HOME、导致 restic 无法确定缓存目录的问题已用宿主 drop-in 修复，随后取得上述新备份；对应运维单元修复单独提交为本地 `fb545f5691cac10e4a1f6f9185d12b177dd69079`、远程 `a05c847f4674a4f3181e1785a06b5509e03bbbbe` / 树 `89de585aa060d4a0425f294c4c2a844908df41fa`，没有重打包应用候选。用户选择备份仍在同一服务器；整机、磁盘丢失或该服务器完全受控时，这些本机快照不能提供独立灾备。
+
+宿主升级前为 Docker Engine 28.1.1、containerd 1.7.27；两者分别位于 [CVE-2026-92543 注册表 TLS 降级](https://github.com/moby/moby/security/advisories/GHSA-7cfq-22r6-qp73) 和 [CVE-2026-53493 OCI 索引拉取耗尽资源](https://github.com/containerd/containerd/security/advisories/GHSA-pg57-6jwg-q645) 的影响范围。本轮已通过 [官方签名 APT 源](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository) 实际安装并验收 Docker Engine `29.8.2`、containerd `2.3.6`、runc `1.5.1`；保留原 daemon 配置、`overlay2`、`/var/lib/docker`、容器和全部既有卷。官方 Ubuntu 公钥主指纹核为 `9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88`。[官方存储说明](https://docs.docker.com/engine/storage/containerd/) 明确旧版原地升级继续 overlay2，本轮未启用 snapshotter/实验迁移或删除数据目录。
+
+公网代理实际拒绝 TLS 1.0 / 1.1，TLS 1.2 / 1.3 和证书验证通过；已启用 `Strict-Transport-Security: max-age=31536000`、`www` → 主域 308 及转发身份头净化。SSH 已实际禁用 root 登录和密码认证；更改后的全新 `twinnkuops` 密钥登录及 `sudo-n` 成功，root 登录被拒绝。随后 TCP 22 连接超时，原因尚未确认，不能直接认定为 fail2ban；04:16 UTC 运维登录短暂恢复，并读取核验了恢复迁移回执，随后新连接再次超时。当前仍需 VNC 核验，尚未部署。
 
 ## 关闭与回滚
 
@@ -94,11 +98,11 @@
 | --- | --- |
 | [v5.0.0-1.2.4 / 1.2.5](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x10-V1-Encoding-and-Sanitization.md) | ORM/参数化 SQL；图片、视频处理固定参数子进程，禁止 shell 拼接。本地测试/静态扫描；完整注入评估待做。 |
 | [v5.0.0-1.3.6](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x10-V1-Encoding-and-Sanitization.md) | TTS HTTPS 精确名单、公共 DNS、固定 IP 连接、不跟随重定向及有界下载；`test_voice_rotation.py` 有 SSRF 拒绝用例，真实域名待验。 |
-| [v5.0.0-3.3.1 / 3.3.2 / 3.3.4](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x12-V3-Web-Frontend-Security.md) | 生产 __Secure-/Secure/Strict/HttpOnly；HTTPS HTTP 边界测试已覆盖新名、拒绝旧名和注销。生产头待验。 |
+| [v5.0.0-3.3.1 / 3.3.2 / 3.3.4](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x12-V3-Web-Frontend-Security.md) | 候选生产配置 __Secure-/Secure/Strict/HttpOnly；HTTPS HTTP 边界测试已覆盖新名、拒绝旧名和注销。新 cookie 的生产生效仍待应用部署。 |
 | [v5.0.0-3.3.3](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x12-V3-Web-Frontend-Security.md) | 部分：当前按 API 路径隔离使用 __Secure-，未使用要求 Path=/ 的 __Host-；域树威胁评估和例外审批尚未完成。 |
-| [v5.0.0-3.4.1 / 3.4.3 / 3.4.4 / 3.4.5 / 3.4.6](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x12-V3-Web-Frontend-Security.md) | CSP self/对象禁止/base-uri none/禁止被框架嵌入、nosniff、Referrer-Policy 已写配置；真实所有响应头待验。HSTS 模板尚需启用，未盲目要求未知子域 HTTPS，L2 includeSubDomains 项部分。 |
+| [v5.0.0-3.4.1 / 3.4.3 / 3.4.4 / 3.4.5 / 3.4.6](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x12-V3-Web-Frontend-Security.md) | CSP self/对象禁止/base-uri none/禁止被框架嵌入、nosniff、Referrer-Policy 已写配置；新版本所有响应头待验。公网 HSTS max-age=31536000 已实际启用，www 308 已验；未知子域未承诺 HTTPS，L2 includeSubDomains 项部分。 |
 | [v5.0.0-3.5.1 / 3.5.3](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x12-V3-Web-Frontend-Security.md) | 精确 Origin、CSRF 和非 GET 敏感调用；员工/访客/语音边界测试。 |
-| [v5.0.0-4.1.3](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x13-V4-API-and-Web-Service.md) | 两层代理覆盖身份头，API 精确可信 peer；伪造 IP 用例已测，公网 Nginx 与 Uvicorn 实际链待验。 |
+| [v5.0.0-4.1.3](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x13-V4-API-and-Web-Service.md) | 两层代理覆盖身份头，API 精确可信 peer；伪造 IP 用例已测，公网代理身份头净化已部署；配套新容器 Nginx/Uvicorn 实际链待应用切换验收。 |
 | [v5.0.0-5.1.1 / 5.2.1 / 5.2.2 / 5.3.2](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x14-V5-File-Handling.md) | 上传格式/字节/像素/解析时间、CPU/内存/并发及 actor/campus 持久额度；内部生成路径，拒绝链接/越界；`test_uploads.py`。生产沙箱待验。 |
 | [v5.0.0-5.4.3](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x14-V5-File-Handling.md) | 尚无已验证 AV 扫描链；格式校验、重编码与审核不能替代此项。 |
 | [v5.0.0-6.3.1 / 6.3.3 / 6.3.4](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x15-V6-Authentication.md) | 持久登录限流、密码后 WebAuthn UV、pending 不授业务权限、所有入口统一校验。暂留绑定阶段；未强制且未真机验收前不能称生产 L2 MFA 通过。 |
@@ -110,8 +114,8 @@
 | [v5.0.0-7.5.2](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x16-V7-Session-Management.md) | 本人有效会话列表、单个/其他撤销及当前注销；撤销必须 5 分钟内 UV（绑定阶段也强制）、Origin/CSRF。后台真实 P-256 及授权边界 16 passed，含旧 pending 签名撤销后失效；前台 request 与切号竞态 4 passed。生产与真机待验。 |
 | [v5.0.0-7.1.2 / 7.4.5](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x16-V7-Session-Management.md) | 部分：并行浏览器会话暂无统一数量上限，上述政策需审定；管理员停用/重置及控制台恢复可撤销单用户，但尚无独立全员集中撤销入口。自身列表不替代这两项。 |
 | [v5.0.0-8.1.1 / 8.1.2 / 8.2.1–8.2.3 / 8.3.1](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x17-V8-Authorization.md) | 四角色、campus/point scope、独立审核、状态/revision/字段和动作许可在后端强制；公开段落与私有预览不共用授权。权限矩阵测试，生产账号需复核。 |
-| [v5.0.0-13.1.1 / 13.2.2–13.2.5](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x22-V13-Configuration.md) | 出站学校/TTS 服务和名单已记录；Compose 迁移/运行账号分离、私有 DB 网络。供应商、生产角色和连接实测待验。 |
-| [v5.0.0-13.2.1 / 13.3.1 / 13.3.2](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x22-V13-Configuration.md) | 部分：服务端密钥、0600 私有环境文件、运行容器不持 owner 密码；未部署独立 secrets manager 或短期服务凭据，不能标完整满足。 |
+| [v5.0.0-13.1.1 / 13.2.2–13.2.5](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x22-V13-Configuration.md) | 出站学校/TTS 服务和名单已记录；Compose 迁移/运行账号分离、私有 DB 网络。隔离恢复迁移的角色/DDL拒绝已验，生产角色未切换；学校 TCP 超时、TTS TCP/TLS/无认证 HEAD 可达，真实收费调用未验。 |
+| [v5.0.0-13.2.1 / 13.3.1 / 13.3.2](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x22-V13-Configuration.md) | 部分：服务端密钥、0600 私有环境文件、候选运行配置不持 owner 密码；现网应用未降权。未部署独立 secrets manager 或短期服务凭据，不能标完整满足。 |
 | [v5.0.0-16.2.5 / 16.5.1–16.5.3](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x25-V16-Security-Logging-and-Error-Handling.md) | 安全诊断与一般错误文案；DB/额度失败关闭；密钥/正文/上游异常不入访问日志，相关测试。 |
 | [v5.0.0-16.1.1 / 16.3.1–16.3.3 / 16.4.2 / 16.4.3](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x25-V16-Security-Logging-and-Error-Handling.md) | 部分：已有员工审计、容器日志轮转；全栈日志保留/访问清单、全部拒绝事件、独立防篡改收集与告警闭环尚未验收。 |
 
@@ -119,8 +123,16 @@
 
 本地实际执行：后端公众/小开/云语音相关 87 passed，SDK/资源/部署诊断回归 71 passed；前端 native/cloud/visitor/dock 88 passed；本次讲解竞态新增 6 passed，生产 cookie/MFA/公众/native/admin 组 57 passed，语音/资源/guide 补充组 67 passed；离线密码策略（含构建顺序/来源校验）、生产 cookie、旧 MFA/后台回归最新 54 passed；员工会话后台 16 passed、前台 4 passed。前端本轮完整 Node 回归 366 passed，TypeScript 检查通过。先前真实 CI 的隔离 PostgreSQL 组也已通过：迁移/公开资料 7、公众持久额度与会话 4、运行角色保护 4；这是测试数据库实证，不能推广为生产迁移/授权完成。这些分组有重叠，不应相加为全量成绩；最终候选全量后端与 PostgreSQL 结果另以交付记录为准。
 
-实际扫描：远程候选 `da607249a1a67ae7251c40835074370edd7a765e` 的 [Security 源码与依赖 job](https://github.com/jiawenyi-2512921/TwinNKU/actions/runs/37038320678/job/110941907421) 已成功：Bandit 1.9.4 未见 medium/high，pip-audit 2.10.1 与 npm audit 通过，Gitleaks 8.30.1 全历史 379 commits / 7549796 bytes，`gitleaks_findings=[]`。本地原 355 历史扫描未包含远程早期 `feat/foundation` 分支；新流水线只输出 RuleID/Commit/File/StartLine/Fingerprint，不输出或上传 Secret/Match/人员信息。两条远程告警来自 `35616760...` 的配置测试，GitHub blob `f0e8854a...` 与已核本地测试完全相同；`.gitleaksignore` 共五个精确历史指纹，不忽略测试文件、整条规则或目录。
+本轮用于构建和恢复验收的冻结应用候选为远程 `9e27ff9898fe058748393198e67a3005f2a77431`、本地 `6a726be0da74bbe14c5b6b40147eaafbc78ffe85`，两者 Git 树同为 `44af266ab2d7fb3d0efeaa2cca58f43780f18113`。396 个 tracked 文件的冻结 archive SHA256 为 `2180a105f89aa4c427118861bca33fdb9d4799326368bbe652167d396fa0869a`，规范化文件树 SHA256 为 `5e63b4f44958bd22878c2f246012e73988e73eda3f725ec5ccded3c28ade50dc`。备份单元修复的后续提交没有重打包这份应用，也没有改 API/DB 候选镜像。
 
-[CI 安全工作流](../.github/workflows/security.yml) 钉住 action SHA、工具版本和 Gitleaks 校验和，镜像 HIGH/CRITICAL 仍阻断。上述 run 的 web 镜像 job 已成功；API 镜像 job 仍失败并在处理，整条 Security run 尚未成功。本机无 Docker，源码 job、单个镜像结果不能替代最终 API 镜像/最小探针组件漏洞覆盖及新候选全部 CI 验收。
+冻结候选的实际 [Foundation run 37042698199](https://github.com/jiawenyi-2512921/TwinNKU/actions/runs/37042698199) 与 [Security run 37042698489](https://github.com/jiawenyi-2512921/TwinNKU/actions/runs/37042698489) 全部成功：CI 后端 561 passed、agent-demo 11 passed、前端 Node 366 passed / 0 failed / 0 skipped，类型、契约、构建和 Compose 检查通过。API、web、实际派生 PostgreSQL 三个运行镜像的 Trivy HIGH/CRITICAL 均为 0；API 最小 ffprobe 的签名/源码/组件证明、Grype 与漏洞 canary guard 通过。DB 真实非 root fresh volume、原官方 UID70 物理卷接续、重启和 stdin dump 恢复均通过，gosu 实际不存在。CI 结果不能替代服务器上的完整 API 镜像测试。
 
-仍待完成：24.04 第二次重启、宿主 Docker 修复与 SSH 加固；最终候选 API 镜像/探针覆盖及全部 CI；新迁移及生产 DB 权限、生产并发/重启限额；全新版本的隔离恢复与生产切换演练；真实学校 API/云语音与批准额度计费证据；主/备用认证器与控制台恢复真机；公网可信链/HTTPS 所有响应头；路线上线内容和电脑/手机视觉/发声。已完成的旧 schema 备份恢复和隔离 PostgreSQL 测试不能替代生产项目。
+备份单元修复提交 `a05c847f4674a4f3181e1785a06b5509e03bbbbe` 的最新 [Foundation run 37094690020](https://github.com/jiawenyi-2512921/TwinNKU/actions/runs/37094690020) 和 [Security run 37094690011](https://github.com/jiawenyi-2512921/TwinNKU/actions/runs/37094690011) 已核实 workflow conclusion 均为 success；本次未重新逐日志抄录测试数量，前述数量来自已逐项核对的冻结候选 run。
+
+[CI 安全工作流](../.github/workflows/security.yml) 钉住 action SHA、工具版本和 Gitleaks 校验和，镜像 HIGH/CRITICAL 仍阻断。源码及依赖扫描包含 Bandit、pip-audit、npm audit 与 Gitleaks 全历史；Gitleaks 只输出 RuleID/Commit/File/StartLine/Fingerprint，不输出或上传 Secret/Match/人员信息。远程历史配置测试的两条告警已按相同 blob/测试内容核验；`.gitleaksignore` 共五个精确历史夹具指纹，不忽略测试文件、整条规则或目录。源码扫描与组件扫描均按实际范围记录，零已知 HIGH/CRITICAL 不等于不存在漏洞。
+
+服务器实际 API 候选镜像的第一轮完整测试耗时 18 分 16 秒，结果为 **560 passed / 1 failed / 0 skipped**；唯一失败为 `test_deployment_bootstrap.py::test_existing_project_blocks_first_install` 调用测试环境未安装的 `bash`，异常 `FileNotFoundError`。六种真实视频 codec 验收和四项持久 PostgreSQL 验收实际通过。原完整 receipt、JUnit 和控制文件将逐字节保留，已准备补齐仅测试环境的 bash 后，对整个 bootstrap 测试文件、11 项 demo 和余下契约检查进行定向修复验收。当前尚未启动第二轮全量，不存在合并后的 561 全绿 JUnit；定向结果与首轮事实须分别绑定同一源码、生产 API/DB 镜像 ID，并明确记录，不能把修复计划称为通过。
+
+2026-10-03 `03:58 UTC` 从仍运行的 `1.6.4` API 容器作有限、无认证的供应商检查：学校 `coze.nankai.edu.cn` DNS 正常解析到 `222.30.38.25`，TCP 443 在 3 秒期限内超时，未进入 TLS/HTTP；同期电脑访问学校入口取得 HTTP 302，响应来自学校飞连网关。这支持两条网络路径存在差异，不能据此断言美国服务器地理位置是唯一原因，也没有验证学校 API key 或实际问答。语音实际配置是阿里云北京 MaaS 工作区 origin，TCP 可连接、TLS 1.3 和证书验证通过，无认证根路径 HEAD 返回 404；根路径 404 不能证明语音接口、鉴权、模型或额度正确。本轮没有发送模型或 TTS 合成请求，也没有配置 VPN。浏览器 CUA 会话超时，电脑/手机界面和发声尚未视觉实测。
+
+仍待完成：通过 VNC 核验并恢复 SSH 运维入口；完成上述定向测试环境修复及证据校验；确定学校上游网络接入方案；将已验证源码/镜像和迁移/受限数据库角色真正部署到生产，并验收现网身份、额度、重启与配套头/SDK 边界；真实学校 API/云语音与批准额度计费证据；主/备用认证器、恢复码保存和控制台恢复真机；团队实际路线预览/独立审核以及电脑/手机视觉、接续和发声。本轮没有发布或改写团队正在维护的内容，没有执行生产 source/env apply；PR 合并和正式切换仍未完成。完整隔离恢复迁移通过也不能替代现网切换验收。
