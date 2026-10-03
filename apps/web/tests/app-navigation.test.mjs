@@ -25,6 +25,7 @@ const walk = (tree, predicate) => {
   return [
     ...(predicate(tree) ? [tree] : []),
     ...walk(tree.props?.children, predicate),
+    ...walk(tree.props?.map, predicate),
   ];
 };
 const pointA = "11111111-1111-4111-8111-111111111111";
@@ -72,15 +73,72 @@ const componentNames = [
   "PlaceDirectory",
   "PanoramaDirectory",
   "PanoramaOverlay",
+  "TourResourceView",
+  "Welcome",
+  "ShareVisit",
+  "TourNarrator",
+  "ExhibitionHome",
+  "TourCatalog",
+  "TourOverview",
+  "VisitRecap",
+  "MyVisits",
+  "SceneStage",
+  "VisitTransport",
+  "EnvironmentBanner",
 ];
 const components = Object.fromEntries(
   componentNames.map((name) => [name, () => null]),
 );
 
+test("the public map receives only published showcase defaults; absent configuration retains the existing fit and region behavior", async () => {
+  const camera = {
+    map_id: "map",
+    map_revision: 3,
+    center: { x: 100, y: 200 },
+    zoom: -1,
+    min_zoom: -3,
+    max_zoom: 4,
+  };
+  const settings = {
+    map_default_view: camera,
+    map_layers: [],
+    map_show_labels: false,
+    map_focus_effect: "instant",
+  };
+  const h = app(
+    "https://example.test/?point=11111111-1111-4111-8111-111111111111",
+    { visitDefaults: settings },
+  );
+  h.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  h.render();
+  const map = h.node("MapCanvas");
+  assert.ok(map);
+  assert.equal(map.props.defaultView, camera);
+  assert.equal(map.props.defaultsReady, true);
+  assert.equal(map.props.showRegions, false);
+  assert.equal(map.props.showLabels, false);
+  assert.equal(map.props.focusEffect, "instant");
+  h.dispose();
+  const fallback = app(
+    "https://example.test/?point=11111111-1111-4111-8111-111111111111",
+    { showcaseState: "loading" },
+  );
+  fallback.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  fallback.render();
+  assert.equal(fallback.node("MapCanvas").props.defaultView, null);
+  assert.equal(fallback.node("MapCanvas").props.defaultsReady, false);
+  assert.equal(fallback.node("MapCanvas").props.showRegions, true);
+  assert.equal(fallback.node("MapCanvas").props.focusEffect, "short");
+  fallback.dispose();
+});
+
 // Controlled hooks execute the actual root component and event/effect wiring.
 // These checks do not assert browser layout, media playback, or microphone support.
 function app(initialHref, options = {}) {
   let href = initialHref;
+  const storage = new Map(options.storage ?? []);
   const catalogWatchers = new Set();
   const events = new EventTarget();
   const entries = [{ href, state: null }];
@@ -134,11 +192,27 @@ function app(initialHref, options = {}) {
     URL,
     URLSearchParams,
     Event,
+    CustomEvent: class extends Event {
+      constructor(type, options = {}) {
+        super(type);
+        this.detail = options.detail;
+      }
+    },
     PopStateEvent: Event,
     AbortController,
     Date,
     document: { querySelector: () => null },
+    requestAnimationFrame: (callback) => callback(),
     HTMLElement: Element,
+    localStorage: {
+      getItem: (key) => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, value),
+      removeItem: (key) => storage.delete(key),
+      key: (index) => [...storage.keys()][index] ?? null,
+      get length() {
+        return storage.size;
+      },
+    },
   };
   function module(
     code,
@@ -157,12 +231,26 @@ function app(initialHref, options = {}) {
     }),
     labels = module(labelsCode),
     panorama = module(panoramaCode);
+  const visit = module(compile("../src/features/visit/session.ts"));
+  const audio = module(compile("../src/features/visit/audioOwner.ts"));
+  const segments = module(compile("../src/features/experiences/segments.ts"));
+  const types = module(compile("../src/features/experiences/types.ts"));
+  const resources = module(
+    compile("../src/features/visit/resourceLocation.ts"),
+    (name) => {
+      if (name === "../experiences/segments") return segments;
+      if (name === "../experiences/types") return types;
+      throw new Error(name);
+    },
+  );
   const slots = [],
     effects = [];
   let index = 0,
     dirty = false,
     queued = [];
   const react = {
+    lazy: () => components.MapCanvas,
+    Suspense: Symbol.for("react.suspense"),
     useState(initial) {
       const key = index++;
       if (!(key in slots))
@@ -214,6 +302,40 @@ function app(initialHref, options = {}) {
     if (name.endsWith("/native")) return native;
     if (name.endsWith("/labelCorrections")) return labels;
     if (name.endsWith("/panorama")) return panorama;
+    if (name.endsWith("/session")) return visit;
+    if (name.endsWith("/audioOwner")) return audio;
+    if (name.endsWith("/segments")) return segments;
+    if (name.endsWith("/resourceLocation")) return resources;
+    if (name.endsWith("/ExperiencePanel"))
+      return {
+        ExperiencePanel: components.ExperiencePanel,
+        TourResourceView: components.TourResourceView,
+        TourPlayer: components.ExperiencePanel,
+      };
+    if (name.endsWith("/Exhibition"))
+      return {
+        ...components,
+        usePublicShowcase: () => ({
+          campuses: [catalog.campus],
+          campus: catalog.campus,
+          state: options.showcaseState ?? "ready",
+          retry() {},
+          showcase: {
+            campus_id: catalog.campus.id,
+            presentation: { site_name: "测试展馆", modules: [] },
+            visit_defaults: { layout: "balanced", ...options.visitDefaults },
+            routes: (options.experiences ?? [])
+              .filter((row) => row.content.kind === "tour")
+              .map((row) => ({ id: row.id, revision: row.revision })),
+            capabilities: {
+              chat: true,
+              narration: options.narrationEnabled !== false,
+              navigation: options.navigationEnabled !== false,
+            },
+            resolved_resources: [],
+          },
+        }),
+      };
     if (name.endsWith("/protocol"))
       return { EMPTY_CONTEXT: {}, safeContext: (c) => c };
     if (name.endsWith("/useAgentConfig"))
@@ -230,7 +352,10 @@ function app(initialHref, options = {}) {
     if (name.endsWith("/client"))
       return {
         api: {},
-        get: async () => ({ data: options.experiences ?? [] }),
+        get: async (path, signal) =>
+          options.get
+            ? options.get(path, signal)
+            : { data: options.experiences ?? [] },
       };
     if (name.endsWith("/catalog"))
       return {
@@ -246,7 +371,10 @@ function app(initialHref, options = {}) {
           return () => catalogWatchers.delete(callback);
         },
         createCatalogRefresh: ({ apply }) => ({
-          refresh: () => apply(options.catalog ?? catalog),
+          refresh: () => {
+            options.onMapLoad?.();
+            return apply(options.catalog ?? catalog);
+          },
           dispose() {},
         }),
       };
@@ -258,6 +386,7 @@ function app(initialHref, options = {}) {
   let tree;
   return {
     browser,
+    storage,
     nav,
     refreshCatalogs() {
       catalogWatchers.forEach((callback) => callback());
@@ -293,6 +422,54 @@ function app(initialHref, options = {}) {
   };
 }
 const baseHref = `https://guide.example/?point=${pointA}&channel=official#map`;
+test("the exhibition home does not mount or load a hidden map, full media catalog or assistant; exploration loads them on demand", async () => {
+  let maps = 0,
+    media = 0;
+  const h = app("https://guide.example/", {
+    onMapLoad: () => maps++,
+    get: async () => {
+      media++;
+      return { data: [] };
+    },
+  });
+  try {
+    h.render();
+    await new Promise((resolve) => setImmediate(resolve));
+    const tree = h.render();
+    assert.ok(h.node("ExhibitionHome"));
+    assert.equal(
+      walk(
+        tree,
+        (node) => node.type === "a" && node.props?.className === "skip-link",
+      )[0].props.href,
+      "#exhibition-main",
+    );
+    assert.equal(
+      walk(tree, (node) => node.type === "main")[0].props.tabIndex,
+      -1,
+      "skip target is keyboard focusable",
+    );
+    assert.equal(
+      walk(tree, (node) => node.props?.className === "sr-only")[0].props.role,
+      undefined,
+      "home does not add a duplicate hidden heading",
+    );
+    assert.equal(h.node("MapCanvas"), undefined);
+    assert.equal(h.node("NativeAgentDock"), undefined);
+    assert.equal(maps, 0);
+    assert.equal(media, 0);
+    h.node("ExhibitionHome").props.onNavigate({ kind: "explore" });
+    h.render();
+    await new Promise((resolve) => setImmediate(resolve));
+    h.render();
+    assert.ok(h.node("MapCanvas"));
+    assert.ok(h.node("NativeAgentDock"));
+    assert.ok(maps > 0);
+    assert.ok(media > 0);
+  } finally {
+    h.dispose();
+  }
+});
 const video = {
   id: experienceId,
   revision: 3,
@@ -313,6 +490,666 @@ const videoAction = {
   resource_id: experienceId,
   resource_revision: 3,
 };
+const tourId = "66666666-6666-4666-8666-666666666666";
+const videoB = {
+  ...video,
+  id: "77777777-7777-4777-8777-777777777777",
+  content: { ...video.content, point_id: pointB },
+};
+const publishedTour = {
+  id: tourId,
+  revision: 4,
+  campus_id: "nku-jinnan",
+  media_url: null,
+  content: {
+    kind: "tour",
+    title: "真实编排测试路线",
+    description: "测试夹具",
+    source_note: "测试来源",
+    stops: [
+      {
+        point_id: pointA,
+        narrative: "",
+        prompt_timing: "manual",
+        segments: [
+          {
+            id: "opening",
+            text: "开场",
+            source_note: "来源",
+            main_view: { type: "map" },
+            resources: [],
+          },
+        ],
+      },
+      {
+        point_id: pointB,
+        narrative: "",
+        prompt_timing: "manual",
+        segments: [
+          {
+            id: "detail",
+            text: "第二站讲解",
+            source_note: "来源",
+            main_view: { type: "map" },
+            resources: [
+              { type: "video", id: videoB.id, revision: videoB.revision },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+};
+const nodeText = (node) =>
+  Array.isArray(node)
+    ? node.map(nodeText).join("")
+    : node && typeof node === "object"
+      ? nodeText(node.props?.children)
+      : typeof node === "string" || typeof node === "number"
+        ? String(node)
+        : "";
+const clickButton = (tree, label) =>
+  walk(tree, (node) => node.type === "button" && nodeText(node) === label)[0];
+const assertNarration = (actual, expected) => {
+  assert.ok(Number.isInteger(actual.requestId));
+  const { requestId, ...source } = actual;
+  assert.deepEqual(source, expected);
+};
+async function loadPublishedTour(options = {}) {
+  const settings = { experiences: [publishedTour, video, videoB], ...options };
+  const testApp = app(
+    `https://guide.example/?point=${pointB}&experience=${tourId}&revision=4&stop=1&segment=detail&mode=onsite`,
+    settings,
+  );
+  testApp.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  const tree = testApp.render();
+  clickButton(tree, "继续参观").props.onClick();
+  testApp.render();
+  return { testApp, settings };
+}
+
+test("online mode omits walking controls and only an explicit valid onsite mode enables them", () => {
+  for (const mode of ["online", "unknown", "onsite"]) {
+    const testApp = app(
+      baseHref.replace("#map", `&experience=${experienceId}&mode=${mode}#map`),
+    );
+    testApp.render();
+    assert.equal(
+      typeof testApp.node("ExperiencePanel").props.onNavigateStop,
+      mode === "onsite" ? "function" : "undefined",
+    );
+    testApp.dispose();
+  }
+});
+
+test("a QR visit waits for published content and explicit handoff, preserving position without starting narration", async () => {
+  const testApp = app(
+    `https://guide.example/?experience=${tourId}&revision=4&stop=1&segment=detail&mode=onsite`,
+    { experiences: [publishedTour] },
+  );
+  let tree = testApp.render();
+  assert.equal(testApp.node("ExperiencePanel"), undefined);
+  assert.equal(clickButton(tree, "继续参观").props.disabled, true);
+  assert.equal(testApp.node("TourNarrator").props.narration, null);
+  await new Promise((resolve) => setImmediate(resolve));
+  tree = testApp.render();
+  assert.equal(clickButton(tree, "继续参观").props.disabled, false);
+  clickButton(tree, "继续参观").props.onClick();
+  testApp.render();
+  const position = testApp.node("ExperiencePanel").props.position;
+  assert.deepEqual(JSON.parse(JSON.stringify(position)), {
+    revision: 4,
+    stopIndex: 1,
+    segmentId: "detail",
+  });
+  assert.equal(testApp.node("TourNarrator").props.narration, null);
+  assert.equal(
+    testApp.node("NativeAgentDock").props.current.visit.segment_id,
+    "detail",
+  );
+  testApp.dispose();
+});
+
+test("completing a stop and refreshing its public URL retains completed stops after explicit resume", async () => {
+  const first = app(
+    `https://guide.example/visit/${tourId}?experience=${tourId}&revision=4&stop=0&segment=opening&mode=online`,
+    { experiences: [publishedTour] },
+  );
+  first.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  clickButton(first.render(), "继续参观").props.onClick();
+  first.render();
+  first.node("VisitTransport").props.onComplete({ revision: 4, stopIndex: 1, segmentId: "detail" });
+  first.render();
+  assert.deepEqual(Array.from(first.node("ExperiencePanel").props.progress.completed), [0]);
+  assert.equal(first.node("ExperiencePanel").props.position.stopIndex, 1);
+  const savedHref = first.browser.location.href;
+  const savedStorage = [...first.storage.entries()];
+  first.dispose();
+
+  const refreshed = app(savedHref, { experiences: [publishedTour], storage: savedStorage });
+  refreshed.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  const handoff = refreshed.render();
+  assert.equal(refreshed.node("ExperiencePanel"), undefined);
+  clickButton(handoff, "继续参观").props.onClick();
+  refreshed.render();
+  const progress = refreshed.node("ExperiencePanel").props.progress;
+  assert.deepEqual(Array.from(progress.completed), [0]);
+  assert.equal(progress.index, 1);
+  assert.equal(progress.segmentId, "detail");
+  assert.equal(refreshed.node("TourNarrator").props.narration, null);
+  assert.deepEqual(JSON.parse(refreshed.storage.get(`twinnku:visit:v2:${tourId}:4`)).completed, [0]);
+  refreshed.dispose();
+});
+
+test("opening tour resources pauses narration while retaining its mounted component and route position", async () => {
+  const { testApp } = await loadPublishedTour();
+  const position = testApp.node("ExperiencePanel").props.position;
+  const narration = {
+    tourId,
+    tourRevision: 4,
+    stopIndex: 1,
+    segmentId: "detail",
+    text: "第二站讲解",
+    sourceNote: "来源",
+  };
+  testApp.node("ExperiencePanel").props.onNarrate(narration);
+  testApp.render();
+  const narrator = testApp.node("TourNarrator");
+  let pauses = 0;
+  testApp.browser.addEventListener("twinnku:tour-pause", () => pauses++);
+  testApp
+    .node("ExperiencePanel")
+    .props.onResourceOpen(
+      { type: "video", id: videoB.id, revision: 3 },
+      pointB,
+    );
+  let tree = testApp.render();
+  assert.ok(pauses > 0);
+  assert.equal(testApp.node("ExperiencePanel").props.active, false);
+  assert.equal(
+    testApp.node("ExperiencePanel").props.item?.id ??
+      testApp.node("ExperiencePanel").props.initialExperienceId,
+    tourId,
+  );
+  assert.deepEqual(testApp.node("ExperiencePanel").props.position, position);
+  assert.equal(testApp.node("TourNarrator").type, narrator.type);
+  assert.equal(testApp.node("TourNarrator").key, narrator.key);
+  assertNarration(testApp.node("TourNarrator").props.narration, narration);
+  assert.equal(
+    walk(tree, (node) => node.props?.className === "visit-controls")[0].props
+      .hidden,
+    true,
+  );
+  clickButton(tree, "← 返回本站讲解").props.onClick();
+  tree = testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(testApp.node("ExperiencePanel").props.active, true);
+  assert.deepEqual(testApp.node("ExperiencePanel").props.position, position);
+  assertNarration(testApp.node("TourNarrator").props.narration, narration);
+  assert.equal(
+    walk(tree, (node) => node.props?.className === "visit-controls")[0].props
+      .hidden,
+    false,
+  );
+  testApp.dispose();
+});
+
+test("a publication update pauses old audio and preserves the old record until an explicit new-version choice", async () => {
+  const { testApp, settings } = await loadPublishedTour();
+  testApp.node("ExperiencePanel").props.onNarrate({
+    tourId,
+    tourRevision: 4,
+    stopIndex: 1,
+    segmentId: "detail",
+    text: "旧版文本",
+    sourceNote: "来源",
+  });
+  testApp.render();
+  settings.experiences = [{ ...publishedTour, revision: 5 }, video];
+  testApp.refreshCatalogs();
+  await new Promise((resolve) => setImmediate(resolve));
+  let tree = testApp.render();
+  assert.equal(testApp.node("ExperiencePanel"), undefined);
+  assert.equal(testApp.node("TourNarrator").props.narration, null);
+  const saved = JSON.parse(testApp.storage.get(`twinnku:visit:v2:${tourId}:4`));
+  assert.deepEqual(saved.position, {
+    revision: 4,
+    stopIndex: 1,
+    segmentId: "detail",
+  });
+  assert.equal(saved.audio, undefined);
+  assert.match(nodeText(tree), /路线内容或参观位置已变化/);
+  assert.equal(clickButton(tree, "继续参观").props.disabled, true);
+  clickButton(tree, "查看新版目录并选择开始位置").props.onClick();
+  tree = testApp.render();
+  assert.equal(testApp.node("TourOverview").props.tour.revision, 5);
+  assert.equal(testApp.node("TourNarrator").props.narration, null);
+  testApp.dispose();
+});
+
+test("AI video actions retain the tour and send only an explicit current request to its resource overlay", async () => {
+  const { testApp } = await loadPublishedTour();
+  const position = testApp.node("ExperiencePanel").props.position;
+  assert.equal(
+    testApp.node("NativeAgentDock").props.onAction(videoAction),
+    true,
+  );
+  testApp.render();
+  assert.equal(testApp.node("TourResourceView").props.playbackRequest, null);
+  assert.equal(
+    testApp
+      .node("NativeAgentDock")
+      .props.onAction(videoAction, { requestedPlayback: true }),
+    true,
+  );
+  let tree = testApp.render();
+  const request = testApp.node("TourResourceView").props.playbackRequest;
+  assert.equal(request.resourceId, experienceId);
+  assert.equal(request.revision, 3);
+  assert.equal(request.signal.aborted, false);
+  assert.equal(
+    testApp.node("ExperiencePanel").props.item?.id ??
+      testApp.node("ExperiencePanel").props.initialExperienceId,
+    tourId,
+  );
+  assert.deepEqual(testApp.node("ExperiencePanel").props.position, position);
+  assert.equal(testApp.node("ExperiencePanel").props.active, false);
+  assert.equal(
+    testApp
+      .node("NativeAgentDock")
+      .props.onAction(
+        { ...videoAction, resource_revision: 2 },
+        { requestedPlayback: true },
+      ),
+    false,
+  );
+  clickButton(tree, "← 返回本站讲解").props.onClick();
+  tree = testApp.render();
+  assert.equal(request.signal.aborted, true);
+  assert.equal(testApp.node("ExperiencePanel").props.active, true);
+  assert.deepEqual(testApp.node("ExperiencePanel").props.position, position);
+  testApp.dispose();
+});
+
+test("a late narration bookmark cannot attach to a different segment or tour revision", async () => {
+  const { testApp, settings } = await loadPublishedTour();
+  testApp.node("ExperiencePanel").props.onNarrate({
+    tourId,
+    tourRevision: 4,
+    stopIndex: 1,
+    segmentId: "detail",
+    text: "原讲解",
+    sourceNote: "来源",
+  });
+  testApp.render();
+  const oldBookmark = testApp.node("TourNarrator").props.onBookmark;
+  oldBookmark({ chunkIndex: 2, time: 4.5 });
+  testApp.render();
+  assert.equal(testApp.node("ShareVisit").props.session.audio.time, 4.5);
+  testApp.node("ExperiencePanel").props.onPositionChange({
+    revision: 4,
+    stopIndex: 0,
+    segmentId: "opening",
+  });
+  testApp.render();
+  oldBookmark({ chunkIndex: 9, time: 80 });
+  testApp.render();
+  assert.equal(testApp.node("ShareVisit").props.session.audio, undefined);
+  settings.experiences = [{ ...publishedTour, revision: 5 }, video];
+  testApp.refreshCatalogs();
+  await new Promise((resolve) => setImmediate(resolve));
+  testApp.render();
+  oldBookmark({ chunkIndex: 9, time: 80 });
+  testApp.render();
+  assert.equal(testApp.node("ShareVisit").props.session.position.revision, 4);
+  assert.equal(testApp.node("ShareVisit").props.session.audio, undefined);
+  testApp.dispose();
+});
+
+const detailNarration = () => ({
+  tourId,
+  tourRevision: 4,
+  stopIndex: 1,
+  segmentId: "detail",
+  text: "第二站讲解",
+  sourceNote: "来源",
+});
+
+test("Back and Forward retain the same narrator and audio bookmark, restore the actual resource point, and never replay", async () => {
+  const { testApp } = await loadPublishedTour();
+  const source = detailNarration();
+  let primes = 0,
+    pauses = 0;
+  testApp.browser.addEventListener("twinnku:tour-prime", () => primes++);
+  testApp.browser.addEventListener("twinnku:tour-pause", () => pauses++);
+  testApp.node("ExperiencePanel").props.onNarrate(source);
+  testApp.render();
+  const narrator = testApp.node("TourNarrator");
+  narrator.props.onBookmark({ chunkIndex: 2, time: 7.25 });
+  testApp.render();
+  assert.equal(
+    testApp
+      .node("NativeAgentDock")
+      .props.onAction(videoAction, { requestedPlayback: true }),
+    true,
+  );
+  testApp.render();
+  const request = testApp.node("TourResourceView").props.playbackRequest;
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointA);
+  assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointA);
+  const params = new URL(testApp.browser.location.href).searchParams;
+  assert.equal(params.get("resource"), "video");
+  assert.equal(params.get("resource_id"), experienceId);
+  assert.equal(params.get("resource_point"), pointA);
+  assert.deepEqual(
+    Object.keys(testApp.browser.history.state.twinnkuTourResourcePublic).sort(),
+    ["pointId", "resource"],
+  );
+  testApp.browser.history.back();
+  let tree = testApp.render();
+  assert.equal(request.signal.aborted, true);
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(testApp.node("ExperiencePanel").props.active, true);
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
+  assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointB);
+  assert.equal(clickButton(tree, "继续参观"), undefined);
+  assert.equal(testApp.node("TourNarrator").type, narrator.type);
+  assert.equal(testApp.node("TourNarrator").key, narrator.key);
+  assertNarration(testApp.node("TourNarrator").props.narration, source);
+  assert.equal(testApp.node("TourNarrator").props.initialBookmark.time, 7.25);
+  testApp.browser.history.forward();
+  tree = testApp.render();
+  assert.equal(
+    testApp.node("TourResourceView").props.resource.id,
+    experienceId,
+  );
+  assert.equal(testApp.node("TourResourceView").props.playbackRequest, null);
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointA);
+  assertNarration(testApp.node("TourNarrator").props.narration, source);
+  assert.equal(testApp.node("ShareVisit").props.session.audio.time, 7.25);
+  clickButton(tree, "← 返回本站讲解").props.onClick();
+  testApp.render();
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
+  assertNarration(testApp.node("TourNarrator").props.narration, source);
+  assert.equal(primes, 1);
+  assert.ok(pauses >= 3);
+  testApp.dispose();
+});
+
+test("ordinary route clicks require the current published segment resource and exact point and revision", async () => {
+  const { testApp } = await loadPublishedTour();
+  const before = testApp.browser.location.href;
+  const source = detailNarration();
+  testApp.node("ExperiencePanel").props.onNarrate(source);
+  testApp.render();
+  const open = testApp.node("ExperiencePanel").props.onResourceOpen;
+  for (const [resource, point] of [
+    [{ type: "video", id: experienceId, revision: 3 }, pointA],
+    [{ type: "video", id: videoB.id, revision: 2 }, pointB],
+    [{ type: "image", id: videoB.id, revision: 3 }, pointB],
+    [{ type: "video", id: videoB.id, revision: 3 }, pointA],
+    [{ type: "video", id: panoramaId, revision: 3 }, pointB],
+  ]) {
+    assert.equal(open(resource, point), false);
+    testApp.render();
+    assert.equal(testApp.browser.location.href, before);
+    assert.equal(testApp.node("TourResourceView"), undefined);
+    assertNarration(testApp.node("TourNarrator").props.narration, source);
+  }
+  assert.equal(
+    open({ type: "video", id: videoB.id, revision: 3 }, pointB),
+    true,
+  );
+  testApp.render();
+  assert.equal(testApp.node("TourResourceView").props.resource.id, videoB.id);
+  testApp.dispose();
+});
+
+test("a direct public route resource waits for handoff and its return replaces rather than backs out of the visit", async () => {
+  const href = `https://guide.example/?point=${pointB}&experience=${tourId}&revision=4&stop=1&segment=detail&mode=onsite&resource=video&resource_id=${videoB.id}&resource_revision=3&resource_point=${pointB}&play=1`;
+  const testApp = app(href, { experiences: [publishedTour, videoB] });
+  testApp.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  let tree = testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  clickButton(tree, "继续参观").props.onClick();
+  tree = testApp.render();
+  assert.equal(testApp.node("TourResourceView").props.resource.id, videoB.id);
+  assert.equal(testApp.node("TourResourceView").props.playbackRequest, null);
+  assert.equal(testApp.node("TourNarrator").props.narration, null);
+  clickButton(tree, "← 返回本站讲解").props.onClick();
+  testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(testApp.node("ExperiencePanel").props.active, true);
+  const params = new URL(testApp.browser.location.href).searchParams;
+  assert.equal(params.has("resource"), false);
+  assert.equal(params.get("experience"), tourId);
+  assert.equal(params.get("point"), pointB);
+  testApp.dispose();
+});
+
+test("forged, non-stop, private, duplicate and outdated resource URLs are removed before they can open", async () => {
+  const base = `https://guide.example/?point=${pointB}&experience=${tourId}&revision=4&stop=1&segment=detail&mode=onsite`;
+  for (const tail of [
+    `&resource=video&resource_id=${experienceId}&resource_revision=3&resource_point=${pointA}`,
+    `&resource=video&resource_id=${panoramaId}&resource_revision=3&resource_point=${pointB}`,
+    `&resource=video&resource_id=${videoB.id}&resource_revision=2&resource_point=${pointB}`,
+    `&resource=checkin&resource_id=${videoB.id}&resource_revision=3&resource_point=${pointB}`,
+    `&resource=video&resource_id=${videoB.id}&resource_id=${experienceId}&resource_revision=3&resource_point=${pointB}`,
+    `&resource_id=${videoB.id}`,
+  ]) {
+    const testApp = app(base + tail, {
+      experiences: [publishedTour, video, videoB],
+    });
+    testApp.render();
+    await new Promise((resolve) => setImmediate(resolve));
+    const tree = testApp.render();
+    assert.equal(testApp.node("TourResourceView"), undefined);
+    const params = new URL(testApp.browser.location.href).searchParams;
+    assert.equal(params.has("resource"), false);
+    assert.equal(params.has("resource_id"), false);
+    assert.equal(params.get("point"), pointB);
+    clickButton(tree, "继续参观").props.onClick();
+    testApp.render();
+    assert.equal(testApp.node("TourResourceView"), undefined);
+    testApp.dispose();
+  }
+});
+
+test("Forward revalidates a formerly public AI video and does not reopen it after retirement", async () => {
+  const { testApp, settings } = await loadPublishedTour();
+  const source = detailNarration();
+  testApp.node("ExperiencePanel").props.onNarrate(source);
+  testApp.render();
+  testApp.node("NativeAgentDock").props.onAction(videoAction);
+  testApp.render();
+  testApp.browser.history.back();
+  testApp.render();
+  settings.experiences = [publishedTour, videoB];
+  testApp.refreshCatalogs();
+  await new Promise((resolve) => setImmediate(resolve));
+  testApp.render();
+  testApp.browser.history.forward();
+  testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(
+    new URL(testApp.browser.location.href).searchParams.has("resource"),
+    false,
+  );
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
+  assertNarration(testApp.node("TourNarrator").props.narration, source);
+  assert.equal(testApp.node("ExperiencePanel").props.active, true);
+  testApp.dispose();
+});
+
+test("changing stations while a resource is open clears the resource, old narration and audio bookmark", async () => {
+  const { testApp } = await loadPublishedTour();
+  testApp.node("ExperiencePanel").props.onNarrate(detailNarration());
+  testApp.render();
+  testApp.node("TourNarrator").props.onBookmark({ chunkIndex: 2, time: 5 });
+  testApp.render();
+  testApp.node("NativeAgentDock").props.onAction(videoAction);
+  testApp.render();
+  testApp.node("ExperiencePanel").props.onPositionChange({
+    revision: 4,
+    stopIndex: 0,
+    segmentId: "opening",
+  });
+  testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(testApp.node("TourNarrator").props.narration, null);
+  assert.equal(testApp.node("ShareVisit").props.session.audio, undefined);
+  assert.equal(testApp.node("ShareVisit").props.session.position.stopIndex, 0);
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointA);
+  const params = new URL(testApp.browser.location.href).searchParams;
+  assert.equal(params.has("resource"), false);
+  assert.equal(params.get("point"), pointA);
+  assert.equal(params.get("segment"), "opening");
+  testApp.dispose();
+});
+
+test("public floor validation is cancellable across Back and rejects a stale revision on Forward", async () => {
+  const requests = [];
+  const { testApp } = await loadPublishedTour({
+    get: async (path, signal) => {
+      if (path.startsWith("/experiences"))
+        return { data: [publishedTour, video, videoB] };
+      assert.equal(path, `/floors/${floorId}`);
+      return new Promise((resolve) => requests.push({ resolve, signal }));
+    },
+  });
+  const source = detailNarration();
+  testApp.node("ExperiencePanel").props.onNarrate(source);
+  testApp.render();
+  assert.equal(
+    testApp.node("NativeAgentDock").props.onAction({
+      type: "show_floor",
+      point_id: pointA,
+      point_revision: 1,
+      resource_id: floorId,
+      resource_revision: 2,
+    }),
+    true,
+  );
+  testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(requests.length, 1);
+  assert.equal(testApp.node("ExperiencePanel").props.active, false);
+  assert.ok(clickButton(testApp.render(), "← 返回本站讲解"));
+  testApp.browser.history.back();
+  testApp.render();
+  assert.equal(requests[0].signal.aborted, true);
+  requests[0].resolve({ data: { id: floorId, point_id: pointA, revision: 2 } });
+  await new Promise((resolve) => setImmediate(resolve));
+  testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
+  assertNarration(testApp.node("TourNarrator").props.narration, source);
+  testApp.browser.history.forward();
+  testApp.render();
+  assert.equal(requests.length, 2);
+  requests[1].resolve({ data: { id: floorId, point_id: pointA, revision: 3 } });
+  await new Promise((resolve) => setImmediate(resolve));
+  testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(
+    new URL(testApp.browser.location.href).searchParams.has("resource"),
+    false,
+  );
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
+  assertNarration(testApp.node("TourNarrator").props.narration, source);
+  testApp.dispose();
+});
+
+test("published floor and VR stop refs re-open through public validation and return to paused narration", async () => {
+  for (const type of ["floor", "vr"]) {
+    const id = type === "floor" ? floorId : panoramaId;
+    const tour = structuredClone(publishedTour);
+    tour.content.stops[1].segments[0].resources = [{ type, id, revision: 2 }];
+    let reads = 0;
+    const { testApp } = await loadPublishedTour({
+      get: async (path) => {
+        if (path.startsWith("/experiences")) return { data: [tour] };
+        reads++;
+        if (type === "floor") {
+          assert.equal(path, `/floors/${id}`);
+          return { data: { id, point_id: pointB, revision: 2 } };
+        }
+        assert.equal(path, `/points/${pointB}/panoramas`);
+        return { data: [{ id, point_id: pointB, revision: 2 }] };
+      },
+    });
+    const source = detailNarration();
+    testApp.node("ExperiencePanel").props.onNarrate(source);
+    testApp.render();
+    assert.equal(
+      testApp
+        .node("ExperiencePanel")
+        .props.onResourceOpen({ type, id, revision: 2 }, pointB),
+      true,
+    );
+    testApp.render();
+    await new Promise((resolve) => setImmediate(resolve));
+    testApp.render();
+    assert.equal(testApp.node("TourResourceView").props.resource.id, id);
+    testApp.browser.history.back();
+    testApp.render();
+    assert.equal(testApp.node("TourResourceView"), undefined);
+    assertNarration(testApp.node("TourNarrator").props.narration, source);
+    testApp.browser.history.forward();
+    testApp.render();
+    await new Promise((resolve) => setImmediate(resolve));
+    testApp.render();
+    assert.equal(testApp.node("TourResourceView").props.resource.id, id);
+    assert.equal(testApp.node("TourResourceView").props.playbackRequest, null);
+    assertNarration(testApp.node("TourNarrator").props.narration, source);
+    assert.equal(reads, 2);
+    testApp.dispose();
+  }
+});
+
+test("retiring a public tour closes its resource and old narration and requires an available published route to continue", async () => {
+  const { testApp, settings } = await loadPublishedTour();
+  testApp.node("ExperiencePanel").props.onNarrate(detailNarration());
+  testApp.render();
+  testApp.node("NativeAgentDock").props.onAction(videoAction);
+  testApp.render();
+  settings.experiences = [video, videoB];
+  testApp.refreshCatalogs();
+  await new Promise((resolve) => setImmediate(resolve));
+  const tree = testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(testApp.node("TourNarrator").props.narration, null);
+  assert.equal(testApp.node("ExperiencePanel"), undefined);
+  assert.equal(clickButton(tree, "继续参观").props.disabled, true);
+  assert.equal(
+    new URL(testApp.browser.location.href).searchParams.has("resource"),
+    false,
+  );
+  testApp.dispose();
+});
+
+test("ordinary map exploration exits a resource visit and removes its media history parameters", async () => {
+  const { testApp } = await loadPublishedTour();
+  testApp.node("ExperiencePanel").props.onNarrate(detailNarration());
+  testApp.render();
+  testApp.node("NativeAgentDock").props.onAction(videoAction);
+  testApp.render();
+  testApp.node("MapCanvas").props.onSelect(pointB);
+  testApp.render();
+  assert.equal(testApp.node("TourResourceView"), undefined);
+  assert.equal(testApp.node("TourNarrator"), undefined);
+  assert.equal(testApp.node("ExperiencePanel"), undefined);
+  const params = new URL(testApp.browser.location.href).searchParams;
+  assert.equal(params.has("experience"), false);
+  assert.equal(params.has("resource"), false);
+  assert.equal(params.has("resource_id"), false);
+  assert.equal(params.get("point"), pointB);
+  testApp.dispose();
+});
 
 test("VR directory locates only current map geometry and selects the real point without changing labels", () => {
   const options = {
@@ -476,7 +1313,7 @@ test("unrelated root renders keep the empty route identity stable for the map", 
 
 test("experience deep link restores, tour navigation hides without unmounting and close returns", () => {
   const testApp = app(
-    baseHref.replace("#map", `&experience=${experienceId}#map`),
+    baseHref.replace("#map", `&mode=onsite&experience=${experienceId}#map`),
   );
   testApp.render();
   const panel = testApp.node("ExperiencePanel");
@@ -486,7 +1323,8 @@ test("experience deep link restores, tour navigation hides without unmounting an
   panel.props.onNavigateStop(pointA, pointB);
   testApp.render();
   assert.equal(
-    testApp.node("ExperiencePanel").props.initialExperienceId,
+    testApp.node("ExperiencePanel").props.item?.id ??
+      testApp.node("ExperiencePanel").props.initialExperienceId,
     experienceId,
   );
   assert.equal(testApp.node("ExperiencePanel").props.active, false);
@@ -509,45 +1347,38 @@ test("experience deep link restores, tour navigation hides without unmounting an
   testApp.dispose();
 });
 
-test("experience action writes shareable URL and ordinary exploration clears it", () => {
-  const testApp = app(baseHref);
+test("a tour action opens its public overview and free exploration leaves the route", async () => {
+  const testApp = app(baseHref, { experiences: [publishedTour] });
+  testApp.render();
+  await new Promise((resolve) => setImmediate(resolve));
   testApp.render();
   testApp.node("NativeAgentDock").props.onAction({
     type: "show_tour",
     point_id: pointA,
     point_revision: 1,
-    resource_id: experienceId,
+    resource_id: tourId,
   });
-  testApp.render();
+  let tree = testApp.render();
   assert.equal(
-    new URL(testApp.browser.location.href).searchParams.get("experience"),
-    experienceId,
+    new URL(testApp.browser.location.href).pathname,
+    `/tours/${tourId}`,
   );
-  testApp.node("ExperiencePanel").props.onSelectPoint(pointB);
+  assert.equal(testApp.node("TourOverview").props.tour.id, tourId);
+  assert.equal(testApp.node("MapCanvas"), undefined);
+  clickButton(tree, "校园地图").props.onClick();
   testApp.render();
-  assert.equal(
-    new URL(testApp.browser.location.href).searchParams.get("experience"),
-    experienceId,
-  );
-  assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
-  testApp.node("MapCanvas").props.onSelect(pointA);
-  testApp.render();
-  assert.equal(testApp.node("ExperiencePanel"), undefined);
   assert.equal(
     new URL(testApp.browser.location.href).searchParams.has("experience"),
     false,
   );
+  assert.ok(testApp.node("MapCanvas"));
   testApp.browser.history.back();
   testApp.render();
-  assert.equal(
-    testApp.node("ExperiencePanel").props.initialExperienceId,
-    experienceId,
-  );
+  assert.equal(testApp.node("TourOverview").props.tour.id, tourId);
   testApp.dispose();
 });
-
 test("browser Back and Forward restore experience and clear obsolete route/pick state", () => {
-  const testApp = app(baseHref);
+  const testApp = app(baseHref.replace("#map", "&mode=onsite#map"));
   testApp.render();
   testApp.node("NativeAgentDock").props.onAction({
     type: "show_checkin",
@@ -568,7 +1399,8 @@ test("browser Back and Forward restore experience and clear obsolete route/pick 
   testApp.browser.history.forward();
   testApp.render();
   assert.equal(
-    testApp.node("ExperiencePanel").props.initialExperienceId,
+    testApp.node("ExperiencePanel").props.item?.id ??
+      testApp.node("ExperiencePanel").props.initialExperienceId,
     experienceId,
   );
   testApp.dispose();
@@ -636,20 +1468,18 @@ function openVR(testApp, point = pointB) {
   testApp.render();
 }
 
-test("VR action keeps a campus tour mounted and pauses its media while updating point context", () => {
-  const testApp = app(baseHref);
-  testApp.render();
-  openTour(testApp);
+test("VR action keeps a campus tour mounted and pauses its media while updating point context", async () => {
+  const { testApp } = await loadPublishedTour();
   const tour = testApp.node("ExperiencePanel");
   const dock = testApp.node("NativeAgentDock");
   assert.equal(tour.props.active, true);
-  assert.equal(tour.props.initialKind, "tour");
+  assert.equal(tour.props.item.content.kind, "tour");
   assert.equal(tour.props.pointId, undefined); // The route belongs to the campus.
   openVR(testApp);
   const retained = testApp.node("ExperiencePanel");
   assert.equal(retained.type, tour.type);
   assert.equal(retained.key, tour.key);
-  assert.equal(retained.props.initialExperienceId, experienceId);
+  assert.equal(retained.props.item.id, tourId);
   assert.equal(retained.props.active, false);
   assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
   assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointB);
@@ -659,15 +1489,13 @@ test("VR action keeps a campus tour mounted and pauses its media while updating 
   );
   const params = new URL(testApp.browser.location.href).searchParams;
   assert.equal(params.get("panorama"), panoramaId);
-  assert.equal(params.get("experience"), experienceId);
-  assert.equal(params.get("channel"), "official");
+  assert.equal(params.get("experience"), tourId);
+  assert.equal(params.get("channel"), null);
   testApp.dispose();
 });
 
-test("Escape from the dock textarea closes only VR and restores the same tour", () => {
-  const testApp = app(baseHref);
-  testApp.render();
-  openTour(testApp);
+test("Escape from the dock textarea closes only VR and restores the same tour", async () => {
+  const { testApp } = await loadPublishedTour();
   openVR(testApp);
   const tour = testApp.node("ExperiencePanel");
   const event = testApp.escapeFromDock();
@@ -679,18 +1507,17 @@ test("Escape from the dock textarea closes only VR and restores the same tour", 
   );
   assert.equal(testApp.node("ExperiencePanel").type, tour.type);
   assert.equal(
-    testApp.node("ExperiencePanel").props.initialExperienceId,
-    experienceId,
+    testApp.node("ExperiencePanel").props.item?.id ??
+      testApp.node("ExperiencePanel").props.initialExperienceId,
+    tourId,
   );
   assert.equal(testApp.node("ExperiencePanel").props.active, true);
   assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointB);
   testApp.dispose();
 });
 
-test("VR navigation preserves the active route and tour across Back and Forward", () => {
-  const testApp = app(baseHref);
-  testApp.render();
-  openTour(testApp);
+test("VR navigation preserves the active route and tour across Back and Forward", async () => {
+  const { testApp } = await loadPublishedTour();
   testApp.node("ExperiencePanel").props.onNavigateStop(pointA, pointB);
   testApp.render();
   const route = {
@@ -740,12 +1567,13 @@ test("VR navigation preserves the active route and tour across Back and Forward"
   );
   assert.equal(testApp.node("MapCanvas").props.routeSegments, route.segments);
   assert.equal(testApp.node("MapCanvas").props.routePickMode, "start");
-  assert.equal(testApp.node("MapCanvas").props.selectedId, pointA);
-  assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointA);
+  assert.equal(testApp.node("MapCanvas").props.selectedId, pointB);
+  assert.equal(testApp.node("NativeAgentDock").props.current.point_id, pointB);
   assert.equal(testApp.node("ExperiencePanel").type, tour.type);
   assert.equal(
-    testApp.node("ExperiencePanel").props.initialExperienceId,
-    experienceId,
+    testApp.node("ExperiencePanel").props.item?.id ??
+      testApp.node("ExperiencePanel").props.initialExperienceId,
+    tourId,
   );
   testApp.browser.history.forward();
   testApp.render();
@@ -770,9 +1598,99 @@ test("VR navigation preserves the active route and tour across Back and Forward"
   testApp.node("NavigationPanel").props.onClose();
   testApp.render();
   assert.equal(
-    testApp.node("ExperiencePanel").props.initialExperienceId,
-    experienceId,
+    testApp.node("ExperiencePanel").props.item?.id ??
+      testApp.node("ExperiencePanel").props.initialExperienceId,
+    tourId,
   );
   assert.equal(testApp.node("ExperiencePanel").props.active, true);
   testApp.dispose();
+});
+
+test("withdrawing the published navigation capability clears route and pick state, including previously captured assistant actions", async () => {
+  const options = { navigationEnabled: true };
+  const h = app(baseHref, options);
+  try {
+    h.render();
+    await new Promise((resolve) => setImmediate(resolve));
+    h.render();
+    const oldAction = h.node("NativeAgentDock").props.onAction;
+    const action = {
+      type: "show_route",
+      point_id: pointB,
+      point_revision: 1,
+      start_point_id: pointA,
+    };
+    assert.equal(oldAction(action), true);
+    h.render();
+    h.node("NavigationPanel").props.onRoute({
+      start_point_id: pointA,
+      end_point_id: pointB,
+      segments: [
+        {
+          map_id: "map",
+          map_revision: 3,
+          points: [
+            { x: 1, y: 2 },
+            { x: 3, y: 4 },
+          ],
+        },
+      ],
+    });
+    h.node("NavigationPanel").props.onPickMode("start");
+    h.render();
+    assert.equal(h.node("MapCanvas").props.routeSegments.length, 1);
+    options.navigationEnabled = false;
+    const withdrawn = h.render();
+    assert.match(
+      walk(withdrawn, (node) => node.props?.className === "place-message")[0]
+        .props.children[0],
+      /旧路径.*清除/,
+    );
+    assert.equal(h.node("NavigationPanel"), undefined);
+    assert.equal(h.node("MapCanvas").props.routeSegments.length, 0);
+    assert.equal(h.node("MapCanvas").props.routePickMode, null);
+    assert.equal(h.node("NativeAgentDock").props.onNavigate, undefined);
+    assert.equal(
+      oldAction(action),
+      false,
+      "late actions cannot restore a withdrawn capability",
+    );
+    h.render();
+    assert.equal(h.node("NavigationPanel"), undefined);
+    options.navigationEnabled = true;
+    h.render();
+    assert.equal(
+      h.node("MapCanvas").props.routeSegments.length,
+      0,
+      "re-enabling requires a new explicit request",
+    );
+  } finally {
+    h.dispose();
+  }
+});
+
+test("formal playback capability reaches the mounted narrator independently of chat and map availability", async () => {
+  const { testApp, settings } = await loadPublishedTour();
+  try {
+    testApp.node("ExperiencePanel").props.onNarrate({
+      tourId,
+      tourRevision: 4,
+      stopIndex: 1,
+      segmentId: "detail",
+      text: "正式讲解",
+      narrationMode: "recorded",
+    });
+    testApp.render();
+    const original = testApp.node("TourNarrator");
+    assert.equal(original.props.recordedAllowed, true);
+    settings.narrationEnabled = false;
+    testApp.render();
+    assert.equal(testApp.node("TourNarrator").props.recordedAllowed, false);
+    assert.equal(testApp.node("TourNarrator").type, original.type);
+    assert.equal(testApp.node("TourNarrator").props.narration.text, "正式讲解");
+    assert.ok(testApp.node("NativeAgentDock"));
+    assert.ok(testApp.node("MapCanvas"));
+  } finally {
+    testApp.dispose();
+  }
 });

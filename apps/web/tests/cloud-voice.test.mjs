@@ -12,9 +12,15 @@ function harness(mode = "ok", sizes = [1024], extra = {}) {
     calls = [],
     states = [],
     silent = [];
+  const manifests = new Map();
   const speaker = createCloudSpeaker({
     async fetchImpl(_url, init) {
-      calls.push({ ...JSON.parse(init.body), signal: init.signal });
+      const body = JSON.parse(init.body);
+      calls.push({
+        ...body,
+        text: manifests.get(body.permit)?.[body.chunk_index],
+        signal: init.signal,
+      });
       const size = sizes[Math.min(calls.length - 1, sizes.length - 1)];
       return {
         ok: size !== null,
@@ -64,6 +70,16 @@ function harness(mode = "ok", sizes = [1024], extra = {}) {
     onSilent: (value) => silent.push(value),
     ...extra,
   });
+  const speak = speaker.speak.bind(speaker);
+  speaker.speak = (text, caption, manifest) => {
+    manifest ??= {
+      permit: `test-permit-${manifests.size}`,
+      chunks: splitForSpeech(speakableText(text)),
+      csrf: "test-only-csrf",
+    };
+    manifests.set(manifest.permit, manifest.chunks);
+    return speak(text, caption, manifest);
+  };
   return {
     speaker,
     created,
@@ -207,8 +223,8 @@ test("only one next clip is requested during current playback and requests never
   });
   const pending = h.speaker.speak(text);
   assert.deepEqual(
-    requests.map((request) => request.text),
-    [clips[0]],
+    requests.map((request) => request.chunk_index),
+    [0],
   );
   requests[0].complete();
   await settle();
@@ -221,8 +237,8 @@ test("only one next clip is requested during current playback and requests never
   assert.equal(h.speaker.state, "speaking");
   assert.equal(h.created[0].played.length, 1);
   assert.deepEqual(
-    requests.map((request) => request.text),
-    clips.slice(0, 2),
+    requests.map((request) => request.chunk_index),
+    [0, 1],
   );
   // Finishing synthesis alone cannot fetch a third clip or interrupt this one.
   requests[1].complete();
@@ -233,8 +249,8 @@ test("only one next clip is requested during current playback and requests never
   await settle();
   assert.equal(h.created[0].played.length, 2);
   assert.deepEqual(
-    requests.map((request) => request.text),
-    clips.slice(0, 3),
+    requests.map((request) => request.chunk_index),
+    [0, 1, 2],
   );
   for (let index = 2; index < clips.length; index++) {
     requests[index].complete();
@@ -246,8 +262,8 @@ test("only one next clip is requested during current playback and requests never
   h.created[0].onended?.();
   assert.equal(await pending, true);
   assert.deepEqual(
-    requests.map((request) => request.text),
-    clips,
+    requests.map((request) => request.chunk_index),
+    clips.map((_, index) => index),
   );
   assert.equal(h.created.length, 1);
   assert.equal(h.created[0].played.length, clips.length);
@@ -571,4 +587,89 @@ test("browser boundaries follow real offsets and stale callbacks cannot revive c
   lateBoundary({ charIndex: 0 });
   assert.deepEqual(outcomes, [false]);
   assert.deepEqual(captions, ["第一句。", "第二句。"]);
+});
+
+test("unpermitted text uses browser fallback and never becomes a paid raw-text request", async () => {
+  let paid = 0;
+  const speaker = createCloudSpeaker({
+    fetchImpl: async () => {
+      paid++;
+      throw new Error("must not be called");
+    },
+    fallbackSpeak: (_text, done) => done(true),
+  });
+  assert.equal(await speaker.speak("只有本地文本，没有服务器许可。"), true);
+  assert.equal(paid, 0);
+});
+
+test("server manifest owns chunks and paid request carries only permit/index plus csrf", async () => {
+  const requests = [];
+  const manifest = {
+    permit: "server-only-permit",
+    csrf: "session-only-csrf",
+    chunks: ["后台第一段。", "后台第二段。"],
+  };
+  const h = harness("ok", undefined, {
+    fetchImpl: async (url, init) => {
+      requests.push({
+        url,
+        body: JSON.parse(init.body),
+        headers: init.headers,
+        credentials: init.credentials,
+      });
+      return { ok: true, blob: async () => new Blob([new Uint8Array(20)]) };
+    },
+  });
+  assert.equal(
+    await h.speaker.speak(manifest.chunks.join(""), undefined, manifest),
+    true,
+  );
+  assert.deepEqual(
+    requests.map((request) => request.body),
+    [
+      { permit: manifest.permit, chunk_index: 0 },
+      { permit: manifest.permit, chunk_index: 1 },
+    ],
+  );
+  assert.ok(requests.every((request) => !Object.hasOwn(request.body, "text")));
+  assert.ok(
+    requests.every(
+      (request) => request.headers["x-csrf-token"] === manifest.csrf,
+    ),
+  );
+  assert.ok(requests.every((request) => request.credentials === "same-origin"));
+});
+
+test("pause returns current cloud position; resumed audio seeks only after metadata", async () => {
+  const h = harness("manual");
+  const manifest = {
+    permit: "permit",
+    csrf: "csrf",
+    chunks: ["第一段。", "第二段。"],
+  };
+  const first = h.speaker.speak(manifest.chunks.join(""), undefined, manifest);
+  await settle();
+  h.created[0].currentTime = 3.25;
+  h.created[0].ontimeupdate();
+  const bookmark = h.speaker.pause();
+  assert.deepEqual(bookmark, { chunkIndex: 0, time: 3.25 });
+  assert.equal(await first, false);
+  const previousPlays = h.created[0].played.length;
+  const progress = [];
+  const resume = h.speaker.speak(manifest.chunks.join(""), undefined, {
+    ...manifest,
+    startChunk: bookmark.chunkIndex,
+    startTime: bookmark.time,
+    onProgress: (value) => progress.push(value),
+  });
+  await settle();
+  assert.equal(h.created[0].played.length, previousPlays);
+  h.created[0].duration = 20;
+  h.created[0].onloadedmetadata();
+  assert.equal(h.created[0].currentTime, 3.25);
+  h.created[0].currentTime = 4;
+  h.created[0].ontimeupdate();
+  assert.deepEqual(progress.at(-1), { chunkIndex: 0, time: 4 });
+  h.speaker.cancel();
+  assert.equal(await resume, false);
 });

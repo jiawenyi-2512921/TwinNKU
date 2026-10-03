@@ -48,6 +48,7 @@ def exercise_workbench(client, db, tmp_path):
         "checkin": 0,
         "tour": 0,
         "navigation": 0,
+        "configuration": 0,
     }
     assert stats["draft_count"] == stats["rejected_count"] == 0
     assert (
@@ -276,7 +277,7 @@ def test_all_review_channels_share_queue_counts_and_scope(client, db, tmp_path):
     assert all(row["point_id"] is None for row in rows if row["kind"] in {"tour", "navigation"})
     stats = client.get(BASE + "/workbench").json()["data"]
     assert stats["pending_count"] == stats["my_pending_count"] == 7
-    assert stats["pending_by_kind"] == dict.fromkeys(expected, 1)
+    assert stats["pending_by_kind"] == {**dict.fromkeys(expected, 1), "configuration": 0}
     pages = [
         client.get(BASE + "/changes", params={"page": page, "page_size": 2}).json()
         for page in range(1, 5)

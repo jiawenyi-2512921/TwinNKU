@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import type { Panorama } from "../../shared/api/client";
 import { Icon } from "../../shared/ui/Icon";
 import { externalPanoramaUrl } from "./panorama";
+import { VRPresentation } from "./VRPresentation";
+import { pauseTour } from "../visit/audioOwner";
 import "./panorama.css";
 
 // Compatibility for existing ?panorama= shared links. Browsers require an
@@ -72,6 +74,7 @@ export function PanoramaViewer({
             ? "VR将在新标签页打开。本站地图、导览进度和小开对话会保留。"
             : notice || "全景链接暂不可用"}
         </p>
+        {item && <VRPresentation item={item} />}
       </div>
       <footer className="panorama-viewer-footer">
         {onRetry && (
@@ -80,7 +83,7 @@ export function PanoramaViewer({
           </button>
         )}
         {external && (
-          <a href={external} target="_blank" rel="noopener noreferrer">
+          <a href={external} target="_blank" rel="noopener noreferrer" onClick={pauseTour}>
             打开 VR<span className="sr-only">（新标签页）</span>
           </a>
         )}

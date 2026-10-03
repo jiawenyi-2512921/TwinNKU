@@ -8,6 +8,8 @@ import { watchCatalogChanges } from "../../shared/catalogSync";
 import { Icon } from "../../shared/ui/Icon";
 import { externalPanoramaUrl } from "../points/panorama";
 import { categoryLabels } from "../points/PointDetails";
+import { VRPresentation } from "../points/VRPresentation";
+import { pauseTour } from "../visit/audioOwner";
 import {
   findPanoramas,
   loadPanoramaDirectory,
@@ -216,9 +218,7 @@ export function PanoramaDirectory({
                       <small>{detail}</small>
                     </div>
                   </div>
-                  {item.description && (
-                    <p className="vr-description">{item.description}</p>
-                  )}
+                  <VRPresentation item={item} />
                   <div className="vr-card-actions">
                     <button
                       data-place-result
@@ -233,6 +233,7 @@ export function PanoramaDirectory({
                       aria-disabled={!ready || undefined}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={pauseTour}
                       aria-label={`打开 VR ${item.title} ${detail}（新标签页）`}
                     >
                       <Icon name="link" size={16} /> 打开 VR{" "}

@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { api, get } from "../../shared/api/client";
+import { api } from "../../shared/api/client";
+import {
+  endVisitorSession,
+  ensureVisitorSession,
+  forgetVisitorSession,
+  rememberVisitorSession,
+  type VoiceManifest,
+} from "../../shared/visitorSession";
+import { acquireAudio, releaseAudio } from "../visit/audioOwner";
 import { Icon } from "../../shared/ui/Icon";
 import type { AgentRequest } from "./AgentDock";
 import { contextQuestion } from "./protocol";
@@ -15,6 +23,7 @@ import {
   type GuideContext,
   type GuideReply,
   type GuideActionOptions,
+  type ActionReceipt,
 } from "./native";
 import {
   browserVoiceEnvironment,
@@ -39,11 +48,15 @@ type Props = {
   current: GuideContext | null;
   request: AgentRequest | null;
   autoActions: boolean;
+  publicEnabled?: boolean;
+  welcomeText?: string;
+  recommendedQuestions?: string[];
+  defaultMinimized?: boolean;
   pointName: string;
   mediaActive?: boolean;
   onAction: (a: GuideAction, options?: GuideActionOptions) => boolean;
   onCancelAction?: () => void;
-  onNavigate: () => void;
+  onNavigate?: () => void;
 };
 export function NativeAgentDock({
   current,
@@ -53,12 +66,17 @@ export function NativeAgentDock({
   onNavigate,
   onCancelAction,
   autoActions,
+  publicEnabled = false,
   mediaActive = false,
+  welcomeText,
+  recommendedQuestions,
+  defaultMinimized = false,
 }: Props) {
   const [open, setOpen] = useState(false),
     [expanded, setExpanded] = useState(false);
-  const [minimized, setMinimized] = useState(false);
+  const [minimized, setMinimized] = useState(defaultMinimized);
   const [checkingSession, setCheckingSession] = useState(false);
+  const [authRefresh, setAuthRefresh] = useState(0);
   const [csrf, setCsrf] = useState(""),
     [code, setCode] = useState("");
   const [query, setQuery] = useState(""),
@@ -89,6 +107,7 @@ export function NativeAgentDock({
     chatInFlight = useRef(false),
     authGeneration = useRef(0);
   const actionGeneration = useRef(0);
+  const clearing = useRef(false);
   const chatAbort = useRef<AbortController | null>(null);
   const actionAbort = useRef<AbortController | null>(null);
   const pendingVr = useRef<{ tab: Window | null } | null>(null);
@@ -99,6 +118,12 @@ export function NativeAgentDock({
   const voicePhaseRef = useRef<VoicePhase>("idle");
   const muted = useRef(false);
   const announcementGeneration = useRef(0);
+  const spokenReply = useRef<{ text: string; manifest: VoiceManifest } | null>(
+    null,
+  );
+  const receipts = useRef<Array<{ value: ActionReceipt; at: number }>>([]);
+  const contextRevision = useRef(current?.revision);
+  const assistantLease = useRef<number | undefined>(undefined);
   const [muteNotice, setMuteNotice] = useState("");
   const [voiceFallbackNotice, setVoiceFallbackNotice] = useState("");
   const [voiceUnlockNotice, setVoiceUnlockNotice] = useState("");
@@ -134,13 +159,23 @@ export function NativeAgentDock({
     });
     voice.current = createVoiceConversation(browserVoiceEnvironment(), {
       onQuestion: (text) => submit.current(text),
-      speakAnswer: (text, onCaption) =>
-        muted.current
-          ? Promise.resolve(true)
-          : (speaker.current?.speak(text, onCaption) ?? Promise.resolve(false)),
+      speakAnswer: (text, onCaption) => {
+        if (muted.current) return Promise.resolve(true);
+        claimAssistantAudio();
+        return (
+          speaker.current?.speak(
+            text,
+            onCaption,
+            spokenReply.current?.text === text
+              ? spokenReply.current.manifest
+              : undefined,
+          ) ?? Promise.resolve(false)
+        );
+      },
       cancelSpeech: () => speaker.current?.cancel(),
       onPhase: (phase) => {
         if (mounted.current) setVoicePhase(phase);
+        if (phase === "idle") releaseAudio("assistant", assistantLease.current);
       },
       onTranscript: (text) => {
         if (mounted.current) setTranscript(text);
@@ -177,6 +212,28 @@ export function NativeAgentDock({
     };
   }, []);
   useEffect(() => {
+    if (contextRevision.current === current?.revision) return;
+    contextRevision.current = current?.revision;
+    announcementGeneration.current++;
+    actionGeneration.current++;
+    voice.current?.stop("场景已变化，旧回答已暂停。");
+    speaker.current?.cancel();
+    chatAbort.current?.abort();
+    actionAbort.current?.abort();
+    spokenReply.current = null;
+    closePendingVr();
+    setVerifiedVr(null);
+  }, [current?.revision]);
+  useEffect(() => {
+    const receive = (event: Event) => {
+      const value = (event as CustomEvent<ActionReceipt>).detail;
+      if (!value || typeof value.action_id !== "string") return;
+      recordReceipt(value);
+    };
+    window.addEventListener("twinnku:action-receipt", receive);
+    return () => window.removeEventListener("twinnku:action-receipt", receive);
+  }, []);
+  useEffect(() => {
     if (mediaActive) {
       announcementGeneration.current++;
       voice.current?.stop("正在播放视频，语音已暂停。看完后可点击麦克风继续。");
@@ -197,13 +254,15 @@ export function NativeAgentDock({
     if (!open) return;
     const controller = new AbortController(),
       generation = authGeneration.current;
-    get<{ csrf_token: string }>("/agent/session", controller.signal)
+    setCheckingSession(true);
+    ensureVisitorSession(publicEnabled, controller.signal, true)
       .then((r) => {
         if (
           !controller.signal.aborted &&
           generation === authGeneration.current
         ) {
-          setCsrf(r.data.csrf_token);
+          setCsrf(r.csrf_token);
+          setError("");
           setCheckingSession(false);
           if (authIntent.current === "voice") {
             authIntent.current = null;
@@ -229,7 +288,7 @@ export function NativeAgentDock({
         }
       });
     return () => controller.abort();
-  }, [open]);
+  }, [open, publicEnabled, authRefresh]);
   useEffect(() => {
     if (!request || seen.current === request.sequence) return;
     seen.current = request.sequence;
@@ -258,10 +317,9 @@ export function NativeAgentDock({
     actionGeneration.current++;
     setActionStatus("");
     onCancelAction?.();
-    if (pendingVr.current || automaticPending.current) {
-      actionAbort.current?.abort();
-      closePendingVr();
-    }
+    chatAbort.current?.abort();
+    actionAbort.current?.abort();
+    closePendingVr();
     panelOpen.current = false;
     setOpen(false);
     setExpanded(false);
@@ -275,6 +333,7 @@ export function NativeAgentDock({
     launcher.current?.focus();
   }
   function typeInstead() {
+    window.dispatchEvent(new CustomEvent("twinnku:tour-pause"));
     announcementGeneration.current++;
     voice.current?.stop();
     speaker.current?.cancel();
@@ -307,6 +366,8 @@ export function NativeAgentDock({
     setVoiceNotice("");
     setVoiceUnlockNotice("");
     setVoiceFallbackNotice("");
+    window.dispatchEvent(new CustomEvent("twinnku:tour-pause"));
+    claimAssistantAudio();
     speaker.current?.cancel();
     voice.current.start();
   }
@@ -383,9 +444,11 @@ export function NativeAgentDock({
       );
       if (!mounted.current) return;
       setCsrf(result.csrf_token);
+      rememberVisitorSession(result.csrf_token);
       setCode("");
       setTurns([]);
       applied.current.clear();
+      receipts.current = [];
       if (authIntent.current === "voice") {
         authIntent.current = null;
         setExpanded(false);
@@ -429,6 +492,7 @@ export function NativeAgentDock({
     setError("");
     const controller = new AbortController();
     const generation = authGeneration.current;
+    const actionEpoch = actionGeneration.current;
     actionAbort.current = controller;
     let reservation: { tab: Window | null } | null = null;
     let navigated = false;
@@ -451,6 +515,7 @@ export function NativeAgentDock({
         !mounted.current ||
         controller.signal.aborted ||
         generation !== authGeneration.current ||
+        actionEpoch !== actionGeneration.current ||
         (automatic && !panelOpen.current)
       )
         return null;
@@ -475,7 +540,8 @@ export function NativeAgentDock({
         if (
           !mounted.current ||
           controller.signal.aborted ||
-          generation !== authGeneration.current
+          generation !== authGeneration.current ||
+          actionEpoch !== actionGeneration.current
         )
           return null;
         if (latest.current?.revision !== before) {
@@ -512,6 +578,13 @@ export function NativeAgentDock({
         const outcome = navigated
           ? "已请求在新标签页打开全景；返回这里可继续导览。"
           : "全景未在新窗口打开，可能被浏览器拦截。请点击小开旁的全景图标。";
+        recordReceipt({
+          action_id: checked.action_id,
+          context_revision: checked.context_revision,
+          resource_id: checked.resource_id,
+          resource_revision: checked.resource_revision,
+          result: navigated ? "external_requested" : "blocked",
+        });
         setActionStatus(outcome);
         setVoiceNotice("");
         if (panelOpen.current) collapse();
@@ -574,13 +647,17 @@ export function NativeAgentDock({
     const context = latest.current;
     const sentActionGeneration = actionGeneration.current;
     const sentAnnouncementGeneration = announcementGeneration.current;
-    if (!text || !context || chatInFlight.current || !csrf) return null;
+    const sentAuthGeneration = authGeneration.current;
+    if (!text || !context || chatInFlight.current || clearing.current || !csrf)
+      return null;
     if (text.length > 2000) {
       setQuery(text.slice(0, 2000));
       setError("问题过长，请精简到2000字以内再发送。");
       setExpanded(true);
       return null;
     }
+    window.dispatchEvent(new CustomEvent("twinnku:tour-pause"));
+    claimAssistantAudio();
     chatInFlight.current = true;
     setBusy(true);
     setError("");
@@ -596,14 +673,39 @@ export function NativeAgentDock({
       controller = new AbortController();
     chatAbort.current = controller;
     setTurns((v) => [...v, { id, question: text }]);
+    const sentReceipts = receipts.current.filter(
+      (entry) => Date.now() - entry.at < 480_000,
+    );
     try {
       const reply = await post<GuideReply>(
         "/agent/chat",
-        { query: text, context, request_id: id },
+        {
+          query: text,
+          context,
+          request_id: id,
+          action_receipts: sentReceipts.map((entry) => entry.value),
+        },
         csrf,
         controller.signal,
       );
-      if (!mounted.current) return null;
+      if (
+        !mounted.current ||
+        controller.signal.aborted ||
+        sentAuthGeneration !== authGeneration.current ||
+        context.revision !== latest.current?.revision
+      )
+        return null;
+      spokenReply.current = {
+        text: reply.answer,
+        manifest: {
+          permit: reply.speech_permit ?? null,
+          chunks: reply.speech_chunks ?? [],
+          csrf,
+        },
+      };
+      receipts.current = receipts.current.filter(
+        (entry) => !sentReceipts.includes(entry),
+      );
       setTurns((v) => v.map((t) => (t.id === id ? { ...t, reply } : t)));
       if (
         autoActions &&
@@ -626,17 +728,24 @@ export function NativeAgentDock({
           !fromVoice &&
           sentAnnouncementGeneration === announcementGeneration.current
         )
-          announce(reply.answer);
-        return outcome ? `${reply.answer}\n${outcome}` : null;
+          announce(reply);
+        return outcome && context.revision === latest.current?.revision
+          ? reply.answer
+          : null;
       }
       if (
         !fromVoice &&
         sentAnnouncementGeneration === announcementGeneration.current
       )
-        announce(reply.answer);
+        announce(reply);
       return reply.answer;
     } catch (e) {
-      if (!mounted.current) return null;
+      if (
+        !mounted.current ||
+        sentAuthGeneration !== authGeneration.current ||
+        controller.signal.aborted
+      )
+        return null;
       const message = e instanceof Error ? e.message : "本次请求失败";
       const diagnostic =
         e instanceof NativeError && (e.code || e.requestId)
@@ -647,7 +756,13 @@ export function NativeAgentDock({
       );
       setQuery(text);
       setError(message);
-      if (e instanceof NativeError && e.status === 401) setCsrf("");
+      if (e instanceof NativeError && e.status === 401) {
+        forgetVisitorSession();
+        setCsrf("");
+        spokenReply.current = null;
+        receipts.current = [];
+        if (publicEnabled) setAuthRefresh((value) => value + 1);
+      }
       return null;
     } finally {
       chatInFlight.current = false;
@@ -661,19 +776,81 @@ export function NativeAgentDock({
    * The voice-conversation loop already speaks its own replies, so this
    * stands down while that loop is active to avoid reading twice.
    */
-  function announce(answer: string) {
+  function announce(reply: GuideReply) {
     if (
       muted.current ||
-      !answer.trim() ||
+      !reply.answer.trim() ||
       !panelOpen.current ||
       mediaPlaying.current ||
       document.visibilityState !== "visible"
     )
       return;
     if (voicePhaseRef.current !== "idle") return;
-    void speaker.current?.speak(answer, (caption) => {
-      if (mounted.current) setVoiceCaption(caption);
+    const lease = claimAssistantAudio();
+    void speaker.current
+      ?.speak(
+        reply.answer,
+        (caption) => {
+          if (mounted.current) setVoiceCaption(caption);
+        },
+        {
+          permit: reply.speech_permit ?? null,
+          chunks: reply.speech_chunks ?? [],
+          csrf,
+        },
+      )
+      .finally(() => releaseAudio("assistant", lease));
+  }
+  function claimAssistantAudio() {
+    const lease = acquireAudio("assistant", () => {
+      voice.current?.stop();
+      speaker.current?.cancel();
     });
+    assistantLease.current = lease;
+    return lease;
+  }
+  function recordReceipt(value: ActionReceipt) {
+    receipts.current = [
+      ...receipts.current.filter(
+        (entry) => entry.value.action_id !== value.action_id,
+      ),
+      { value, at: Date.now() },
+    ].slice(-16);
+  }
+  async function clearConversation() {
+    if (clearing.current) return;
+    clearing.current = true;
+    setBusy(true);
+    window.dispatchEvent(new CustomEvent("twinnku:tour-pause"));
+    voice.current?.stop();
+    speaker.current?.cancel();
+    announcementGeneration.current++;
+    authGeneration.current++;
+    actionGeneration.current++;
+    chatAbort.current?.abort();
+    actionAbort.current?.abort();
+    closePendingVr();
+    onCancelAction?.();
+    try {
+      await endVisitorSession();
+      setError("");
+    } catch {
+      forgetVisitorSession();
+      setError("本地对话已清空；服务器会话将在到期后失效。");
+    }
+    spokenReply.current = null;
+    receipts.current = [];
+    applied.current.clear();
+    setVerifiedVr(null);
+    setCsrf("");
+    setTurns([]);
+    setQuery("");
+    setActionStatus("");
+    setOpen(false);
+    setExpanded(false);
+    releaseAudio("assistant");
+    clearing.current = false;
+    setBusy(false);
   }
   const last = turns.at(-1);
   const activeVoice = voicePhase !== "idle";
@@ -684,7 +861,9 @@ export function NativeAgentDock({
           {reply.actions.map((a) => (
             <button
               key={a.action_id}
-              disabled={busy}
+              disabled={
+                busy || reply.context_revision !== latest.current?.revision
+              }
               onClick={() => {
                 applied.current.delete(a.action_id);
                 void act(a);
@@ -884,9 +1063,20 @@ export function NativeAgentDock({
                 speaker.current?.unlock();
                 if (!wasBlocked) {
                   setVoiceNotice("");
-                  void speaker.current?.speak(last.reply!.answer, (caption) => {
-                    if (mounted.current) setVoiceCaption(caption);
-                  });
+                  const lease = claimAssistantAudio();
+                  void speaker.current
+                    ?.speak(
+                      last.reply!.answer,
+                      (caption) => {
+                        if (mounted.current) setVoiceCaption(caption);
+                      },
+                      {
+                        permit: last.reply!.speech_permit ?? null,
+                        chunks: last.reply!.speech_chunks ?? [],
+                        csrf,
+                      },
+                    )
+                    .finally(() => releaseAudio("assistant", lease));
                 }
               }}
             >
@@ -1002,6 +1192,18 @@ export function NativeAgentDock({
               <p className="native-notice" role="status">
                 正在连接小开…
               </p>
+            ) : publicEnabled ? (
+              <div className="native-login">
+                <h3>小开暂时未连接</h3>
+                <p>图文导览仍可继续使用。</p>
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => setAuthRefresh((value) => value + 1)}
+                >
+                  重新连接
+                </button>
+              </div>
             ) : (
               <form
                 className="native-login"
@@ -1027,15 +1229,17 @@ export function NativeAgentDock({
                 <button className="primary-button" disabled={busy}>
                   {busy ? "正在连接…" : "开始对话"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    collapse();
-                    onNavigate();
-                  }}
-                >
-                  直接选择起终点导航
-                </button>
+                {onNavigate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      collapse();
+                      onNavigate();
+                    }}
+                  >
+                    直接选择起终点导航
+                  </button>
+                )}
               </form>
             )
           ) : (
@@ -1048,9 +1252,24 @@ export function NativeAgentDock({
                 {!turns.length && (
                   <div className="native-welcome">
                     <h3>你想去哪里？</h3>
-                    <p>可以询问地点、楼层、全景，或说明从哪里出发。</p>
-                    {["帮我定位图书馆", "我想去周恩来雕像"].map((q) => (
-                      <button key={q} onClick={() => setQuery(q)}>
+                    <p>
+                      {welcomeText ||
+                        "可以询问地点、楼层、全景，或说明从哪里出发。"}
+                    </p>
+                    {(
+                      recommendedQuestions ?? [
+                        "帮我定位图书馆",
+                        "我想去周恩来雕像",
+                      ]
+                    ).map((q) => (
+                      <button
+                        key={q}
+                        disabled={busy || !current}
+                        onClick={() => {
+                          setQuery(q);
+                          void send(q);
+                        }}
+                      >
                         {q}
                       </button>
                     ))}
@@ -1067,24 +1286,7 @@ export function NativeAgentDock({
                           <details>
                             <summary>本次提供给小开的地点资料</summary>
                             {t.reply.materials.map((m) => (
-                              <button
-                                type="button"
-                                key={m.point_id}
-                                disabled={busy}
-                                onClick={() =>
-                                  void act({
-                                    action_id: crypto.randomUUID(),
-                                    type: "focus_point",
-                                    point_id: m.point_id,
-                                    point_revision: m.revision,
-                                    context_revision:
-                                      latest.current?.revision ?? -1,
-                                    label: m.label,
-                                  })
-                                }
-                              >
-                                {m.label}
-                              </button>
+                              <p key={m.point_id}>{m.label}</p>
                             ))}
                           </details>
                         )}
@@ -1141,7 +1343,10 @@ export function NativeAgentDock({
                   rows={2}
                   disabled={busy}
                   placeholder="例如：从图书馆到周恩来雕像怎么走？"
-                  onFocus={() => voice.current?.stop()}
+                  onFocus={() => {
+                    window.dispatchEvent(new CustomEvent("twinnku:tour-pause"));
+                    voice.current?.stop();
+                  }}
                   onChange={(e) => setQuery(e.target.value)}
                 />
                 <div>
@@ -1149,28 +1354,10 @@ export function NativeAgentDock({
                     type="button"
                     disabled={busy}
                     onClick={() => {
-                      if (
-                        !turns.length ||
-                        window.confirm("新建对话后不再显示当前记录，是否继续？")
-                      ) {
-                        voice.current?.stop();
-                        speaker.current?.cancel();
-                        announcementGeneration.current++;
-                        onCancelAction?.();
-                        authGeneration.current++;
-                        actionGeneration.current++;
-                        actionAbort.current?.abort();
-                        closePendingVr();
-                        setVerifiedVr(null);
-                        setCsrf("");
-                        setTurns([]);
-                        setError("");
-                        setActionStatus("");
-                        applied.current.clear();
-                      }
+                      void clearConversation();
                     }}
                   >
-                    新对话
+                    清空并结束会话
                   </button>
                   <button
                     className="primary-button"
@@ -1181,15 +1368,17 @@ export function NativeAgentDock({
                 </div>
               </form>
               <div className="native-toolbar">
-                <button
-                  type="button"
-                  onClick={() => {
-                    collapse();
-                    onNavigate();
-                  }}
-                >
-                  地图选点导航
-                </button>
+                {onNavigate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      collapse();
+                      onNavigate();
+                    }}
+                  >
+                    地图选点导航
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -1201,6 +1390,7 @@ export function NativeAgentDock({
                 </button>
               </div>
               <p className="native-voice-hint">
+                问题与必要的公开导览资料会发送到学校对话服务，播报文字会发送到云语音服务。
                 {voiceSupported
                   ? "开启语音需允许麦克风，识别可能使用浏览器提供的在线服务。"
                   : "当前浏览器不支持语音识别，可在这里继续文字交流。"}

@@ -161,6 +161,8 @@ function overlay(
           },
         };
       if (name === "./panorama") return helpers;
+      if (name === "./VRPresentation") return { VRPresentation: () => null };
+      if (name.endsWith("/audioOwner")) return { pauseTour() {} };
       if (name.endsWith("/Icon")) return { Icon: () => null };
       if (name.endsWith(".css")) return {};
       if (name === "./PanoramaViewer") return { PanoramaViewer: Viewer };
@@ -303,6 +305,8 @@ function viewer(row) {
       if (name === "react-dom") return { createPortal: (element) => element };
       if (name.endsWith("/Icon")) return { Icon: () => null };
       if (name === "./panorama") return helpers;
+      if (name === "./VRPresentation") return { VRPresentation: () => null };
+      if (name.endsWith("/audioOwner")) return { pauseTour() {} };
       if (name.endsWith(".css")) return {};
       throw new Error(name);
     },
@@ -345,11 +349,9 @@ test("primary panorama cards link directly to the original scene without rewriti
   assert.equal(link.props.target, "_blank");
   assert.equal(link.props.rel, "noopener noreferrer");
   assert.match(words(link), /打开 VR/);
-  assert.equal(
-    link.props.onClick,
-    undefined,
-    "native navigation must not be intercepted into an internal viewer",
-  );
+  let prevented = false;
+  link.props.onClick?.({ preventDefault() { prevented = true; } });
+  assert.equal(prevented, false, "pausing narration must preserve native navigation");
   assert.equal(find(tree, (node) => node.type === "iframe").length, 0);
   assert.equal(
     find(tree, (node) => node.props?.["aria-haspopup"] === "dialog").length,
@@ -418,6 +420,8 @@ function focusHarness({ wasInert = false, triggerConnected = true } = {}) {
       if (name === "react-dom") return { createPortal: (element) => element };
       if (name.endsWith("/Icon")) return { Icon: () => null };
       if (name === "./panorama") return helpers;
+      if (name === "./VRPresentation") return { VRPresentation: () => null };
+      if (name.endsWith("/audioOwner")) return { pauseTour() {} };
       if (name.endsWith(".css")) return {};
       throw new Error(name);
     },

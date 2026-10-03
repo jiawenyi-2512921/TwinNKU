@@ -303,19 +303,55 @@ def test_section_identity_requires_unique_names_and_matching_files(floor_bundle)
         FloorBundle.model_validate(data)
 
 
-def test_legacy_revision_digest_is_unchanged_by_optional_section_fields(db, client, floor_bundle):
-    _, data = floor_bundle
-    normalized = FloorBundle.model_validate(data).floors[0].model_dump(mode="json")
-    for asset in normalized["images"]:
-        del asset["section"]
-        del asset["section_label"]
-    old_digest = hashlib.sha256(
+def legacy_revision_digest(data):
+    # Construct the historical required-field wire order explicitly. A new
+    # model_dump() contains newly added defaults and cannot represent an old
+    # manifest merely by removing the first two optional fields.
+    current = FloorBundle.model_validate(data).floors[0].model_dump(mode="json")
+    normalized = {key: current[key] for key in (
+        "id", "point_id", "map_id", "label", "ordinal", "revision", "attribution", "images",
+    )}
+    normalized["images"] = [{key: asset[key] for key in (
+        "variant", "filename", "width_px", "height_px", "sha256", "media_type", "size_bytes",
+    )} for asset in current["images"]]
+    return hashlib.sha256(
         json.dumps(normalized, ensure_ascii=False, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def test_legacy_revision_digest_is_unchanged_by_optional_section_fields(db, client, floor_bundle):
+    _, data = floor_bundle
+    old_digest = legacy_revision_digest(data)
     _, f = install(floor_bundle, db, client)
     assert db.get(FloorRecord, f["id"]).manifest_sha256 == old_digest
     assert "section" not in db.get(FloorRecord, f["id"]).images[0]
+    assert "description" not in db.get(FloorRecord, f["id"]).images[0]
+    assert db.get(FloorRecord, f["id"]).description == ""
     install(floor_bundle, db, client)
+
+
+@pytest.mark.parametrize("target", ["floor", "image"])
+def test_nonempty_description_changes_fingerprint_and_cannot_change_same_revision(
+    db, client, floor_bundle, target
+):
+    _, data = floor_bundle
+    old_digest = legacy_revision_digest(data)
+    floor = data["floors"][0]
+    content = floor if target == "floor" else floor["images"][0]
+    content["description"] = "已核对的楼层说明"
+    _, item = install(floor_bundle, db, client)
+    saved = db.get(FloorRecord, item["id"])
+    original_digest = saved.manifest_sha256
+    assert original_digest != old_digest
+    stored = saved.description if target == "floor" else saved.images[0]["description"]
+    assert stored == content["description"]
+    install(floor_bundle, db, client)
+    content["description"] = "同一版本未经审核的改写"
+    with pytest.raises(ValueError, match="immutable"):
+        install(floor_bundle, db, client)
+    assert saved.manifest_sha256 == original_digest
+    stored = saved.description if target == "floor" else saved.images[0]["description"]
+    assert stored == "已核对的楼层说明"
 
 
 @pytest.mark.parametrize("orientation", [0, 1])

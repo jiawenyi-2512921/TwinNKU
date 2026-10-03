@@ -4,6 +4,8 @@ import { Icon } from "../../shared/ui/Icon";
 import { watchCatalogChanges } from "../../shared/catalogSync";
 import { LOCATION_CHANGE_EVENT } from "../../shared/navigation";
 import { externalPanoramaUrl, requestedPanorama } from "./panorama";
+import { VRPresentation } from "./VRPresentation";
+import { pauseTour } from "../visit/audioOwner";
 import "./panorama.css";
 
 export function PanoramaPanel({ pointId }: { pointId: string }) {
@@ -96,13 +98,14 @@ export function PanoramaPanel({ pointId }: { pointId: string }) {
           key={item.id}
         >
           <strong>{item.title}</strong>
-          {item.description && <p>{item.description}</p>}
+          <VRPresentation item={item} />
           {externalPanoramaUrl(item.url) ? (
             <a
               className="panorama-open"
               href={externalPanoramaUrl(item.url)!}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={pauseTour}
             >
               <Icon name="arrow" size={17} />
               打开 VR

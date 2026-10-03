@@ -87,7 +87,7 @@ def to_oas30(value, schemas):
 
 
 def build(server="https://2512921.cn", version="3.0.3"):
-    source = json.loads((ROOT / "contracts/openapi.json").read_text())
+    source = json.loads((ROOT / "contracts/openapi.json").read_text(encoding="utf-8"))
     paths = {}
     found = set()
     for path, methods in source["paths"].items():
@@ -146,10 +146,10 @@ def main():
             raise SystemExit("plugin exceeds the platform's 2 MiB file limit")
         path = ROOT / "contracts" / filename
         if args.check:
-            if not path.exists() or path.read_text() != text:
+            if not path.exists() or path.read_text(encoding="utf-8") != text:
                 raise SystemExit(f"Plugin drift: regenerate {filename}")
         else:
-            path.write_text(text)
+            path.write_text(text, encoding="utf-8", newline="\n")
         print(f"{filename}: {len(text.encode())} bytes, {len(OPERATIONS)} public GET tools")
 
 

@@ -11,6 +11,13 @@ import type { RoutePickMode } from "./NavigationPanel";
 import { imageBounds, toMapPoint } from "./coordinates";
 import { appendMapLabelCorrections } from "./labelCorrections";
 import {
+  mapCameraRange,
+  validMapDefaultView,
+  type MapDefaultView,
+  type MapFocusEffect,
+  type MapViewport,
+} from "./mapDefaults";
+import {
   watchMapTiles,
   type TileLoadController,
   type TileLoadState,
@@ -24,7 +31,18 @@ type Props = {
   features: MapFeatures;
   points: Point[];
   selectedId: string | null;
+  showLabels?: boolean;
+  showRegions?: boolean;
+  defaultView?: MapDefaultView | null;
+  defaultsReady?: boolean;
+  focusEffect?: MapFocusEffect;
+  onViewportChange?: (view: MapViewport) => void;
+  focusToken?: number;
+  detachedControls?: boolean;
+  previewOnly?: boolean;
+  highlightedPointIds?: string[];
   onSelect: (id: string | null) => void;
+  onFocusResult?: (id: string) => void;
   routeSegments?: RouteSegment[];
   routePickMode?: RoutePickMode;
   routeStartId?: string | null;
@@ -39,7 +57,18 @@ export function MapCanvas({
   features,
   points,
   selectedId,
+  showLabels = true,
+  showRegions = true,
+  defaultView = null,
+  defaultsReady = true,
+  focusEffect = "short",
+  onViewportChange,
+  focusToken = 0,
+  detachedControls = false,
+  previewOnly = false,
+  highlightedPointIds = EMPTY_POINT_IDS,
   onSelect,
+  onFocusResult,
   routeSegments = EMPTY_ROUTE_SEGMENTS,
   routePickMode = null,
   routeStartId = null,
@@ -53,6 +82,13 @@ export function MapCanvas({
   const tileLoad = useRef<TileLoadController | null>(null);
   const select = useRef(onSelect);
   select.current = onSelect;
+  const defaults = useRef({ defaultView, defaultsReady });
+  defaults.current = { defaultView, defaultsReady };
+  const focusStyle = useRef(focusEffect);
+  focusStyle.current = focusEffect;
+  const viewportListener = useRef(onViewportChange);
+  viewportListener.current = onViewportChange;
+  const initialDefault = useRef({ settled: false, protected: false });
   const [tileState, setTileState] = useState<TileLoadState>({
     failed: 0,
     retrying: false,
@@ -67,12 +103,22 @@ export function MapCanvas({
   useEffect(() => {
     if (!element.current || !info.tiles) return;
     setTileState({ failed: 0, retrying: false });
+    const configured = validMapDefaultView(defaults.current.defaultView, info)
+      ? defaults.current.defaultView
+      : null;
+    const camera = mapCameraRange(info);
+    const minimum = configured?.min_zoom ?? camera.min;
+    const maximum = configured?.max_zoom ?? camera.max;
+    initialDefault.current = {
+      settled: defaults.current.defaultsReady,
+      protected: false,
+    };
     const map = L.map(element.current, {
       crs: L.CRS.Simple,
       zoomControl: false,
       attributionControl: false,
-      minZoom: info.tiles.min_zoom,
-      maxZoom: info.tiles.max_native_zoom + 1,
+      minZoom: minimum,
+      maxZoom: maximum,
       zoomSnap: 0.25,
       zoomDelta: 0.5,
       maxBoundsViscosity: 0.9,
@@ -84,7 +130,8 @@ export function MapCanvas({
       tileSize: info.tiles.tile_size,
       noWrap: true,
       bounds: imageBounds(info),
-      minZoom: info.tiles.min_zoom,
+      minZoom: camera.min,
+      minNativeZoom: info.tiles.min_zoom,
       maxNativeZoom: info.tiles.max_native_zoom,
       maxZoom: info.tiles.max_native_zoom + 1,
       keepBuffer: 1,
@@ -96,6 +143,80 @@ export function MapCanvas({
     const resize = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     resize.observe(element.current);
     map.fitBounds(imageBounds(info), { padding: [18, 18], animate: false });
+    const memoryKey = `twinnku:map-view:${info.id}:${info.revision}`;
+    const validView = (v: {
+      x: number;
+      y: number;
+      zoom: number;
+      width: number;
+      height: number;
+    }) =>
+      v &&
+      v.width === info.width_px &&
+      v.height === info.height_px &&
+      Number.isFinite(v.x) &&
+      v.x >= 0 &&
+      v.x <= info.width_px &&
+      Number.isFinite(v.y) &&
+      v.y >= 0 &&
+      v.y <= info.height_px &&
+      Number.isFinite(v.zoom) &&
+      v.zoom >= minimum &&
+      v.zoom <= maximum;
+    let restored = false;
+    try {
+      const previous = previewOnly
+        ? null
+        : JSON.parse(sessionStorage.getItem(memoryKey) || "null");
+      if (validView(previous)) {
+        restored = true;
+        initialDefault.current.protected = true;
+        map.setView(
+          toMapPoint(previous, info.tiles.max_native_zoom),
+          previous.zoom,
+          { animate: false },
+        );
+      }
+    } catch {
+      /* A denied or obsolete viewport never prevents map loading. */
+    }
+    if (!restored && configured && defaults.current.defaultsReady)
+      map.setView(
+        toMapPoint(configured.center, info.tiles.max_native_zoom),
+        configured.zoom,
+        { animate: false },
+      );
+    map.on("movestart", () => {
+      initialDefault.current.protected = true;
+    });
+    const reportViewport = (persist: boolean) => {
+      const centre = map.getCenter(),
+        scale = 2 ** info.tiles!.max_native_zoom;
+      const v = {
+        x: centre.lng * scale,
+        y: -centre.lat * scale,
+        zoom: map.getZoom(),
+        width: info.width_px,
+        height: info.height_px,
+      };
+      // Editors must see an out-of-image centre and reject capture rather than
+      // silently reusing their last valid viewport. Visitor memory stays bounded.
+      if (![v.x, v.y, v.zoom].every(Number.isFinite)) return;
+      viewportListener.current?.({
+        map_id: info.id,
+        map_revision: info.revision,
+        center: { x: v.x, y: v.y },
+        zoom: v.zoom,
+      });
+      if (!previewOnly && persist && validView(v))
+        try {
+          sessionStorage.setItem(memoryKey, JSON.stringify(v));
+        } catch {
+          /* Browsing remains available without storage. */
+        }
+    };
+    map.on("moveend", () => reportViewport(true));
+    reportViewport(false);
     return () => {
       resize.disconnect();
       loading.dispose();
@@ -103,7 +224,28 @@ export function MapCanvas({
       instance.current = null;
       tileLoad.current = null;
     };
-  }, [info]);
+  }, [info, previewOnly]);
+
+  useEffect(() => {
+    const map = instance.current;
+    if (!map || !info.tiles || !defaultsReady || initialDefault.current.settled)
+      return;
+    initialDefault.current.settled = true;
+    // A late first configuration can initialize an untouched map. Polling,
+    // deliberate focus, manual pan and visitor memory must never reset it.
+    if (
+      initialDefault.current.protected ||
+      !validMapDefaultView(defaultView, info)
+    )
+      return;
+    map.setMinZoom(defaultView.min_zoom);
+    map.setMaxZoom(defaultView.max_zoom);
+    map.setView(
+      toMapPoint(defaultView.center, info.tiles.max_native_zoom),
+      defaultView.zoom,
+      { animate: false },
+    );
+  }, [defaultsReady, defaultView, info]);
 
   useEffect(() => {
     const map = instance.current;
@@ -138,11 +280,20 @@ export function MapCanvas({
       const eligible = routeAvailablePointIds.includes(point.id);
       const endpoint = routeStartId === point.id || routeEndId === point.id;
       const showCandidate = Boolean(routePickMode && eligible);
+      const highlighted = highlightedPointIds.includes(point.id);
+      if (
+        !showRegions &&
+        !selected &&
+        !endpoint &&
+        !showCandidate &&
+        !highlighted
+      )
+        continue;
       const color = routeStartId === point.id ? "#18785f" : "#713573";
       const base = {
         color,
         weight: selected || endpoint ? 2.5 : 1.5,
-        opacity: selected || endpoint || showCandidate ? 1 : 0,
+        opacity: selected || endpoint || showCandidate || highlighted ? 1 : 0,
         fillColor: color,
         fillOpacity: selected || endpoint ? 0.2 : showCandidate ? 0.12 : 0,
       };
@@ -213,6 +364,8 @@ export function MapCanvas({
     routeStartId,
     routeEndId,
     routeAvailablePointIds,
+    highlightedPointIds,
+    showRegions,
   ]);
 
   useEffect(() => {
@@ -225,6 +378,29 @@ export function MapCanvas({
     )
       return;
     const markers = L.layerGroup().addTo(map);
+    for (const id of highlightedPointIds) {
+      const feature = features.points.find(
+        (item) =>
+          item.point_id === id &&
+          item.map_id === info.id &&
+          item.map_revision === info.revision,
+      );
+      if (!feature || !points.some((point) => point.id === id)) continue;
+      const dot = document.createElement("span");
+      dot.className = "map-location-dot";
+      dot.setAttribute("aria-hidden", "true");
+      L.marker(toMapPoint(feature.anchor, info.tiles.max_native_zoom), {
+        icon: L.divIcon({
+          html: dot,
+          className: "map-location-marker",
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+        }),
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 400,
+      }).addTo(markers);
+    }
     for (const [id, label, kind] of [
       [routeStartId, "起点", "start"],
       [routeEndId, "终点", "end"],
@@ -261,7 +437,7 @@ export function MapCanvas({
     return () => {
       markers.remove();
     };
-  }, [info, features, points, routeStartId, routeEndId]);
+  }, [info, features, points, routeStartId, routeEndId, highlightedPointIds]);
 
   useEffect(() => {
     const map = instance.current;
@@ -272,6 +448,7 @@ export function MapCanvas({
       features.map_revision !== info.revision
     )
       return;
+    if (!showLabels) return;
     const byId = new Map(points.map((point) => [point.id, point]));
     const labels = features.points.filter(
       (feature) =>
@@ -310,7 +487,7 @@ export function MapCanvas({
     return () => {
       annotation.remove();
     };
-  }, [info, features, points]);
+  }, [info, features, points, showLabels]);
 
   const selectedFeature = features.points.find(
     (p) => p.point_id === selectedId,
@@ -334,18 +511,45 @@ export function MapCanvas({
     );
     const narrow = window.matchMedia("(max-width: 760px)").matches;
     const height = map.getSize().y;
-    const fit = () =>
+    let reported = false;
+    const done = () => {
+      if (!reported && selectedId) {
+        reported = true;
+        onFocusResult?.(selectedId);
+      }
+    };
+    const fit = () => {
+      map.once("moveend", done);
       map.fitBounds(bounds.pad(0.65), {
         paddingTopLeft: [40, 48],
-        paddingBottomRight: narrow
-          ? [40, Math.min(260, height * 0.5)]
-          : [410, 50],
+        paddingBottomRight: detachedControls
+          ? [40, 40]
+          : narrow
+            ? [40, Math.min(260, height * 0.5)]
+            : [410, 50],
         maxZoom: info.tiles!.max_native_zoom,
-        animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        animate:
+          focusStyle.current === "short" &&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        duration: 0.25,
       });
+      // A selection already centered in its bounds requires no movement.
+      if (map.getBounds().contains(bounds)) map.whenReady(done);
+    };
     const timer = window.setTimeout(fit, 30);
-    return () => window.clearTimeout(timer);
-  }, [selectedId, info, selectedRegion, hasRoute, routePickMode]);
+    return () => {
+      window.clearTimeout(timer);
+      map.off("moveend", done);
+    };
+  }, [
+    selectedId,
+    info,
+    selectedRegion,
+    hasRoute,
+    routePickMode,
+    focusToken,
+    detachedControls,
+  ]);
 
   useEffect(() => {
     const map = instance.current;
@@ -410,8 +614,8 @@ export function MapCanvas({
         role="region"
         aria-label={
           routePickMode
-            ? `津南校区地图，选择${routePickMode === "start" ? "起点" : "终点"}。可拖动，滚轮或双指缩放；Tab 切换地点，回车确认，Esc 取消。`
-            : "津南校区交互地图，可拖动，滚轮或双指缩放；方向键移动，加减键缩放。"
+            ? `${info.title}地图，选择${routePickMode === "start" ? "起点" : "终点"}。可拖动，滚轮或双指缩放；Tab 切换地点，回车确认，Esc 取消。`
+            : `${info.title}交互地图，可拖动，滚轮或双指缩放；方向键移动，加减键缩放。`
         }
         onKeyDown={(event) => {
           if (event.key === "Escape" && routePick.current.mode) {

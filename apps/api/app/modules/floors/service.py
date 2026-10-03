@@ -34,6 +34,7 @@ def as_floor(record):
         ordinal=record.ordinal,
         revision=record.revision,
         attribution=record.attribution,
+        description=record.description,
         images=[
             FloorImage(
                 **{k: v for k, v in image.items() if k != "filename"},

@@ -1,6 +1,6 @@
 """Exercise the operator check over HTTP with real API routes and explicit HTML fixtures.
 
-These fixtures do not constitute a real Nginx or school-SDK validation.
+These fixtures do not constitute a real Nginx or supplier-reachability validation.
 """
 
 import json
@@ -37,6 +37,8 @@ def deployment(client, db):
     settings.nk_genios_web_app_key = SecretStr("embed-identifier-must-not-appear")
     settings.nk_genios_api_key = SecretStr("backend-secret-must-not-appear")
     settings.nk_genios_web_enabled = True
+    settings.nk_genios_api_enabled = True
+    settings.agent_public_enabled = True
     overrides = {}
     requests = []
 
@@ -60,7 +62,7 @@ def deployment(client, db):
                 status, body = 200, MAIN_HTML
                 headers = [("Content-Type", "text/html"), ("Content-Security-Policy", MAIN_POLICY)]
             elif self.path == "/agent/embed.html":
-                status, body = 200, EMBED_HTML
+                status, body = 410, b"Legacy SDK disabled"
                 headers = [
                     ("Content-Type", "text/html"),
                     ("Cache-Control", "no-store"),
@@ -94,13 +96,14 @@ def failures(report):
     return {item["check"] for item in report["checks"] if item["status"] == "fail"}
 
 
-def test_deployment_check_requires_full_sdk_without_recording_stale_config(deployment, client):
+def test_deployment_check_rejects_legacy_sdk_provider_without_recording_credentials(
+    deployment, client
+):
     assert SDK_URL == "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js"
     base, overrides, _, _ = deployment
     data = client.get("/api/v1/agent/web-config").json()
-    data["data"]["sdk_url"] = (
-        "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedLite.js"
-    )
+    data["data"]["provider"] = "nk-genios-websdk"
+    data["data"]["app_key"] = "embed-identifier-must-not-appear"
     overrides["/api/v1/agent/web-config"] = (
         200,
         [("Content-Type", "application/json"), ("Cache-Control", "no-store")],
@@ -140,7 +143,7 @@ def test_check_reads_six_real_public_routes_without_exposing_identifiers(
 
 def test_additional_proxy_csp_cannot_be_hidden_by_the_first_header(deployment):
     base, overrides, _, _ = deployment
-    overrides["/agent/embed.html"] = (
+    overrides["/"] = (
         200,
         [
             ("Content-Type", "text/html"),
@@ -148,15 +151,13 @@ def test_additional_proxy_csp_cannot_be_hidden_by_the_first_header(deployment):
             ("Content-Security-Policy", EMBED_POLICY),
             ("Content-Security-Policy", MAIN_POLICY),
         ],
-        EMBED_HTML,
+        MAIN_HTML,
     )
-    assert "embed_page_and_module" in failures(run_checks(base))
+    assert "main_page_csp" in failures(run_checks(base))
 
 
-@pytest.mark.parametrize(
-    "path", ["/agent/embed.html", "/assets/embed-fixture.js", "/api/v1/agent/web-config"]
-)
-def test_html_fallback_is_not_accepted_as_an_embed_asset_or_api(deployment, path):
+@pytest.mark.parametrize("path", ["/", "/agent/embed.html", "/api/v1/agent/web-config"])
+def test_html_fallback_is_not_accepted_as_closed_embed_or_api(deployment, path):
     base, overrides, _, _ = deployment
     overrides[path] = (200, [("Content-Type", "text/html")], MAIN_HTML)
     assert not run_checks(base)["ok"]
@@ -186,9 +187,20 @@ def test_redirect_is_not_followed_or_leaked_into_output(deployment):
 
 def test_disabled_config_requires_explicit_expectation(deployment, client):
     base, _, _, _ = deployment
-    client.app.state.settings.nk_genios_web_enabled = False
+    client.app.state.settings.nk_genios_api_enabled = False
     assert run_checks(base)["ok"]
-    assert "embed_enabled" in failures(run_checks(base, expect_enabled=True))
+    assert "agent_enabled" in failures(run_checks(base, expect_enabled=True))
+
+
+def test_deprecated_check_sdk_flag_never_fetches_a_third_party_script(deployment):
+    base, _, requests, _ = deployment
+    report = run_checks(base, check_sdk=True)
+    assert report["ok"]
+    assert all("embed-fixture.js" not in path for path in requests)
+    assert (
+        next(item for item in report["checks"] if item["check"] == "school_sdk_http")["status"]
+        == "skip"
+    )
 
 
 def test_no_public_points_remains_an_explicit_unchecked_case(deployment, client, db):

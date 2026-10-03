@@ -12,6 +12,10 @@ import {
   createCloudSpeaker,
 } from "../src/features/agent/cloudVoice.ts";
 import { externalPanoramaUrl } from "../src/features/points/panorama.ts";
+import {
+  acquireAudio,
+  releaseAudio,
+} from "../src/features/visit/audioOwner.ts";
 
 // Controlled React hooks check the component's actual event handlers and state,
 // not browser layout, microphone permissions or a live school model response.
@@ -69,6 +73,8 @@ const reply = {
     },
   ],
   notices: [],
+  speech_permit: "session-issued-answer-permit",
+  speech_chunks: ["已经找到可用路线。"],
 };
 function harness({
   voiceEnvironment = {},
@@ -97,6 +103,7 @@ function harness({
     sessionResolver,
     voiceCallbacks;
   const visibilityListeners = new Set();
+  const windowListeners = new Map();
   const document = {
     visibilityState: "visible",
     addEventListener(type, callback) {
@@ -107,6 +114,18 @@ function harness({
     },
   };
   const browser = {
+    addEventListener(type, callback) {
+      if (!windowListeners.has(type)) windowListeners.set(type, new Set());
+      windowListeners.get(type).add(callback);
+    },
+    removeEventListener(type, callback) {
+      windowListeners.get(type)?.delete(callback);
+    },
+    dispatchEvent(event) {
+      for (const callback of windowListeners.get(event.type) ?? [])
+        callback(event);
+      return true;
+    },
     confirm: () => true,
     location: { href: "https://guide.test/?point=point-1&experience=tour-1" },
     open(url, target) {
@@ -183,6 +202,7 @@ function harness({
   vm.runInNewContext(compiled, {
     exports,
     AbortController,
+    CustomEvent,
     Error,
     crypto: { randomUUID },
     document,
@@ -190,6 +210,21 @@ function harness({
     require(name) {
       if (name === "react") return react;
       if (name === "react/jsx-runtime") return jsx;
+      if (name.endsWith("/visitorSession"))
+        return {
+          async ensureVisitorSession() {
+            sessionReads.push("/agent/session");
+            const session = sessionResolver ? await sessionResolver() : null;
+            if (sessionError && !sessionResolver) throw sessionError;
+            return session?.data ?? session ?? { csrf_token: "csrf" };
+          },
+          rememberVisitorSession() {},
+          forgetVisitorSession() {},
+          async endVisitorSession() {
+            posts.push({ path: "/agent/logout" });
+          },
+        };
+      if (name.endsWith("/audioOwner")) return { acquireAudio, releaseAudio };
       if (name.endsWith("/Icon")) return { Icon: () => null };
       if (name === "./Companion") return { Companion: "companion" };
       if (name === "./useCompanionPosition")
@@ -281,8 +316,20 @@ function harness({
           async post(path, body) {
             posts.push({ path, body });
             events.push(["post", path]);
-            if (path === "/agent/chat")
-              return chatResolver ? chatResolver(body) : response;
+            if (path === "/agent/chat") {
+              const payload = await (chatResolver
+                ? chatResolver(body)
+                : response);
+              return {
+                ...payload,
+                speech_permit:
+                  payload.speech_permit ?? "session-issued-answer-permit",
+                speech_chunks:
+                  payload.speech_chunks?.join("") === payload.answer
+                    ? payload.speech_chunks
+                    : [payload.answer],
+              };
+            }
             if (path === "/agent/actions/resolve")
               return resolver ? resolver(body) : body.action;
             if (path === "/agent/login") return { csrf_token: "csrf" };
@@ -417,18 +464,24 @@ test("navigation leaves the companion with short captions and reopening preserve
   h.unmount();
 });
 
-test("material selection resolves an internal action without a full page link", async () => {
+test("material sources stay visible without fabricating an unregistered executable action", async () => {
   const h = harness();
   await h.open();
   await h.ask();
   assert.equal(find(h.render(), (node) => node.type === "a").length, 0);
-  h.button("图书馆资料").props.onClick();
-  await settle();
-  const request = h.posts.at(-1);
-  assert.equal(request.path, "/agent/actions/resolve");
-  assert.equal(request.body.action.type, "focus_point");
-  assert.equal(request.body.action.point_revision, 3);
-  assert.equal(h.actions[0].point_id, "point-2");
+  assert.match(words(h.render()), /图书馆资料/);
+  assert.equal(
+    find(
+      h.render(),
+      (node) => node.type === "button" && words(node).includes("图书馆资料"),
+    ).length,
+    0,
+  );
+  assert.equal(
+    h.posts.filter((post) => post.path === "/agent/actions/resolve").length,
+    0,
+  );
+  assert.equal(h.actions.length, 0);
   assert.ok(find(h.render(), (node) => node.type === "companion").length);
   h.unmount();
 });
@@ -454,7 +507,7 @@ test("context changing while an action resolves cannot move the newly selected m
   complete();
   await settle();
   assert.equal(h.actions.length, 0);
-  assert.match(words(h.render()), /你已切换地点/);
+  assert.match(words(h.render()), /场景已变化，旧回答已暂停/);
   h.unmount();
 });
 
@@ -472,7 +525,57 @@ test("map navigation remains available beside unsupported voice with typed fallb
   h.unmount();
 });
 
-test("closing during a selected action does not reopen the floating card on completion", async () => {
+test("a withdrawn navigation capability omits navigation in both authenticated and access-code views", async () => {
+  const signedIn = harness();
+  signedIn.props.onNavigate = undefined;
+  await signedIn.open();
+  signedIn.button("文字交流与记录").props.onClick();
+  assert.doesNotMatch(
+    words(signedIn.render()),
+    /地图选点导航|直接选择起终点导航/,
+  );
+  signedIn.unmount();
+  const guest = harness({ sessionError: new NativeError("需要口令", 401) });
+  guest.props.onNavigate = undefined;
+  await guest.open();
+  guest.button("文字交流与记录").props.onClick();
+  assert.ok(
+    find(guest.render(), (node) => node.props?.className === "native-login")
+      .length,
+  );
+  assert.doesNotMatch(words(guest.render()), /地图选点导航|直接选择起终点导航/);
+  guest.unmount();
+});
+
+test("reviewed welcome and questions use normal authenticated chat; configuration refresh cannot collapse an expanded companion", async () => {
+  const h = harness();
+  h.props.defaultMinimized = true;
+  h.props.welcomeText = "配置欢迎语";
+  h.props.recommendedQuestions = ["配置普通问题"];
+  assert.equal(
+    find(h.render(), (n) => n.type === "companion")[0].props.label,
+    "展开小开",
+  );
+  await h.open();
+  h.button("文字交流与记录").props.onClick();
+  assert.match(words(h.render()), /配置欢迎语/);
+  h.props.defaultMinimized = false;
+  h.render();
+  h.props.defaultMinimized = true;
+  assert.notEqual(
+    find(h.render(), (n) => n.type === "companion")[0].props.label,
+    "展开小开",
+  );
+  h.button("配置普通问题").props.onClick();
+  await settle();
+  const chat = h.posts.find((p) => p.path === "/agent/chat");
+  assert.equal(chat.body.query, "配置普通问题");
+  assert.equal(chat.body.system, undefined);
+  assert.equal(h.sessionReads.length, 1);
+  h.unmount();
+});
+
+test("closing during a selected action cancels it and its late completion cannot reopen the companion", async () => {
   const h = harness();
   await h.open();
   await h.ask();
@@ -490,8 +593,8 @@ test("closing during a selected action does not reopen the floating card on comp
   await settle();
   assert.equal(
     h.actions.length,
-    1,
-    "the explicitly requested action may complete",
+    0,
+    "closing invalidates the explicitly requested but unexecuted action",
   );
   assert.equal(
     find(h.render(), (node) => node.props?.id === "native-agent-panel").length,
@@ -637,7 +740,7 @@ test("context changing during the public resource read closes the reserved tab",
   await settle();
   assert.equal(h.tabs[0].closed, true);
   assert.equal(h.tabs[0].url, undefined);
-  assert.match(words(h.render()), /你已切换地点/);
+  assert.match(words(h.render()), /场景已变化，旧回答已暂停/);
   h.unmount();
 });
 
@@ -1017,7 +1120,7 @@ test("closing and reopening while chat waits cannot revive the old automatic com
       h.posts.some((post) => post.path === "/agent/actions/resolve"),
       false,
     );
-    assert.match(words(h.render()), /已经找到可用路线/);
+    assert.doesNotMatch(words(h.render()), /已经找到可用路线/);
     assert.equal(h.cancelledActions, 1);
     h.unmount();
   }
@@ -1386,7 +1489,7 @@ test("actual dock microphone path requests cloud speech once and resumes after a
     },
     createAudio: player.create,
     cloudFetch: async (_url, init) => {
-      clips.push(JSON.parse(init.body).text);
+      clips.push(JSON.parse(init.body));
       return { ok: true, blob: async () => new Blob([new Uint8Array(64)]) };
     },
   });
@@ -1398,7 +1501,7 @@ test("actual dock microphone path requests cloud speech once and resumes after a
   });
   await settle();
   h.render();
-  assert.deepEqual(clips, [reply.answer]);
+  assert.deepEqual(clips, [{ permit: reply.speech_permit, chunk_index: 0 }]);
   assert.equal(mics.length, 1);
   assert.equal(
     find(h.render(), (node) => node.type === "companion")[0].props.phase,

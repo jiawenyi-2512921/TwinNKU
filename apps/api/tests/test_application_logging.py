@@ -9,7 +9,10 @@ def run_isolated(source):
         capture_output=True,
         text=True,
         check=True,
-        timeout=15,
+        # This checks logger ownership and sensitive-data exclusion, not startup
+        # latency. Cold application imports on CPU-limited Linux runners can
+        # exceed 15 seconds; retain a bounded allowance independent of API timeouts.
+        timeout=90,
     )
 
 

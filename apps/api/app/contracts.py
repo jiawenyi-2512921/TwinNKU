@@ -75,11 +75,13 @@ class SystemStatus(DTO):
     service: Literal["twinnku-api"] = "twinnku-api"
     version: str
     api_version: Literal["v1"] = "v1"
+    environment: Literal["standard", "practice"] = "standard"
     capabilities: Capabilities
 
 
 class AgentWebConfig(DTO):
     enabled: bool
+    public_enabled: bool = False
     auto_actions: bool = True
     provider: Literal["nk-genios-websdk", "nk-genios-api"] = "nk-genios-websdk"
     display_name: Literal["小开"] = "小开"
@@ -213,6 +215,7 @@ class FloorImage(DTO):
     variant: Literal["labeled", "clean"]
     section: str = Field(default="main", pattern=FLOOR_SECTION_PATTERN)
     section_label: str | None = Field(default=None, min_length=1, max_length=64)
+    description: str = Field(default="", max_length=4000)
     width_px: int = Field(gt=0)
     height_px: int = Field(gt=0)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -230,6 +233,7 @@ class Floor(DTO):
     revision: Revision
     images: list[FloorImage] = Field(default_factory=list)
     attribution: str = ""
+    description: str = Field(default="", max_length=4000)
 
 
 class Room(DTO):
@@ -464,6 +468,7 @@ class PointLocationInput(DTO):
 
 
 class PointDraftInput(DTO):
+    operation_id: UUID | None = None
     campus_id: CampusId
     name: str = Field(min_length=1, max_length=120)
     aliases: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(
@@ -489,6 +494,8 @@ class PointDraftUpdate(PointDraftInput):
 
 
 class ReviewRequest(DTO):
+    operation_id: UUID | None = None
+    expected_published_revision: int | None = Field(default=None, ge=0)
     expected_revision: Revision
     note: str = Field(min_length=1, max_length=1000)
 
@@ -516,6 +523,7 @@ class AdminPoint(DTO):
 
 
 class PointRetireRequest(DTO):
+    operation_id: UUID | None = None
     expected_revision: int = Field(ge=0)
     expected_point_revision: Revision
     note: str = Field(min_length=1, max_length=1000)
@@ -596,6 +604,10 @@ class StaffSession(DTO):
     permissions: list[str]
     csrf_token: str
     expires_at: datetime
+    mfa_verified: bool = False
+    mfa_enforced: bool = False
+    mfa_enrolled: bool = False
+    recent_mfa_until: datetime | None = None
 
 
 class ActionResult(DTO):
@@ -605,10 +617,14 @@ class ActionResult(DTO):
 class FloorSectionInput(DTO):
     section: str = Field(default="main", pattern=FLOOR_SECTION_PATTERN)
     section_label: str | None = Field(default=None, min_length=1, max_length=64)
+    description: str = Field(default="", max_length=4000)
     upload_id: UUID | None = None
+    source_revision: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def named_section(self):
+        if self.upload_id and self.source_revision is not None:
+            raise ValueError("an upload cannot also select a historical source revision")
         if self.section != "main" and not (self.section_label or "").strip():
             raise ValueError("a section label is required")
         return self
@@ -619,6 +635,7 @@ class FloorContent(DTO):
     label: str = Field(min_length=1, max_length=64)
     ordinal: int = Field(ge=-20, le=200)
     attribution: str = Field(min_length=1, max_length=2000)
+    description: str = Field(default="", max_length=4000)
     images: list[FloorSectionInput] = Field(min_length=1, max_length=32)
 
     @model_validator(mode="after")
@@ -635,6 +652,16 @@ class PanoramaContent(DTO):
     title: str = Field(min_length=1, max_length=120)
     url: str = Field(min_length=1, max_length=2048)
     description: str = Field(default="", max_length=2000)
+    observation_prompt: str = Field(default="", max_length=1000)
+    cover_image_id: UUID | None = None
+    cover_image_revision: int | None = Field(default=None, ge=1)
+    sort_order: int = Field(default=0, ge=0, le=10000)
+
+    @model_validator(mode="after")
+    def complete_cover(self):
+        if (self.cover_image_id is None) != (self.cover_image_revision is None):
+            raise ValueError("cover image ID and revision must be supplied together")
+        return self
 
     @field_validator("url")
     @classmethod
@@ -685,11 +712,13 @@ class ResourceDraftData(DTO):
 
 
 class ResourceDraftSave(ResourceDraftData):
+    operation_id: UUID | None = None
     expected_revision: int = Field(ge=0)
     expected_published_revision: int = Field(ge=0)
 
 
 class ResourceRetireRequest(DTO):
+    operation_id: UUID | None = None
     expected_revision: int = Field(ge=0)
     expected_published_revision: Revision
     note: str = Field(min_length=1, max_length=1000)
@@ -726,9 +755,9 @@ class FloorUpload(DTO):
 
 class AdminChangeItem(DTO):
     id: UUID
-    kind: Literal["point", "floor", "panorama", "media", "checkin", "tour", "navigation"]
+    kind: Literal["point", "floor", "panorama", "media", "checkin", "tour", "navigation", "configuration"]
     point_id: UUID | None
-    campus_id: CampusId
+    campus_id: CampusId | None
     point_name: str
     title: str
     state: Literal["draft", "in_review", "rejected", "published", "discarded"]
@@ -752,10 +781,24 @@ class AdminWorkbench(DTO):
     pending_by_kind: dict[str, int]
 
 
+class PublicVRCheck(DTO):
+    result: Literal["unchecked", "passed", "failed", "uncertain"] = "unchecked"
+    method: Literal["manual"] | None = None
+    recorded_at: datetime | None = None
+
+
+class PublicVRChecks(DTO):
+    technical: PublicVRCheck = Field(default_factory=PublicVRCheck)
+    scene: PublicVRCheck = Field(default_factory=PublicVRCheck)
+    devices: dict[Literal["desktop", "android", "ios", "wechat"], PublicVRCheck] = Field(default_factory=dict)
+
+
 class Panorama(PanoramaContent):
     id: UUID
     point_id: UUID
     revision: Revision
+    cover_image_url: str | None = None
+    checks: PublicVRChecks = Field(default_factory=PublicVRChecks)
 
 
 class PanoramaDirectoryItem(Panorama):

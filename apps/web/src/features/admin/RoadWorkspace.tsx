@@ -16,6 +16,9 @@ import {
 } from "./roadGeometry";
 import { request, message, type StaffSession } from "./api";
 import { ErrorBox } from "./ui";
+import { useManagedDraft } from "./useManagedDraft";
+import { DraftStatusBar } from "./DraftStatus";
+import { ContentHistory } from "./ContentHistory";
 import "../map/navigation.css";
 import "./road-workspace.css";
 
@@ -228,6 +231,46 @@ export function RoadWorkspace({
   const [marked, setMarked] = useState<Set<string>>(new Set());
   const [batchNote, setBatchNote] = useState("");
   const [onlyUnverified, setOnlyUnverified] = useState(false);
+  const [historyPending, setHistoryPending] = useState(false);
+  const managed = useManagedDraft<Graph, Workspace>({
+    snapshot: (row, value) => ({
+      id: row.map_id,
+      revision: row.revision,
+      published_revision: row.published_revision,
+      content:
+        value ?? row.draft ?? row.published ?? blank(info?.revision ?? 1),
+    }),
+    save: async (row, value, version) => {
+      if (!row) throw new Error("请先载入校园路网。");
+      return (
+        await request<Workspace>(`/navigation/${row.map_id}`, "PUT", {
+          ...version,
+          graph: value,
+        })
+      ).data;
+    },
+    latest: async (row) =>
+      (await request<Workspace>(`/navigation/${row.map_id}`)).data,
+    onRecord: (row) => {
+      setWorkspace(row);
+      onUpdate();
+    },
+    onValue: (value, changed) => {
+      setGraph(value);
+      setDirty(changed);
+    },
+    onAction: acceptWorkspace,
+  });
+  function acceptWorkspace(row: Workspace) {
+    const value = row.draft ?? row.published ?? blank(info?.revision ?? 1);
+    setWorkspace(row);
+    setGraph(value);
+    setDirty(false);
+    history.current.reset(value);
+    managed.install(row, value);
+    setPreview(null);
+    setQuality(null);
+  }
   const info = eligible.find((m) => m.id === mapId);
   useEffect(() => {
     if (!mapId && eligible[0]) setMapId(eligible[0].id);
@@ -236,6 +279,8 @@ export function RoadWorkspace({
     !reviewMode &&
     !!workspace &&
     !busy &&
+    !managed.uncertain &&
+    !historyPending &&
     workspace.state !== "in_review" &&
     ["admin", "editor"].includes(session.user.role);
   const nodes = graph.nodes ?? [],
@@ -243,13 +288,35 @@ export function RoadWorkspace({
   const node = nodes.find((n) => n.id === selected),
     edge = edges.find((e) => e.id === selected);
   useEffect(() => {
-    onDirty(dirty || sketchCount > 0, busy);
-  }, [dirty, busy, sketchCount, onDirty]);
+    onDirty(
+      dirty || sketchCount > 0,
+      busy || managed.saving || managed.uncertain || historyPending,
+    );
+  }, [
+    dirty,
+    busy,
+    sketchCount,
+    managed.saving,
+    managed.uncertain,
+    historyPending,
+    onDirty,
+  ]);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (dirty || sketchCount || busy || managed.uncertain || historyPending) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, sketchCount, busy, managed.uncertain, historyPending]);
   useEffect(() => () => onDirty(false), [onDirty]);
   useEffect(() => {
     if (!info) return;
     const controller = new AbortController();
     setWorkspace(null);
+    managed.clear();
     setError("");
     setSelected("");
     setPreview(null);
@@ -287,6 +354,7 @@ export function RoadWorkspace({
           w.data.draft ?? w.data.published ?? blank(info!.revision);
         history.current.reset(initial);
         setGraph(initial);
+        managed.install(w.data, initial);
         setPoints(all);
         // Starter availability cannot turn a successfully loaded workspace into an error.
         try {
@@ -311,15 +379,13 @@ export function RoadWorkspace({
   function change(next: Graph) {
     if (!editable) return;
     history.current.change(next);
-    setGraph(next);
-    setDirty(true);
+    managed.edit(next);
     setPreview(null);
     setQuality(null);
   }
   function travel(direction: "undo" | "redo") {
     if (!editable) return;
-    setGraph(history.current[direction]());
-    setDirty(true);
+    managed.edit(history.current[direction]());
     setPreview(null);
     setQuality(null);
     setDrawCommand((v) => ({ id: v.id + 1, action: "cancel" }));
@@ -471,22 +537,18 @@ export function RoadWorkspace({
         edges: edges.map((e) => (e.id === edge.id ? { ...e, ...values } : e)),
       });
   }
-  async function save() {
-    if (!info || !workspace) return;
+  async function save(): Promise<boolean> {
+    if (!info || !workspace || !editable || managed.uncertain || historyPending)
+      return false;
     setBusy(true);
     setError("");
     try {
-      const result = await request<Workspace>(`/navigation/${info.id}`, "PUT", {
-        expected_revision: workspace.revision,
-        graph,
-      });
-      setWorkspace(result.data);
-      onUpdate();
-      setGraph(result.data.draft!);
-      history.current.reset(result.data.draft!);
-      setDirty(false);
+      if (!(await managed.flush()))
+        throw new Error("保存尚未确认，请处理保存状态。");
+      return true;
     } catch (e) {
       setError(message(e));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -496,15 +558,18 @@ export function RoadWorkspace({
       setError("请填写提交或审核说明。");
       return;
     }
+    if (busy || dirty || managed.saving || managed.uncertain || historyPending)
+      return;
     setBusy(true);
     setError("");
     try {
-      const result = await request<Workspace>(
-        `/navigation/${info.id}/review`,
-        "POST",
-        { expected_revision: workspace.revision, action, note },
-      );
-      setWorkspace(result.data);
+      const row = await managed.action(`/navigation/${info.id}/review`, {
+        expected_revision: workspace.revision,
+        expected_published_revision: workspace.published_revision,
+        action,
+        note,
+      });
+      acceptWorkspace(row);
       onUpdate();
       setNote("");
       setMode("select");
@@ -579,7 +644,13 @@ export function RoadWorkspace({
           校园地图{" "}
           <select
             value={mapId}
-            disabled={busy || reviewMode}
+            disabled={
+              busy ||
+              reviewMode ||
+              managed.saving ||
+              managed.uncertain ||
+              historyPending
+            }
             onChange={(e) => {
               if (
                 (!dirty && !sketchCount) ||
@@ -600,7 +671,9 @@ export function RoadWorkspace({
           {workspace?.published_revision ?? 0}
         </span>
         <button
-          disabled={busy}
+          disabled={
+            busy || managed.saving || managed.uncertain || historyPending
+          }
           onClick={() => {
             if (
               (!dirty && !sketchCount) ||
@@ -613,6 +686,41 @@ export function RoadWorkspace({
         </button>
       </div>
       <ErrorBox text={error} />
+      {managed.status && managed.coordinator.current && !reviewMode && (
+        <DraftStatusBar
+          state={managed.status}
+          coordinator={managed.coordinator.current}
+        />
+      )}
+      {managed.pendingAction && (
+        <button
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void managed
+              .queryAction()
+              .catch((e) => setError(message(e)))
+              .finally(() => setBusy(false));
+          }}
+        >
+          查询原路网操作结果
+        </button>
+      )}
+      {workspace && (
+        <ContentHistory<Workspace>
+          key={workspace.map_id}
+          entity="navigation"
+          id={workspace.map_id}
+          revision={workspace.revision}
+          publishedRevision={workspace.published_revision}
+          state={workspace.state}
+          editable={!reviewMode && session.permissions.includes("points.edit")}
+          dirty={dirty}
+          onSave={save}
+          onLoad={acceptWorkspace}
+          onPendingChange={setHistoryPending}
+        />
+      )}
       {info && workspace && (
         <>
           {starter && !nodes.length && !edges.length && (

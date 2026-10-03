@@ -18,6 +18,9 @@ import { notifyCatalogPublished } from "../../shared/catalogSync";
 import { verifyPublication, type PublicationCheck } from "./publication";
 import { moveGeometry, rectangle, validPolygon } from "./geometry";
 import { ChangeDiff } from "./ChangeDiff";
+import { useManagedDraft } from "./useManagedDraft";
+import { DraftStatusBar } from "./DraftStatus";
+import { ContentHistory } from "./ContentHistory";
 import "./point-workspace.css";
 type Props = {
   session: StaffSession;
@@ -58,6 +61,83 @@ export function PointWorkspace({
     [history, setHistory] = useState<GeometryInput[]>([]);
   const loadId = useRef(0);
   const operationLock = useRef(false);
+  const [historyPending, setHistoryPending] = useState(false);
+  function pointInput(point: AdminPoint): PointInput | null {
+    const pending =
+      activeDraft(point) || !point.geometries.length
+        ? point.draft?.payload
+        : null;
+    if (pending) return pending;
+    const g =
+      point.geometries.find((g) => g.map_id === map?.id) ??
+      point.geometries.find((g) => maps.some((m) => m.id === g.map_id));
+    return g
+      ? {
+          campus_id: point.point.campus_id,
+          name: point.point.name,
+          aliases: point.point.aliases,
+          category: point.point.category,
+          summary: point.point.summary,
+          visibility: point.visibility,
+          source_note: point.draft?.payload?.source_note ?? "",
+          geometry: {
+            map_id: g.map_id,
+            map_revision: g.map_revision,
+            anchor: g.anchor,
+            polygon: g.polygon,
+            label_on_map: g.label_on_map ?? false,
+          },
+        }
+      : null;
+  }
+  const managed = useManagedDraft<PointInput, AdminPoint>({
+    snapshot: (row, value) => ({
+      id: row.point.id,
+      revision: row.draft?.revision ?? 0,
+      published_revision: row.point.revision,
+      content: value ?? pointInput(row)!,
+    }),
+    save: async (row, value, version) => {
+      const baseMap = maps.find((m) => m.id === value.geometry.map_id);
+      if (!baseMap)
+        throw Object.assign(new Error("请核对当前底图。"), { status: 422 });
+      const invalid = validPolygon(
+        value.geometry.polygon,
+        baseMap.width_px,
+        baseMap.height_px,
+      );
+      if (invalid) throw Object.assign(new Error(invalid), { status: 422 });
+      return (
+        await request<AdminPoint>(
+          row ? `/points/${row.point.id}` : "/points",
+          row ? "PUT" : "POST",
+          {
+            ...value,
+            aliases: (value.aliases ?? []).map((v) => v.trim()).filter(Boolean),
+            operation_id: version.operation_id,
+            ...(row
+              ? {
+                  expected_revision: version.expected_revision,
+                  expected_point_revision: version.expected_published_revision,
+                }
+              : {}),
+          },
+        )
+      ).data;
+    },
+    latest: async (row) =>
+      (await request<AdminPoint>(`/points/${row.point.id}`)).data,
+    onRecord: (row) => {
+      setSelected(row);
+      setNewPoint(false);
+      refresh();
+    },
+    onValue: (value, changed) => {
+      setInput(value);
+      setDirty(changed);
+    },
+    onAction: accept,
+  });
   const [showList, setShowList] = useState(review && !initialId);
   const map = maps.find((m) => m.id === mapId) ?? maps[0];
   const allowedEdit = session.permissions.includes("points.edit"),
@@ -67,6 +147,8 @@ export function PointWorkspace({
     !review &&
     !loading &&
     !busy &&
+    !managed.uncertain &&
+    !historyPending &&
     selected?.draft?.state !== "in_review";
   const canCreate =
     allowedEdit &&
@@ -96,9 +178,12 @@ export function PointWorkspace({
     return () => clearTimeout(timer);
   }, [query]);
   useEffect(() => {
-    onDirty(dirty || busy, busy);
+    onDirty(
+      dirty || busy,
+      busy || managed.saving || managed.uncertain || historyPending,
+    );
     const before = (event: BeforeUnloadEvent) => {
-      if (dirty || busy) {
+      if (dirty || busy || managed.uncertain || historyPending) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -108,7 +193,7 @@ export function PointWorkspace({
       window.removeEventListener("beforeunload", before);
       onDirty(false);
     };
-  }, [dirty, busy, onDirty]);
+  }, [dirty, busy, managed.saving, managed.uncertain, historyPending, onDirty]);
   useEffect(() => {
     if (initialId) void open(initialId, true);
   }, [initialId]);
@@ -119,7 +204,10 @@ export function PointWorkspace({
     [],
   );
   const guard = () =>
-    !dirty || window.confirm("当前修改尚未保存，确定放弃并离开吗？");
+    !managed.saving &&
+    !managed.uncertain &&
+    !historyPending &&
+    (!dirty || window.confirm("当前修改尚未保存，确定放弃并离开吗？"));
   function accept(point: AdminPoint) {
     setPublicationCheck(null);
     setSelected(point);
@@ -127,35 +215,12 @@ export function PointWorkspace({
     setDirty(false);
     setHistory([]);
     setReason("");
-    const pending =
-      activeDraft(point) || !point.geometries.length
-        ? point.draft?.payload
-        : null;
-    const g =
-      point.geometries.find((g) => g.map_id === map?.id) ??
-      point.geometries.find((g) => maps.some((m) => m.id === g.map_id));
-    if (pending) {
-      setInput(pending);
-      setMapId(pending.geometry.map_id);
-    } else if (g) {
-      setInput({
-        campus_id: point.point.campus_id,
-        name: point.point.name,
-        aliases: point.point.aliases,
-        category: point.point.category,
-        summary: point.point.summary,
-        visibility: point.visibility,
-        source_note: point.draft?.payload?.source_note ?? "",
-        geometry: {
-          map_id: g.map_id,
-          map_revision: g.map_revision,
-          anchor: g.anchor,
-          polygon: g.polygon,
-          label_on_map: g.label_on_map ?? false,
-        },
-      });
-      setMapId(g.map_id);
-    } else setInput(null);
+    const value = pointInput(point);
+    setInput(value);
+    if (value) {
+      setMapId(value.geometry.map_id);
+      managed.install(point, value);
+    } else managed.clear();
   }
   async function open(id: string, force = false) {
     if (busy || operationLock.current || (!force && !guard())) return;
@@ -166,6 +231,7 @@ export function PointWorkspace({
     setPublicationCheck(null);
     setDirty(false);
     setInput(null);
+    managed.clear();
     setSelected(null);
     setNewPoint(false);
     try {
@@ -190,7 +256,7 @@ export function PointWorkspace({
     setReason("");
     const anchor = { x: map.width_px / 2, y: map.height_px / 2 },
       radius = Math.min(map.width_px, map.height_px) * 0.01;
-    setInput({
+    const initial: PointInput = {
       campus_id: map.campus_id,
       name: "",
       aliases: [],
@@ -208,13 +274,14 @@ export function PointWorkspace({
         ),
         label_on_map: true,
       },
-    });
+    };
+    setInput(initial);
+    managed.install(null, initial, true);
     setDirty(true);
   }
   function edit(value: Partial<PointInput>) {
-    if (!input) return;
-    setInput({ ...input, ...value });
-    setDirty(true);
+    if (!input || !writable) return;
+    managed.edit({ ...input, ...value });
     setNotice("");
     setPublicationCheck(null);
   }
@@ -250,101 +317,76 @@ export function PointWorkspace({
     setRevision((v) => v + 1);
     onUpdate();
   }
-  async function save(submitAfter = false) {
-    if (!input || !map || !writable || operationLock.current) return;
-    if (!input.name.trim() || !input.source_note.trim()) {
-      setError("请填写地点名称和资料依据 / 修改说明。");
-      return;
-    }
-    const invalid = validPolygon(
-      input.geometry.polygon,
-      map.width_px,
-      map.height_px,
-    );
-    if (invalid) {
-      setError(invalid);
-      return;
-    }
+  async function save(submitAfter = false): Promise<boolean> {
+    if (
+      !input ||
+      !map ||
+      !writable ||
+      operationLock.current ||
+      managed.uncertain ||
+      historyPending
+    )
+      return false;
     operationLock.current = true;
     setBusy(true);
     setError("");
     setNotice("");
     setPublicationCheck(null);
-    const submissionNote = (reason.trim() || input.source_note.trim()).slice(
-      0,
-      1000,
-    );
-    let saved = false;
     try {
-      let current = selected;
-      if (dirty || !current || !activeDraft(current)) {
-        const result = await request<AdminPoint>(
-          selected ? `/points/${selected.point.id}` : "/points",
-          selected ? "PUT" : "POST",
-          {
-            ...input,
-            aliases: (input.aliases ?? []).map((v) => v.trim()).filter(Boolean),
-            ...(selected
-              ? {
-                  expected_revision: selected.draft?.revision ?? 0,
-                  expected_point_revision: selected.point.revision,
-                }
-              : {}),
-          },
-        );
-        current = result.data;
-        accept(current);
-        saved = true;
-        refresh();
-      }
-      if (submitAfter && current) {
-        const submitted = await request<AdminPoint>(
+      if (!(await managed.flush()))
+        throw new Error("草稿尚未确认保存，请处理保存状态后再继续。");
+      const current = managed.record.current;
+      if (!current) throw new Error("请先保存草稿。");
+      if (submitAfter) {
+        const submissionNote = (
+          reason.trim() || input.source_note.trim()
+        ).slice(0, 1000);
+        if (!submissionNote) throw new Error("请填写提交说明或来源。");
+        const result = await managed.action(
           `/points/${current.point.id}/submit`,
-          "POST",
           {
             expected_revision: current.draft?.revision ?? 0,
+            expected_published_revision: current.point.revision,
             note: submissionNote,
           },
         );
-        accept(submitted.data);
+        accept(result);
         refresh();
         setNotice("已保存并提交审核。另一位审核人员通过后，公开地图才会更新。");
-      } else setNotice("草稿已保存，可稍后继续修改或提交审核。");
+      } else setNotice("草稿已保存，尚未提交或公开。");
+      return true;
     } catch (e) {
-      if (saved)
-        setNotice(
-          "草稿已保存，但尚未确认提审成功。你的修改已保留，可核对状态后再次提交。",
-        );
       setError(message(e));
+      return false;
     } finally {
       operationLock.current = false;
       setBusy(false);
     }
   }
   async function resumeEditing() {
-    if (!selected || !input || busy || operationLock.current || !canWithdraw)
+    if (
+      !selected ||
+      busy ||
+      operationLock.current ||
+      !canWithdraw ||
+      managed.uncertain
+    )
       return;
-    const content = input;
     operationLock.current = true;
     setBusy(true);
     setError("");
-    setNotice("");
     try {
-      const result = await request<AdminPoint>(
-        `/points/${selected.point.id}/discard`,
-        "POST",
+      const result = await managed.action(
+        `/content/point/${selected.point.id}/withdraw`,
         {
           expected_revision: selected.draft?.revision ?? 0,
+          expected_published_revision: selected.point.revision,
           note: "撤回待审版本，保留内容继续修改",
         },
       );
-      accept(result.data);
-      setInput(content);
-      setDirty(true);
-      setNotice(
-        "已撤回待审版本，原修改内容已保留。修改完成后再次保存并提交审核。",
-      );
+      accept(result);
       refresh();
+      setNotice("已撤回，当前内容保留为私有草稿，可继续修改。");
     } catch (e) {
       setError(message(e));
     } finally {
@@ -353,7 +395,15 @@ export function PointWorkspace({
     }
   }
   async function operate(action: string) {
-    if (!selected || busy || operationLock.current) return;
+    if (
+      !selected ||
+      busy ||
+      operationLock.current ||
+      managed.saving ||
+      managed.uncertain ||
+      historyPending
+    )
+      return;
     if (dirty) {
       setError("请先保存或放弃当前修改，再进行审核操作。");
       return;
@@ -382,17 +432,18 @@ export function PointWorkspace({
     setNotice("");
     setPublicationCheck(null);
     try {
-      const result = await request<AdminPoint>(
+      const row = await managed.action(
         `/points/${selected.point.id}/${action}`,
-        "POST",
         {
           expected_revision: selected.draft?.revision ?? 0,
+          expected_published_revision: selected.point.revision,
           note: reason,
           ...(action === "retire"
             ? { expected_point_revision: selected.point.revision }
             : {}),
         },
       );
+      const result = { data: row };
       accept(result.data);
       refresh();
       if (action === "publish") {
@@ -617,6 +668,41 @@ export function PointWorkspace({
                 : undefined
             }
           />
+          {managed.status && managed.coordinator.current && !review && (
+            <DraftStatusBar
+              state={managed.status}
+              coordinator={managed.coordinator.current}
+            />
+          )}
+          {managed.pendingAction && (
+            <button
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void managed
+                  .queryAction()
+                  .catch((e) => setError(message(e)))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              查询原点位操作结果
+            </button>
+          )}
+          {selected && (
+            <ContentHistory<AdminPoint>
+              key={selected.point.id}
+              entity="point"
+              id={selected.point.id}
+              revision={selected.draft?.revision ?? 0}
+              publishedRevision={selected.point.revision}
+              state={selected.draft?.state ?? "published"}
+              editable={allowedEdit && !review}
+              dirty={dirty}
+              onSave={() => save(false)}
+              onLoad={accept}
+              onPendingChange={setHistoryPending}
+            />
+          )}
           {notice && (
             <div className="ad-success" role="status">
               {notice}

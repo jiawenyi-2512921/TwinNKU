@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, text
 
+from app.api import expected_migration_heads
+
 
 @pytest.mark.skipif(
     not os.environ.get("TEST_POSTGRES_URL"),
@@ -20,7 +22,11 @@ def test_postgres_migration_and_seed():
         ["python", "-m", "app.seed"],
         ["alembic", "check"],
     ]:
-        subprocess.run(command, cwd=root, env=env, check=True, capture_output=True, text=True)
+        result = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True)
+        if result.returncode:
+            # Alembic's schema-diff summary is stdout; the bare CalledProcessError
+            # hid the actionable mismatch in isolated CI. Do not expose env/stderr.
+            raise AssertionError(f"{command[0]} {command[-1]} failed: {result.stdout[:6000]}")
     engine = create_engine(url)
     try:
         with engine.connect() as db:
@@ -28,10 +34,7 @@ def test_postgres_migration_and_seed():
                 db.execute(text("SELECT count(*) FROM campuses WHERE id='nku-jinnan'")).scalar_one()
                 == 1
             )
-            assert (
-                db.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                == "0008_campus_tours"
-            )
+            assert set(db.execute(text("SELECT version_num FROM alembic_version")).scalars()) == expected_migration_heads()
     finally:
         engine.dispose()
 
@@ -39,7 +42,7 @@ def test_postgres_migration_and_seed():
 @pytest.mark.skipif(
     not os.environ.get("TEST_POSTGRES_URL"), reason="requires disposable PostgreSQL"
 )
-@pytest.mark.parametrize("workflow", ["point", "floor", "workbench", "navigation", "experiences"])
+@pytest.mark.parametrize("workflow", ["point", "floor", "workbench", "navigation", "experiences", "imports"])
 def test_postgres_review_retirement_and_restore(workflow, tmp_path):
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import Session
@@ -75,7 +78,17 @@ def test_postgres_review_retirement_and_restore(workflow, tmp_path):
 
                 app.dependency_overrides[get_db] = override_db
                 with TestClient(app) as client:
-                    if workflow == "experiences":
+                    if workflow == "imports":
+                        from test_admin import login
+                        from test_import_jobs import (
+                            test_vr_check_writes_no_business_and_commit_is_private_idempotent,
+                        )
+
+                        staff, map_record = seed_staff(client, db)
+                        point = make_resource_point(db)
+                        login(client)
+                        test_vr_check_writes_no_business_and_commit_is_private_idempotent(client, db, (staff, map_record, point))
+                    elif workflow == "experiences":
                         from test_experiences import exercise_experience_workflow
 
                         staff, _ = seed_staff(client, db)

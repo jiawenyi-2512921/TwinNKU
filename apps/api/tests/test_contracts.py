@@ -20,7 +20,8 @@ def test_production_rejects_unsafe_configuration():
 
 
 def test_production_disables_interactive_docs():
-    app = create_app(Settings(app_env="production", db_password="e7a946ea56434bd2823eabb10b4d4a77"))
+    app = create_app(Settings(app_env="production", database_url=None,
+                              db_password=uuid4().hex + uuid4().hex))
     assert app.docs_url is None and app.openapi_url is None
 
 

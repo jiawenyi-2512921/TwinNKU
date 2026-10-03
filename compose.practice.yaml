@@ -1,0 +1,119 @@
+# Standalone local training stack. Never combine with compose.yaml or production .env.
+# Initialize its private env file with scripts/practice_environment.py.
+name: twinnku-practice
+services:
+  db:
+    image: ${PRACTICE_DB_IMAGE:?Use a verified local image ID}
+    pull_policy: never
+    environment:
+      POSTGRES_DB: twinnku_practice
+      POSTGRES_USER: practice_owner
+      POSTGRES_PASSWORD: ${PRACTICE_OWNER_PASSWORD:?Initialize the training environment}
+    volumes: [practice_db:/var/lib/postgresql/data]
+    networks: [practice]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U practice_owner -d twinnku_practice']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
+    labels: {org.twinnku.purpose: practice}
+  migrate:
+    image: ${PRACTICE_API_IMAGE:?Use a verified local candidate image ID}
+    pull_policy: never
+    command: [sh, -c, 'alembic upgrade head && python -m app.database_roles']
+    environment: &practice-environment
+      APP_ENV: development
+      APP_VERSION: practice
+      PRACTICE_MODE: "true"
+      DATABASE_URL: postgresql+psycopg://practice_owner:${PRACTICE_OWNER_PASSWORD}@db:5432/twinnku_practice
+      DB_PASSWORD: ${PRACTICE_OWNER_PASSWORD}
+      DB_APP_USER: practice_runtime
+      DB_APP_PASSWORD: ${PRACTICE_RUNTIME_PASSWORD:?Initialize the training environment}
+      ALLOWED_HOSTS: '["localhost","api"]'
+      MAP_ASSETS_DIR: /data/maps
+      FLOOR_ASSETS_DIR: /data/floors
+      ADMIN_ENABLED: "true"
+      ADMIN_MFA_ENFORCED: "false"
+      BACKUP_REQUESTS_ENABLED: "false"
+      ADMIN_PUBLIC_ORIGIN: http://localhost:${PRACTICE_PORT:-8098}
+      PUBLIC_SITE_ORIGIN: http://localhost:${PRACTICE_PORT:-8098}
+      NK_GENIOS_API_ENABLED: "false"
+      NK_GENIOS_API_KEY: ""
+      NK_GENIOS_WEB_ENABLED: "false"
+      NK_GENIOS_WEB_APP_KEY: ""
+      AGENT_PUBLIC_ENABLED: "false"
+      AGENT_ACCESS_CODE: ""
+      VOICE_ENABLED: "false"
+      VOICE_API_KEY: ""
+      VOICE_BASE_URL: ""
+      NARRATION_GENERATION_ENABLED: "false"
+      FORWARDED_ALLOW_IPS: ""
+    depends_on: {db: {condition: service_healthy}}
+    read_only: true
+    tmpfs: [/tmp:size=128m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [practice]
+    mem_limit: 512m
+    pids_limit: 128
+    labels: {org.twinnku.purpose: practice}
+  api:
+    image: ${PRACTICE_API_IMAGE:?Use a verified local candidate image ID}
+    pull_policy: never
+    environment:
+      <<: *practice-environment
+      DATABASE_URL: postgresql+psycopg://practice_runtime:${PRACTICE_RUNTIME_PASSWORD}@db:5432/twinnku_practice
+      DB_PASSWORD: ""
+      DB_APP_PASSWORD: ""
+    volumes: [practice_maps:/data/maps:ro, practice_assets:/data/floors]
+    networks: [practice]
+    depends_on: {migrate: {condition: service_completed_successfully}}
+    read_only: true
+    tmpfs: [/tmp:size=128m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 6
+    labels: {org.twinnku.purpose: practice}
+  web:
+    image: ${PRACTICE_WEB_IMAGE:?Use a verified local candidate image ID}
+    pull_policy: never
+    ports: ['127.0.0.1:${PRACTICE_PORT:-8098}:8080']
+    # Only the static/reverse-proxy entry joins this extra, dedicated bridge.
+    # Docker does not publish ports for internal-only endpoints on all versions.
+    # API and DB remain on the internal network with no supplier egress.
+    networks: [practice, entry]
+    depends_on: {api: {condition: service_healthy}}
+    read_only: true
+    tmpfs: [/tmp:size=32m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
+    labels: {org.twinnku.purpose: practice}
+networks:
+  practice:
+    internal: true
+    labels: {org.twinnku.purpose: practice}
+  entry:
+    internal: false
+    labels: {org.twinnku.purpose: practice}
+volumes:
+  practice_db:
+    labels: {org.twinnku.purpose: practice}
+  practice_maps:
+    labels: {org.twinnku.purpose: practice}
+  practice_assets:
+    labels: {org.twinnku.purpose: practice}

@@ -1,7 +1,7 @@
 name: Foundation CI
 on:
   push:
-    branches: [main, feat/admin-console]
+    branches: [main, feat/admin-console, feat/configurable-tours-security]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
         env:
           POSTGRES_DB: twinnku_test
           POSTGRES_USER: test_user
@@ -23,10 +23,10 @@ jobs:
     env:
       TEST_POSTGRES_URL: postgresql+psycopg://test_user:ephemeral_ci_only@localhost:5432/twinnku_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with: {python-version: "3.12"}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: "24"}
       - run: python -m pip install uv==0.12.17
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
@@ -57,16 +57,16 @@ jobs:
   compose-smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: |
           python3 - <<'PY'
           import secrets
           from pathlib import Path
           template = Path('.env.example').read_text()
-          Path('.env').write_text(template.replace('change-me-to-a-random-48-character-hex-value', secrets.token_hex(24)))
+          Path('.env').write_text(template.replace('change-me-to-a-random-48-character-hex-value', secrets.token_hex(24)).replace('change-me-to-a-distinct-random-48-character-hex-value', secrets.token_hex(24)))
           Path('.env').chmod(0o600)
           PY
-      - run: bash scripts/deploy.sh
+      - run: bash scripts/deploy.sh --bootstrap
       - run: python3 scripts/check_map_delivery.py --base-url http://127.0.0.1:8080 --strict --json-out /tmp/map-delivery.json
       - run: python3 scripts/check_nk_genios.py --base-url http://127.0.0.1:8080 --campus-id nku-jinnan
       - if: failure()

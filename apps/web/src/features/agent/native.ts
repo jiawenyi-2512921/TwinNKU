@@ -7,6 +7,21 @@ export type NavigationPath = components["schemas"]["NavigationPath"];
 export type NavigationAvailability =
   components["schemas"]["NavigationAvailability"];
 export type GuideActionOptions = { requestedPlayback?: boolean };
+export type ActionReceipt = {
+  action_id: string;
+  context_revision: number;
+  resource_id?: string | null;
+  resource_revision?: number | null;
+  result:
+    | "opened"
+    | "playing"
+    | "paused"
+    | "ended"
+    | "blocked"
+    | "failed"
+    | "cancelled"
+    | "external_requested";
+};
 
 const ERROR_CODES = new Set([
   "AGENT_CONVERSATION_TIMEOUT",
@@ -39,6 +54,16 @@ const ERROR_CODES = new Set([
   "VALIDATION_ERROR",
   "NOT_FOUND",
   "HTTP_ERROR",
+  "PUBLIC_AGENT_DISABLED",
+  "PUBLIC_SESSION_UNAVAILABLE",
+  "PUBLIC_BUDGET_REACHED",
+  "PUBLIC_BUDGET_UNAVAILABLE",
+  "CAPABILITY_INVALID",
+  "ACTION_SCOPE_INVALID",
+  "RECEIPT_INVALID",
+  "CONTEXT_TOO_LARGE",
+  "VOICE_SOURCE_STALE",
+  "VOICE_SOURCE_DENIED",
 ]);
 function safeRequestId(value: unknown): string | undefined {
   return typeof value === "string" &&

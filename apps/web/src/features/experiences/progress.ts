@@ -3,6 +3,8 @@ export type TourProgress = {
   index: number;
   completed: number[];
   paused: boolean;
+  segmentId?: string;
+  skipped?: number[];
 };
 export function normalizeProgress(
   raw: unknown,
@@ -27,6 +29,9 @@ export function normalizeProgress(
         ]
       : [],
     paused: true,
+    ...(typeof value.segmentId === "string"
+      ? { segmentId: value.segmentId }
+      : {}),
   };
 }
 export function advanceProgress(
@@ -60,6 +65,30 @@ export function safeMediaUrl(value: string | null | undefined): string | null {
 }
 export function inlineVideo(url: string, uploaded: boolean) {
   return uploaded || /\.(mp4|webm)(?:[?#]|$)/i.test(url);
+}
+/** Captions are owned revision-bound files, never an arbitrary resource URL. */
+export function safeCaptionUrl(item: {
+  id: string;
+  revision: number;
+  caption_url?: string | null;
+  content: { kind: string; caption_upload_id?: string | null };
+}): string | null {
+  const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+  const upload = item.content.caption_upload_id;
+  if (
+    item.content.kind !== "media" ||
+    !upload ||
+    !uuid.test(upload) ||
+    !uuid.test(item.id) ||
+    !Number.isInteger(item.revision) ||
+    item.revision < 1
+  )
+    return null;
+  const candidates = [
+    `/api/v1/experiences/${item.id}/captions/${item.revision}/${upload}`,
+    `/api/v1/admin/experience-captions/${upload}`,
+  ];
+  return candidates.includes(item.caption_url ?? "") ? item.caption_url! : null;
 }
 export function readLocal(key: string): unknown {
   try {

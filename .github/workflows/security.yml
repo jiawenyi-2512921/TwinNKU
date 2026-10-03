@@ -1,0 +1,96 @@
+name: Security gates
+on:
+  pull_request:
+  push:
+    branches: [main, feat/configurable-tours-security]
+  schedule:
+    - cron: '20 2 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-and-dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: {node-version: '24'}
+      - run: python -m pip install uv==0.12.17 pip-audit==2.10.1 bandit==1.9.4
+      - run: |
+          uv export --project apps/api --frozen --no-dev --no-emit-project --format requirements-txt > /tmp/runtime-requirements.txt
+          pip-audit --requirement /tmp/runtime-requirements.txt --no-deps --disable-pip
+      - run: bandit -r apps/api/app --severity-level medium
+      - run: npm ci && npm audit --audit-level=high
+        working-directory: apps/web
+      - name: Redacted full-history secret scan
+        run: |
+          release=https://github.com/gitleaks/gitleaks/releases/download/v8.30.1
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 60 "$release/gitleaks_8.30.1_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
+          expected=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+          printf '%s  /tmp/gitleaks.tar.gz\n' "$expected" | sha256sum --check
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          scan_status=0
+          /tmp/gitleaks git --log-opts="--all" --redact=100 --no-banner --exit-code 1 --report-format=json --report-path=/tmp/gitleaks-redacted.json . || scan_status=$?
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path('/tmp/gitleaks-redacted.json').read_text(encoding='utf-8'))
+          keys = ('RuleID', 'Commit', 'File', 'StartLine', 'Fingerprint')
+          # Do not print or upload Secret, Match, author/email, or raw report data.
+          findings = [{key: finding.get(key) for key in keys} for finding in report]
+          print(json.dumps({'gitleaks_findings': findings}, ensure_ascii=True))
+          PY
+          exit "$scan_status"
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [api, web, db]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: {persist-credentials: false}
+      - run: docker build -f deploy/${{ matrix.component }}.Dockerfile -t twinnku-${{ matrix.component }}:security .
+      - name: Verify nonroot PostgreSQL initialization, existing data and restore
+        if: matrix.component == 'db'
+        run: bash scripts/check_database_container.sh twinnku-db:security
+      - name: Verify actual minimal probe and source-component vulnerability coverage
+        if: matrix.component == 'api'
+        run: |
+          mkdir -p /tmp/probe-security
+          probe_container=$(docker create twinnku-api:security)
+          trap 'docker rm -f "$probe_container" >/dev/null' EXIT
+          docker cp "$probe_container":/usr/local/share/twinnku/ffprobe/. /tmp/probe-security/
+          docker run --rm --read-only --network none --cap-drop ALL --security-opt no-new-privileges --mount "type=bind,src=$PWD/scripts/verify_ffprobe.py,dst=/verify_ffprobe.py,readonly" twinnku-api:security python /verify_ffprobe.py verify /usr/local/share/twinnku/ffprobe
+          release=https://github.com/anchore/grype/releases/download/v0.119.0
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 120 "$release/grype_0.119.0_linux_amd64.tar.gz" -o /tmp/grype.tar.gz
+          expected=3fa2dc4b924621ab65404cf08d0b8438d896d80ab949c9d5a4ca283c36004c9b
+          printf '%s  /tmp/grype.tar.gz\n' "$expected" | sha256sum --check
+          tar -xzf /tmp/grype.tar.gz -C /tmp grype
+          python3 scripts/verify_ffprobe.py canary-sbom /tmp/probe-security/canary.cdx.json
+          set +e
+          /tmp/grype sbom:/tmp/probe-security/canary.cdx.json --fail-on high -o json > /tmp/probe-security/canary-report.json
+          canary_exit=$?
+          set -e
+          test "$canary_exit" -eq 2
+          python3 scripts/verify_ffprobe.py canary-report /tmp/probe-security/canary-report.json
+          /tmp/grype sbom:/tmp/probe-security/sbom.cdx.json --vex /tmp/probe-security/vex.json --fail-on high --show-suppressed -o table
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        if: success() || (failure() && matrix.component != 'web')
+        with:
+          version: v0.75.0
+          scan-type: image
+          image-ref: twinnku-${{ matrix.component }}:security
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          format: table
+          output: /tmp/container-security.txt
+      - if: always()
+        run: test ! -f /tmp/container-security.txt || cat /tmp/container-security.txt

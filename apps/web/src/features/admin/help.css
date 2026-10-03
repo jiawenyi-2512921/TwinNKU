@@ -1,0 +1,107 @@
+.ad-help-toggle {
+  min-height: 40px;
+}
+.ad-help-panel {
+  position: fixed;
+  z-index: 80;
+  top: 80px;
+  right: 20px;
+  bottom: 20px;
+  width: min(520px, calc(100vw - 40px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 24px;
+  color: #2d2533;
+  background: #fff;
+  border: 1px solid #e5dce9;
+  border-radius: 16px;
+  box-shadow: 0 16px 60px #30203b33;
+  font-size: 16px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.ad-help-panel header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ad-help-panel h2 {
+  margin: 0;
+  font-size: 24px;
+}
+.ad-help-panel h3 {
+  margin: 20px 0 8px;
+  font-size: 16px;
+}
+.ad-help-panel p {
+  margin: 8px 0;
+}
+.ad-help-panel button,
+.ad-help-panel summary {
+  min-height: 44px;
+}
+.ad-help-search {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  font-weight: 600;
+}
+.ad-help-panel input {
+  width: 100%;
+  min-height: 44px;
+  font-size: 16px;
+}
+.ad-help-context,
+.ad-help-version,
+.ad-help-pages,
+.ad-help-device {
+  color: #65586d;
+}
+.ad-help-version {
+  font-size: 13px;
+}
+.ad-help-notice {
+  padding: 12px;
+  border: 1px solid #b29bcc;
+  background: #faf5ff;
+  border-radius: 8px;
+}
+.ad-help-tasks details {
+  padding: 12px 0;
+  border-top: 1px solid #e5dce9;
+}
+.ad-help-tasks summary {
+  display: list-item;
+  cursor: pointer;
+  font-weight: 600;
+}
+.ad-help-tasks summary span {
+  display: block;
+  margin-left: 4px;
+  color: #71528c;
+  font-size: 12px;
+  font-weight: normal;
+}
+.ad-help-tasks li {
+  margin: 10px 0;
+  padding-left: 2px;
+}
+.ad-help-panel :focus-visible {
+  outline: 3px solid #795194;
+  outline-offset: 3px;
+}
+@media (max-width: 700px) {
+  .ad-help-panel {
+    inset: 8px;
+    width: auto;
+    padding: 18px;
+    border-radius: 12px;
+  }
+  .ad-help-panel header {
+    flex-wrap: wrap;
+  }
+  .ad-help-toggle {
+    margin-left: auto;
+  }
+}

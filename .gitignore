@@ -9,9 +9,10 @@ __pycache__/
 .ruff_cache/
 node_modules/
 dist/
+*.tsbuildinfo
 coverage/
 var/
-backups/
+/backups/
 *.sqlite*
 *.db
 *.pem

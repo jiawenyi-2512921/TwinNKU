@@ -1904,3 +1904,15 @@
     flex-direction: column;
   }
 }
+.ad-mfa-dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  border: 1px solid #ddd0e5;
+  border-radius: 16px;
+  padding: 1rem;
+}
+.ad-mfa-dialog::backdrop { background: rgb(35 16 50 / 55%); }
+.ad-mfa-dialog .ad-login-form { width: auto; padding: 1rem; }
+.ad-login-form fieldset { border: 0; padding: 0; min-width: 0; }
+.ad-login-form button, .ad-mfa-dialog button { min-height: 44px; }

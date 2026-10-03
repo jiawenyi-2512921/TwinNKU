@@ -80,6 +80,7 @@ function inbox(initial) {
   const PointWorkspace = () => null,
     ResourceWorkspace = () => null,
     ExperienceWorkspace = () => null,
+    ConfigurationWorkspace = () => null,
     RoadWorkspace = () => null,
     Pager = () => null;
   const exports = {};
@@ -90,6 +91,7 @@ function inbox(initial) {
     require(name) {
       if (name === "react") return react;
       if (name === "react/jsx-runtime") return jsx;
+      if (name === "./ReviewQueue") return { ReviewQueue: () => null };
       if (name.endsWith("/Icon")) return { Icon: () => null };
       if (name === "./api")
         return {
@@ -124,6 +126,8 @@ function inbox(initial) {
       if (name === "./ResourceWorkspace") return { ResourceWorkspace };
       if (name === "./ExperienceWorkspace") return { ExperienceWorkspace };
       if (name === "./RoadWorkspace") return { RoadWorkspace };
+      if (name === "./ConfigurationWorkspace")
+        return { ConfigurationWorkspace };
       throw new Error(name);
     },
   });
@@ -143,6 +147,7 @@ function inbox(initial) {
     PointWorkspace,
     ResourceWorkspace,
     ExperienceWorkspace,
+    ConfigurationWorkspace,
     RoadWorkspace,
     Pager,
     render() {
@@ -177,7 +182,7 @@ test("point tasks open the point editor, preserving the selected point id", () =
   assert.equal(detail.props.review, true);
 });
 
-test("all seven review kinds open the matching read-only workspace inside the center", () => {
+test("all eight review kinds open the matching read-only workspace inside the center", () => {
   for (const kind of [
     "point",
     "floor",
@@ -186,6 +191,7 @@ test("all seven review kinds open the matching read-only workspace inside the ce
     "checkin",
     "tour",
     "navigation",
+    "configuration",
   ]) {
     const h = inbox({ item: { ...vr, kind, id: `${kind}-id` } });
     const expected =
@@ -193,9 +199,11 @@ test("all seven review kinds open the matching read-only workspace inside the ce
         ? h.PointWorkspace
         : kind === "navigation"
           ? h.RoadWorkspace
-          : ["media", "checkin", "tour"].includes(kind)
-            ? h.ExperienceWorkspace
-            : h.ResourceWorkspace;
+          : kind === "configuration"
+            ? h.ConfigurationWorkspace
+            : ["media", "checkin", "tour"].includes(kind)
+              ? h.ExperienceWorkspace
+              : h.ResourceWorkspace;
     const detail = find(h.render(), (node) => node.type === expected)[0];
     assert.ok(detail, kind);
     assert.equal(
@@ -311,7 +319,7 @@ test("a stalled admin read becomes a retryable timeout without aborting its owne
   assert.equal(parent.signal.aborted, false);
 });
 
-test("admin writes are never timed out and replayed by the read wrapper", async () => {
+test("a stalled admin write has a bounded result but is never replayed", async () => {
   let calls = 0,
     release;
   const source = adminClient(async (_url, options) => {
@@ -325,13 +333,14 @@ test("admin writes are never timed out and replayed by the read wrapper", async 
     expected_revision: 2,
     note: "核对",
   });
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await assert.rejects(pending, (error) => error.name === "TimeoutError");
   assert.equal(calls, 1);
   release({
     ok: true,
     json: async () => ({ data: { published_revision: 3 } }),
   });
-  assert.equal((await pending).data.published_revision, 3);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls, 1);
 });
 
 test("a cancelled admin read cannot expire a replacement session when its 401 body arrives late", async () => {

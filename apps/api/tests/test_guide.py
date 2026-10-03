@@ -20,12 +20,14 @@ from export_nk_genios_knowledge import export  # noqa: E402
 from export_nk_genios_plugin import OPERATIONS, build, references  # noqa: E402
 
 
-def test_web_config_and_generated_contract_use_the_supplied_full_sdk(client):
+def test_native_web_config_and_legacy_metadata_do_not_enable_the_sdk(client):
     expected = "https://coze.nankai.edu.cn/resources/product/llm/public/sdk/embedFull.js"
-    assert client.get("/api/v1/agent/web-config").json()["data"]["sdk_url"] == expected
+    data = client.get("/api/v1/agent/web-config").json()["data"]
+    assert data["provider"] == "nk-genios-api" and data["app_key"] is None
+    assert data["sdk_url"] == expected  # Legacy metadata is never executed.
     schema = AgentWebConfig.model_json_schema()["properties"]["sdk_url"]
     assert schema["const"] == schema["default"] == expected
-    generated = json.loads((ROOT / "contracts/openapi.json").read_text())
+    generated = json.loads((ROOT / "contracts/openapi.json").read_text(encoding="utf-8"))
     published = generated["components"]["schemas"]["AgentWebConfig"]["properties"]["sdk_url"]
     assert published["const"] == published["default"] == expected
 
@@ -40,11 +42,12 @@ def test_public_embed_config_never_returns_server_credentials(client):
     assert "server-api-token" not in result.text
     settings.nk_genios_web_enabled = True
     result = client.get("/api/v1/agent/web-config")
-    assert result.json()["data"]["app_key"] == "public-embed-fixture"
+    assert result.json()["data"]["app_key"] is None
+    assert result.json()["data"]["enabled"] is False
     assert "server-api-token" not in result.text
     assert result.headers["cache-control"] == "no-store"
     status = client.get("/api/v1/system/status").json()["data"]["capabilities"]
-    assert status["chat_embed"] and not status["chat"]
+    assert not status["chat_embed"] and not status["chat"]
     assert client.post("/api/v1/chat/sessions", json={}).status_code == 404
 
 
@@ -183,7 +186,7 @@ def test_knowledge_export_reads_only_public_data_and_is_repeat_safe(client, db, 
     assert manifest["status"] == "complete_snapshot"
     assert [row["point_id"] for row in manifest["documents"]] == [published]
     assert len(manifest["skipped"]) == 1
-    text = (output / "documents" / f"point-{published}.md").read_text()
+    text = (output / "documents" / f"point-{published}.md").read_text(encoding="utf-8")
     assert "经过审核的介绍" in text and "草稿不会导出" not in text
     with pytest.raises(ValueError, match="already exists"):
         export("https://2512921.cn", "nku-jinnan", output, local_get)

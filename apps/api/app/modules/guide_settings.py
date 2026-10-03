@@ -4,14 +4,12 @@ from typing import Literal
 
 from fastapi import APIRouter, Request
 from pydantic import Field
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 
 from app.api import DB, envelope
 from app.contracts import DTO, Envelope
 from app.core.errors import DomainError
-from app.models import GuideSettingsRecord, now_utc
-from app.modules.admin.security import Actor, audit
+from app.models import GuideSettingsRecord
+from app.modules.admin.security import Actor
 
 
 class GuidePolicy(DTO):
@@ -64,9 +62,10 @@ router = APIRouter(tags=["admin"])
 META = {"x-implementation-status": "implemented", "x-module": "M04", "x-auth": "staff"}
 
 
-def policy_for(db):
-    row = db.get(GuideSettingsRecord, 1)
-    return GuidePolicy.model_validate(row.payload) if row else GuidePolicy()
+def policy_for(db, settings=None):
+    from app.modules.configurations import effective_runtime, runtime_policy
+
+    return effective_runtime(db, settings) if settings else runtime_policy(db)
 
 
 def view(db, request):
@@ -74,7 +73,7 @@ def view(db, request):
     configured = request.app.state.settings.api_agent_configured
     return GuidePolicyView(
         revision=row.revision if row else 0,
-        policy=policy_for(db),
+        policy=GuidePolicy.model_validate(policy_for(db, request.app.state.settings), from_attributes=True),
         api_configured=configured,
         provider="nk-genios-api" if configured else "未配置后端应用 API",
         note=row.note if row else "尚未修改；此状态仅反映配置，不代表学校平台连通性。",
@@ -102,30 +101,4 @@ def get_policy(request: Request, actor: Actor, db: DB):
 def update_policy(payload: GuidePolicyUpdate, request: Request, actor: Actor, db: DB):
     if actor.user.role != "admin":
         raise DomainError("FORBIDDEN", "只有管理员能修改系统运行设置", 403)
-    row = db.scalar(
-        select(GuideSettingsRecord).where(GuideSettingsRecord.id == 1).with_for_update()
-    )
-    if payload.expected_revision != (row.revision if row else 0):
-        raise DomainError("REVISION_CONFLICT", "设置已被其他管理员修改，请重新加载", 409)
-    if row is None:
-        row = GuideSettingsRecord(id=1, revision=0)
-        db.add(row)
-    row.payload, row.note, row.updated_at = (
-        payload.policy.model_dump(mode="json"),
-        payload.note,
-        now_utc(),
-    )
-    row.revision += 1
-    audit(
-        db,
-        actor.user,
-        "guide.settings",
-        note=payload.note,
-        details={"revision": row.revision, "policy": row.payload},
-    )
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise DomainError("REVISION_CONFLICT", "设置已被其他管理员修改，请重新加载", 409) from None
-    return envelope(request, view(db, request))
+    raise DomainError("POLICY_REVIEW_REQUIRED", "运行设置需在配置工作区保存草稿并经独立审核后生效", 409)

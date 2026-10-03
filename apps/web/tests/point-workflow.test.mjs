@@ -5,6 +5,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import * as jsx from "react/jsx-runtime";
 import * as geometry from "../src/features/admin/geometry.ts";
+import { adminLogic } from "./helpers/admin-logic.mjs";
 const compile = (file) =>
   ts.transpileModule(readFileSync(new URL(file, import.meta.url), "utf8"), {
     compilerOptions: {
@@ -157,6 +158,16 @@ async function workspace(value = record(), overrides = {}) {
     onUpdate() {},
     ...overrides,
   };
+  const draftLogic = adminLogic(
+    h.react,
+    {
+      request: (path, method = "GET", body) =>
+        new Promise((resolve, reject) =>
+          reads.push({ path, method, body, resolve, reject }),
+        ),
+    },
+    { setTimeout: () => 1, clearTimeout() {} },
+  );
   vm.runInNewContext(code, {
     exports: exported,
     Error,
@@ -166,6 +177,9 @@ async function workspace(value = record(), overrides = {}) {
     setTimeout: () => 1,
     clearTimeout() {},
     require(name) {
+      if (name === "./useManagedDraft") return draftLogic(name);
+      if (name === "./DraftStatus") return { DraftStatusBar: () => null };
+      if (name === "./ContentHistory") return { ContentHistory: () => null };
       if (name === "react") return h.react;
       if (name === "react/jsx-runtime") return jsx;
       if (name.endsWith(".css")) return {};
@@ -276,7 +290,9 @@ test("failed save preserves unsaved edits; retry cannot submit before a save suc
   try {
     h.editName("尚未保存的新名称");
     h.submit();
-    h.reads[1].reject(new Error("版本冲突"));
+    h.reads[1].reject(
+      Object.assign(new Error("资料格式错误"), { status: 422 }),
+    );
     await flush();
     h.render();
     assert.equal(h.nameInput().props.value, "尚未保存的新名称");
@@ -296,12 +312,15 @@ test("submit failure retains the saved revision and retries submission without a
     h.editName("已保存名称");
     h.submit();
     await h.respond(record("draft", 7, { ...content, name: "已保存名称" }));
-    h.reads[2].reject(new Error("暂时无法提审"));
+    h.reads[2].reject(
+      Object.assign(new Error("提交说明被拒绝"), { status: 422 }),
+    );
     await flush();
     h.render();
     assert.equal(h.nameInput().props.value, "已保存名称");
     assert.equal(h.button("保存草稿").props.disabled, true);
     h.submit();
+    await flush();
     assert.equal(h.reads[3].path, "/points/point/submit");
     assert.equal(h.reads[3].body.expected_revision, 7);
     assert.equal(h.reads[3].body.note, content.source_note);
@@ -315,15 +334,16 @@ test("withdrawing an authored review preserves its content for the next edit and
   );
   try {
     h.button("撤回并继续修改").props.onClick();
-    assert.equal(h.reads[1].path, "/points/point/discard");
+    assert.equal(h.reads[1].path, "/content/point/point/withdraw");
     assert.equal(h.reads[1].body.expected_revision, 5);
-    await h.respond(record("discarded", 6, { ...content, name: "待审新名称" }));
+    await h.respond(record("draft", 6, { ...content, name: "待审新名称" }));
     assert.equal(h.nameInput().props.value, "待审新名称");
-    assert.equal(h.dirty.at(-1)[0], true);
+    assert.equal(h.dirty.at(-1)[0], false);
+    h.editName("撤回后继续修改");
     h.button("保存草稿").props.onClick();
     assert.equal(h.reads[2].method, "PUT");
     assert.equal(h.reads[2].body.expected_revision, 6);
-    assert.equal(h.reads[2].body.name, "待审新名称");
+    assert.equal(h.reads[2].body.name, "撤回后继续修改");
   } finally {
     h.dispose();
   }

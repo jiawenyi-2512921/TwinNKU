@@ -7,6 +7,8 @@ import { PointWorkspace } from "./PointWorkspace";
 import { ResourceWorkspace } from "./ResourceWorkspace";
 import { ExperienceWorkspace } from "./ExperienceWorkspace";
 import { RoadWorkspace } from "./RoadWorkspace";
+import { ConfigurationWorkspace } from "./ConfigurationWorkspace";
+import { ReviewQueue } from "./ReviewQueue";
 
 export const kindNames = {
   point: "地图点位",
@@ -16,6 +18,7 @@ export const kindNames = {
   checkin: "打卡点",
   tour: "校园导览",
   navigation: "道路路网",
+  configuration: "展示与服务配置",
 };
 export const kindIcons = {
   point: "pin",
@@ -25,6 +28,7 @@ export const kindIcons = {
   checkin: "pin",
   tour: "route",
   navigation: "route",
+  configuration: "layers",
 };
 export type ReviewStart = {
   state?: ChangeItem["state"];
@@ -103,6 +107,7 @@ export function ReviewCenter({
   const [order, setOrder] = useState("oldest");
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
+  const [queue, setQueue] = useState<ChangeItem[] | null>(null);
   const [selected, setSelected] = useState<ChangeItem | null>(
     initial?.item ?? null,
   );
@@ -231,6 +236,15 @@ export function ReviewCenter({
               onUpdate={refresh}
             />
           </>
+        ) : selected.kind === "configuration" ? (
+          <ConfigurationWorkspace
+            key={selected.id}
+            session={session}
+            initialId={selected.id}
+            review
+            onDirty={detailDirty}
+            onUpdate={refresh}
+          />
         ) : ["media", "checkin", "tour"].includes(selected.kind) ? (
           <ExperienceWorkspace
             key={selected.id}
@@ -255,13 +269,17 @@ export function ReviewCenter({
         )}
       </section>
     );
+  if (queue) return <ReviewQueue rows={queue} session={session} onOpen={setSelected} onClose={() => { setQueue(null); refresh(); }}
+    onDirty={detailDirty} onUpdate={onUpdate} />;
   return (
     <section className="ad-inbox">
       <div className="ad-section-heading">
         <div>
           <div className="ad-eyebrow">CONTENT REVIEW</div>
           <h1>审核中心</h1>
-          <p>点位、楼层、VR、视频、打卡、校园导览与道路路网统一审核和发布。</p>
+          <p>
+            点位、楼层、VR、视频、打卡、路线、路网及展示和服务配置统一审核。参与本次编辑的成员不能自审。
+          </p>
         </div>
         <button onClick={refresh} disabled={list.loading}>
           <Icon name="refresh" size={16} /> 刷新列表
@@ -361,6 +379,8 @@ export function ReviewCenter({
           </div>
         )}
         {list.data && <ChangeRows rows={list.data.data} onOpen={setSelected} />}
+        {state === "in_review" && list.data?.data.some(item => item.can_review) && <button disabled={list.loading}
+          onClick={() => setQueue(list.data!.data.filter(item => item.can_review && item.state === "in_review"))}>逐项审阅本页待审内容</button>}
         {list.data && !list.data.data.length && (
           <Empty
             title={

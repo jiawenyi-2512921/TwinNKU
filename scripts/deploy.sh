@@ -19,5 +19,10 @@ docker compose build
 # Re-run the one-shot migration on every release; never remove database volumes.
 docker compose rm -f migrate
 docker compose up -d --wait --wait-timeout 120
+if [[ ${1:-} == --bootstrap ]]; then
+  # Explicit first-install only. seed itself must refuse non-empty installations.
+  docker compose run --rm --no-deps migrate python -m app.seed --first-install
+  shift
+fi
 python3 scripts/smoke.py "${1:-http://127.0.0.1:8080}"
 echo 'Local deployment passed smoke checks. Verify the external HTTPS URL separately.'

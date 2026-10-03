@@ -66,6 +66,8 @@ def main() -> int:
             "DB_NAME=twinnku",
             "DB_USER=twinnku",
             "DB_PASSWORD=" + secrets.token_hex(24),
+            "DB_APP_USER=twinnku_app",
+            "DB_APP_PASSWORD=" + secrets.token_hex(24),
             "ALLOWED_HOSTS=" + json.dumps(hosts, separators=(",", ":")),
             "HTTP_PORT=" + str(args.port),
             "",

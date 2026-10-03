@@ -20,4 +20,4 @@ if [[ -n $existing_containers || -n $existing_volumes ]] || docker volume inspec
 fi
 base_url=$(python3 scripts/init_env.py "$@")
 echo 'Private server configuration created. Building the foundation application.'
-bash scripts/deploy.sh "$base_url"
+bash scripts/deploy.sh --bootstrap "$base_url"

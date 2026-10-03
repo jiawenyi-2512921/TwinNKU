@@ -1,0 +1,24 @@
+[Unit]
+Description=TwinNKU fixed host backup request executor
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/TwinNKU
+ExecStart=/usr/bin/python3 /root/TwinNKU/scripts/backup_executor.py --policy /etc/twinnku/backup-executor.json
+UMask=0077
+CacheDirectory=twinnku
+CacheDirectoryMode=0700
+Environment=XDG_CACHE_HOME=/var/cache/twinnku
+TimeoutStartSec=35min
+TimeoutStopSec=30s
+KillMode=control-group
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

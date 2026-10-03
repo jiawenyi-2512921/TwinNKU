@@ -13,7 +13,14 @@ import { Empty, ErrorBox, Pager, useResource } from "./ui";
 import { ChangeDiff } from "./ChangeDiff";
 import { Icon } from "../../shared/ui/Icon";
 import { notifyCatalogPublished } from "../../shared/catalogSync";
+import { useManagedDraft } from "./useManagedDraft";
+import { DraftStatusBar } from "./DraftStatus";
+import { ContentHistory } from "./ContentHistory";
+import { VRCoverPicker } from "./VRCoverPicker";
+import { VRLocationSource } from "./VRLocationSource";
+import { VRChecks } from "./VRChecks";
 import "../floors/floors.css";
+import "../points/vr-presentation.css";
 
 type Resource = components["schemas"]["AdminResource"];
 type FloorContent = components["schemas"]["FloorContent"] & { kind: "floor" };
@@ -21,6 +28,7 @@ type PanoramaContent = components["schemas"]["PanoramaContent"] & {
   kind: "panorama";
 };
 type Content = FloorContent | PanoramaContent;
+type Draft = { content: Content; source_note: string };
 type Upload = components["schemas"]["FloorUpload"];
 const active = (r: Resource) =>
   !!r.draft && ["draft", "rejected", "in_review"].includes(r.draft.state);
@@ -37,6 +45,7 @@ export function ResourceWorkspace({
   focused = false,
   review = false,
   onReview,
+  onPoint,
 }: {
   session: StaffSession;
   onDirty: (dirty: boolean, busy?: boolean) => void;
@@ -45,6 +54,7 @@ export function ResourceWorkspace({
   focused?: boolean;
   review?: boolean;
   onReview?: (id: string) => void;
+  onPoint?: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
   const [pointPage, setPointPage] = useState(1);
@@ -69,7 +79,47 @@ export function ResourceWorkspace({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [checkBusy, setCheckBusy] = useState(false);
+  const [checkPending, setCheckPending] = useState(false);
   const writing = useRef(false);
+  const [historyPending, setHistoryPending] = useState(false);
+  const managed = useManagedDraft<Draft, Resource>({
+    snapshot: (row, value) => ({
+      id: row.id,
+      revision: row.draft?.revision ?? 0,
+      published_revision: row.published_revision,
+      content: value ?? {
+        content: ((active(row) ? row.draft?.payload?.content : row.current) ??
+          row.current ??
+          row.draft?.payload?.content) as Content,
+        source_note:
+          active(row) || !row.current
+            ? (row.draft?.payload?.source_note ?? "")
+            : "",
+      },
+    }),
+    save: async (row, value, version) =>
+      (
+        await request<Resource>(
+          row ? `/resources/${row.id}` : `/points/${pointId}/resources`,
+          row ? "PUT" : "POST",
+          { ...value, ...version },
+        )
+      ).data,
+    latest: async (row) =>
+      (await request<Resource>(`/resources/${row.id}`)).data,
+    onRecord: (row) => {
+      setSelected(row);
+      setRevision((v) => v + 1);
+      onUpdate?.();
+    },
+    onValue: (value, changed) => {
+      setContent(value.content);
+      setSourceNote(value.source_note);
+      setDirty(changed);
+    },
+    onAction: load,
+  });
   const editorHeading = useRef<HTMLHeadingElement>(null);
   const listHeading = useRef<HTMLHeadingElement>(null);
   const [focusRequest, setFocusRequest] = useState<{
@@ -114,9 +164,12 @@ export function ResourceWorkspace({
   }, [resources.data, page]);
   const canEdit =
     !review &&
+    !checkBusy && !checkPending &&
     session.permissions.includes("points.edit") &&
+    !managed.uncertain &&
+    !historyPending &&
     selected?.draft?.state !== "in_review";
-  const canReview = review && session.permissions.includes("points.review");
+  const canReview = review && session.permissions.includes("points.review") && !checkBusy && !checkPending;
   const selfReview =
     !!selected?.draft &&
     (selected.draft.contributor_ids.includes(session.user.id) ||
@@ -142,24 +195,35 @@ export function ResourceWorkspace({
     return () => abort.abort();
   }, [initialId, detailRevision]);
   useEffect(() => {
-    onDirty(dirty || busy, busy);
+    onDirty(
+      dirty || busy || checkBusy || checkPending,
+      busy || checkBusy || managed.saving || managed.uncertain || historyPending,
+    );
     return () => onDirty(false);
-  }, [dirty, busy, onDirty]);
+  }, [dirty, busy, checkBusy, checkPending, managed.saving, managed.uncertain, historyPending, onDirty]);
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
-      if (dirty || busy) e.preventDefault();
+      if (dirty || busy || checkBusy || checkPending || managed.uncertain || historyPending) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, busy]);
+  }, [dirty, busy, checkBusy, checkPending, managed.uncertain, historyPending]);
   function canLeave() {
     return (
       !busy &&
+      !checkBusy &&
+      !managed.saving &&
+      !managed.uncertain &&
+      !historyPending &&
       !writing.current &&
-      (!dirty || window.confirm("当前资料尚未保存，确定放弃修改吗？"))
+      ((!dirty && !checkPending) || window.confirm(checkPending ? "核查登记结果尚未确认，确定离开？原操作编号会保留，可回来查询；不要重复登记。" : "当前资料尚未保存，确定放弃修改吗？"))
     );
   }
   function clear() {
+    managed.clear();
     setSelected(null);
     setContent(null);
     setPreviews({});
@@ -183,6 +247,14 @@ export function ResourceWorkspace({
     setPage(1);
   }
   function load(r: Resource) {
+    const initial: Draft = {
+      content: ((active(r) ? r.draft?.payload?.content : r.current) ??
+        r.current ??
+        r.draft?.payload?.content) as Content,
+      source_note:
+        active(r) || !r.current ? (r.draft?.payload?.source_note ?? "") : "",
+    };
+    managed.install(r, initial);
     setSelected(r);
     setContent(
       (active(r)
@@ -220,23 +292,32 @@ export function ResourceWorkspace({
     if (!canLeave() || !pointId) return;
     clear();
     setSourceNote("");
-    setContent(
+    const initial: Content =
       kind === "floor"
         ? {
             kind,
             label: "1层",
             ordinal: 1,
             attribution: "",
-            images: [{ section: "main", section_label: null, upload_id: null }],
+            description: "",
+            images: [
+              {
+                section: "main",
+                section_label: null,
+                upload_id: null,
+                description: "",
+              },
+            ],
           }
-        : { kind, title: "", url: "", description: "" },
-    );
+        : { kind, title: "", url: "", description: "", observation_prompt: "", cover_image_id: null, cover_image_revision: null, sort_order: 0 };
+    setContent(initial);
+    managed.install(null, { content: initial, source_note: "" }, true);
     setDirty(true);
     focusSection("editor");
   }
   function edit(next: Content) {
-    setContent(next);
-    setDirty(true);
+    if (!canEdit) return;
+    managed.edit({ content: next, source_note: sourceNote });
     setNotice("");
   }
   function removeSection(index: number) {
@@ -290,72 +371,51 @@ export function ResourceWorkspace({
     !!selected?.draft &&
     selected.draft.operation !== "retire" &&
     ["draft", "rejected"].includes(selected.draft.state);
-  async function save(submit = true) {
+  async function save(submit = true): Promise<boolean> {
     if (
       !content ||
       !canEdit ||
       busy ||
       writing.current ||
-      (!dirty && (!submit || !canSubmitSaved))
+      managed.uncertain ||
+      historyPending
     )
-      return;
-    const note = sourceNote.trim();
-    if (!note) {
-      setError("请填写本次资料依据，提交时会沿用这份说明。");
-      return;
-    }
+      return false;
     writing.current = true;
     setBusy(true);
     setError("");
     setNotice("");
-    let saved = selected;
-    let savedThisTime = false;
-    let changed = false;
     try {
-      if (dirty || !saved) {
-        saved = (
-          await request<Resource>(
-            saved ? `/resources/${saved.id}` : `/points/${pointId}/resources`,
-            saved ? "PUT" : "POST",
-            {
-              content,
-              source_note: note,
-              expected_revision: saved?.draft?.revision ?? 0,
-              expected_published_revision: saved?.published_revision ?? 0,
-            },
-          )
-        ).data;
-        load(saved);
-        savedThisTime = true;
-        changed = true;
-      }
+      if (!(await managed.flush()))
+        throw new Error("请先解决草稿保存状态，再提交或检查。");
+      const current = managed.record.current;
+      if (!current) throw new Error("请先保存草稿。");
       if (submit) {
-        if (!saved?.draft || !["draft", "rejected"].includes(saved.draft.state))
-          throw new Error("资料状态已变化，请核对草稿后再提交。");
-        const submitted = await request<Resource>(
-          `/resources/${saved.id}/review/submit`,
-          "POST",
+        if (
+          !current.draft ||
+          !["draft", "rejected"].includes(current.draft.state)
+        )
+          throw new Error("草稿状态已经改变，请核对后再提交。");
+        const note = sourceNote.trim().slice(0, 1000);
+        if (!note) throw new Error("请填写来源或提交说明。");
+        const result = await managed.action(
+          `/resources/${current.id}/review/submit`,
           {
-            expected_revision: saved.draft.revision,
-            // The full source note remains in the draft; review's summary has a 1000-char limit.
-            note: note.slice(0, 1000),
+            expected_revision: current.draft.revision,
+            expected_published_revision: current.published_revision,
+            note,
           },
         );
-        load(submitted.data);
-        changed = true;
-        setNotice("已提交审核，请由另一名审核人员核对；审核通过前不会公开。");
-      } else setNotice("草稿已保存，尚未提交审核或公开。");
-    } catch (e) {
-      setError(
-        (savedThisTime ? "草稿已保存，提交审核未完成：" : "") + message(e),
-      );
-      if (savedThisTime)
-        setNotice("已保留刚保存的草稿。请核对状态后再次点击提交审核。");
-    } finally {
-      if (changed) {
+        load(result);
         setRevision((v) => v + 1);
         onUpdate?.();
-      }
+        setNotice("已提交审核，请另一位成员核对后发布。");
+      } else setNotice("草稿已保存，尚未提交审核或公开。");
+      return true;
+    } catch (e) {
+      setError(message(e));
+      return false;
+    } finally {
       writing.current = false;
       setBusy(false);
     }
@@ -363,7 +423,18 @@ export function ResourceWorkspace({
   async function operate(
     action: "submit" | "publish" | "reject" | "discard" | "retire",
   ) {
-    if (!selected || dirty || busy || writing.current) return;
+    if (
+      !selected ||
+      dirty ||
+      busy ||
+      checkBusy ||
+      checkPending ||
+      writing.current ||
+      managed.saving ||
+      managed.uncertain ||
+      historyPending
+    )
+      return;
     if (!reviewNote.trim()) {
       setError("请填写本次操作说明。");
       return;
@@ -372,19 +443,20 @@ export function ResourceWorkspace({
     setError("");
     setNotice("");
     try {
-      const r = await request<Resource>(
+      const row = await managed.action(
         action === "retire"
           ? `/resources/${selected.id}/retire`
           : `/resources/${selected.id}/review/${action}`,
-        "POST",
         {
           expected_revision: selected.draft?.revision ?? 0,
+          expected_published_revision: selected.published_revision,
           note: reviewNote,
           ...(action === "retire"
             ? { expected_published_revision: selected.published_revision }
             : {}),
         },
       );
+      const r = { data: row };
       load(r.data);
       setRevision((v) => v + 1);
       onUpdate?.();
@@ -677,6 +749,43 @@ export function ResourceWorkspace({
                 )}
               </div>
               <ErrorBox text={error} />
+              {managed.status && managed.coordinator.current && !review && (
+                <DraftStatusBar
+                  state={managed.status}
+                  coordinator={managed.coordinator.current}
+                />
+              )}
+              {managed.pendingAction && (
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true);
+                    void managed
+                      .queryAction()
+                      .catch((e) => setError(message(e)))
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  查询原资料操作结果
+                </button>
+              )}
+              {selected && (
+                <ContentHistory<Resource>
+                  key={selected.id}
+                  entity={selected.kind === "panorama" ? "vr" : "floor"}
+                  id={selected.id}
+                  revision={selected.draft?.revision ?? 0}
+                  publishedRevision={selected.published_revision}
+                  state={selected.draft?.state ?? "published"}
+                  editable={
+                    !review && session.permissions.includes("points.edit")
+                  }
+                  dirty={dirty}
+                  onSave={() => save(false)}
+                  onLoad={load}
+                  onPendingChange={setHistoryPending}
+                />
+              )}
               {notice && (
                 <p className="ad-resource-notice" role="status">
                   {notice}
@@ -715,6 +824,21 @@ export function ResourceWorkspace({
                                 ? (selected.current.description ?? "")
                                 : "",
                             after: content.description ?? "",
+                          },
+                          {
+                            label: "观察提示",
+                            before: selected.current?.kind === "panorama" ? selected.current.observation_prompt ?? "" : "",
+                            after: content.observation_prompt ?? "",
+                          },
+                          {
+                            label: "目录顺序",
+                            before: selected.current?.kind === "panorama" ? String(selected.current.sort_order ?? 0) : "",
+                            after: String(content.sort_order ?? 0),
+                          },
+                          {
+                            label: "封面引用（ID / 正式版本）",
+                            before: selected.current?.kind === "panorama" && selected.current.cover_image_id ? `${selected.current.cover_image_id} / ${selected.current.cover_image_revision}` : "统一文字卡",
+                            after: content.cover_image_id ? `${content.cover_image_id} / ${content.cover_image_revision}` : "统一文字卡",
                           },
                         ]
                       : [
@@ -808,6 +932,20 @@ export function ResourceWorkspace({
                           placeholder="说明这批图由谁整理、适用哪个建筑或区域"
                         />
                       </label>
+                      <label>
+                        楼层整体文字说明
+                        <textarea
+                          maxLength={4000}
+                          rows={3}
+                          value={content.description ?? ""}
+                          onChange={(e) =>
+                            edit({ ...content, description: e.target.value })
+                          }
+                        />
+                        <small>
+                          为不能查看图像或需要阅读的访客描述真实区域、标注和入口。不要把尚未实测的道路、台阶或电梯写成已确认无障碍通行。
+                        </small>
+                      </label>
                       <p>
                         只上传整理后的标注图。PNG / JPEG，每张不超过32
                         MiB；原文件不会缩放或重新压缩。
@@ -859,6 +997,30 @@ export function ResourceWorkspace({
                                 }}
                               />
                             </label>
+                            <label>
+                              本分区文字说明
+                              <textarea
+                                maxLength={4000}
+                                rows={3}
+                                value={section.description ?? ""}
+                                onChange={(e) =>
+                                  edit({
+                                    ...content,
+                                    images: content.images.map((image, j) =>
+                                      i === j
+                                        ? {
+                                            ...image,
+                                            description: e.target.value,
+                                          }
+                                        : image,
+                                    ),
+                                  })
+                                }
+                              />
+                              <small>
+                                对应这张真实分区图，描述重要标注；留空不会自动生成。
+                              </small>
+                            </label>
                             <button
                               type="button"
                               disabled={!previews[section.section ?? "main"]}
@@ -892,6 +1054,7 @@ export function ResourceWorkspace({
                                   "part-" + crypto.randomUUID().slice(0, 8),
                                 section_label: "新分区",
                                 upload_id: null,
+                                description: "",
                               },
                             ],
                           })
@@ -928,7 +1091,7 @@ export function ResourceWorkspace({
                         />
                       </label>
                       <label>
-                        介绍
+                        介绍与文字替代
                         <textarea
                           maxLength={2000}
                           value={content.description ?? ""}
@@ -936,10 +1099,24 @@ export function ResourceWorkspace({
                             edit({ ...content, description: e.target.value })
                           }
                         />
+                        <small>
+                          描述真实视点和主要观察对象。无法访问 VR
+                          或使用屏幕阅读器的访客仍能读到这些内容，不把入口加载当作场景已验证。
+                        </small>
+                      </label>
+                      <label>观察提示（选填）
+                        <textarea rows={3} maxLength={1000} value={content.observation_prompt ?? ""}
+                          onChange={(event) => edit({ ...content, observation_prompt: event.target.value })} />
+                        <small>告诉访客可留意的真实对象，随 VR 内容独立审核；不编造未核实的场景资料。</small>
+                      </label>
+                      <label>目录顺序
+                        <input type="number" min={0} max={10000} required value={content.sort_order ?? 0}
+                          onChange={(event) => edit({ ...content, sort_order: Number(event.target.value) })} />
+                        <small>数字较小的先显示；同序号按正式标题排序，保留同名不同视点。</small>
                       </label>
                       <p>
-                        填写已有全景的 HTTPS
-                        分享链接。发布后访客可从地点详情打开。
+                        填写已有全景的 HTTPS 分享链接。发布后进入地点详情和 VR
+                        目录；室外独立景点无需虚构建筑。默认地图名称由所属点位的“常驻名称”开关决定。原站在新标签页打开，本站无法控制第三方画面。
                       </p>
                     </>
                   )}
@@ -950,8 +1127,11 @@ export function ResourceWorkspace({
                       maxLength={2000}
                       value={sourceNote}
                       onChange={(e) => {
-                        setSourceNote(e.target.value);
-                        setDirty(true);
+                        if (content)
+                          managed.edit({
+                            content,
+                            source_note: e.target.value,
+                          });
                       }}
                       placeholder="说明资料来源、本次改动与允许展示的范围"
                     />
@@ -983,6 +1163,17 @@ export function ResourceWorkspace({
                   )}
                 </fieldset>
               </form>
+              {content.kind === "panorama" && <VRCoverPicker key={`${pointId}:${selected?.draft?.revision ?? 0}:${selected?.published_revision ?? 0}`}
+                pointId={pointId} id={content.cover_image_id} revision={content.cover_image_revision} disabled={!canEdit || busy}
+                onChange={(id, revision) => edit({ ...content, cover_image_id: id, cover_image_revision: revision })} />}
+              {content.kind === "panorama" && <VRLocationSource pointId={pointId}
+                onPoint={onPoint && session.permissions.includes("points.edit") && !busy && !checkBusy ? onPoint : undefined} />}
+              {content.kind === "panorama" && selected && <VRChecks key={`${session.user.id}:${selected.id}`}
+                id={selected.id} revision={selected.draft?.revision ?? 0} publishedRevision={selected.published_revision}
+                url={content.url} session={session} blocked={dirty || busy || historyPending || managed.uncertain}
+                onActivity={(busy, pending) => { setCheckBusy(busy); setCheckPending(pending); }}
+                onRefreshResource={() => void choose(selected)} />}
+              {content.kind === "panorama" && !selected && <p>先保存草稿，再针对该保存的链接登记人工核查。</p>}
               {content.kind === "floor" && (
                 <section className="ad-resource-preview">
                   <div className="ad-card-heading">
