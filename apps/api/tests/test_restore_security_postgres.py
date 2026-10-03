@@ -98,7 +98,9 @@ def test_actual_restore_sql_revokes_old_authority_preserves_content_and_consumpt
                 db.add(EmergencyStopRecord(service="chat", revision=9, stopped=False, reason="Old state", actor_id=user.id))
                 db.add(BackupGrantRecord(user_id=user.id, permission="backup.request", granted_by=user.id, note="Old grant"))
                 db.add(BackupStatusRecord(id=1, observed_at=now, summary={"status": "success"}))
-                db.add(BackupControlRecord(id=1, generation=11))
+                control = db.get(BackupControlRecord, 1)
+                assert control is not None and control.generation == 0
+                control.generation = 11
                 point = PointRecord(id=str(uuid4()), campus_id="nku-jinnan", name="Kept point", aliases=[],
                                     category="academic", summary="Unchanged", status="published", visibility="public")
                 db.add(point)
