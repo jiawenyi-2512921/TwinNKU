@@ -7,6 +7,9 @@ Requires=docker.service
 [Service]
 Type=oneshot
 UMask=0077
+CacheDirectory=twinnku
+CacheDirectoryMode=0700
+Environment=XDG_CACHE_HOME=/var/cache/twinnku
 WorkingDirectory=/root/TwinNKU
 ExecStart=/usr/bin/python3 /root/TwinNKU/scripts/backup.py
 Nice=10
